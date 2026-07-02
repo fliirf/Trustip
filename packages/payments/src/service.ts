@@ -8,6 +8,11 @@ import {
   OperatorSignerError,
 } from "@trustip/stellar";
 import { createAttemptToken, verifyAttemptToken } from "./attempt-token.js";
+import {
+  CHECKOUT_TOKEN_DEFAULT_TTL_MS,
+  createCheckoutToken,
+  verifyCheckoutToken,
+} from "./checkout-token.js";
 import { PaymentError } from "./errors.js";
 import { usdcToUnits } from "./money.js";
 import type {
@@ -29,6 +34,15 @@ export interface PaymentConfig {
    * on-tx binding remains the primary protection.
    */
   attemptSecret?: string;
+  /**
+   * Server-only HMAC secret for checkout / create-order authorization tokens.
+   * When set, a guest (unauthenticated) caller must present a valid token bound
+   * to {orderId, buyerPublicKey, contractOrderId, network} to trigger the
+   * operator-signed create_order. When unset, the guest token path is
+   * unavailable and only an authenticated order owner (or admin) may create —
+   * anonymous callers always fail closed.
+   */
+  checkoutTokenSecret?: string;
 }
 
 export interface PaymentDeps {
@@ -138,6 +152,13 @@ export interface EnsureEscrowInput {
   /** Buyer wallet public key, known only after the buyer connects a wallet. */
   buyerPublicKey: string;
   networkPassphrase: string;
+  /**
+   * Short-lived server-signed checkout token (guest checkout). Required to
+   * authorize an unauthenticated caller when `config.checkoutTokenSecret` is
+   * set; ignored for authenticated order owners / admins. Never a bearer of
+   * amount/status/seller — only proof that this buyer key belongs to this order.
+   */
+  checkoutToken?: string;
 }
 
 export interface EnsureEscrowResult {
@@ -166,6 +187,10 @@ const sleep = (ms: number): Promise<void> =>
  * known only after wallet connect, so this binds that exact key into the escrow
  * (and on-chain order) here.
  *
+ * Authorized (fail closed) before any DB/chain/operator work: the caller must
+ * present a valid server-signed checkout token (guest) OR be the authenticated
+ * order owner / admin — a raw orderId + buyer key is never sufficient.
+ *
  * Idempotent + reconciling, and never touches money state:
  *   * on-chain order already exists → validate buyer+amount, reconcile the DB
  *     escrow row, return `alreadyExisted` (never re-creates);
@@ -178,6 +203,7 @@ const sleep = (ms: number): Promise<void> =>
 export async function ensureOnChainEscrowOrderCreated(
   deps: PaymentDeps,
   input: EnsureEscrowInput,
+  actor: PaymentActor,
 ): Promise<EnsureEscrowResult> {
   requireNetwork(deps, input.networkPassphrase);
 
@@ -185,12 +211,48 @@ export async function ensureOnChainEscrowOrderCreated(
     throw new PaymentError("InvalidBuyerPublicKey", "invalid buyer public key");
   }
 
+  // Deterministic on-chain id; also the token-bound claim (from the request
+  // orderId, which the DB row must equal since we load orders by id).
+  const contractOrderId = contractOrderIdToHex(
+    deriveContractOrderId(input.orderId),
+  );
+
+  // --- AUTHORIZATION (M1) — fail closed BEFORE any DB/chain/operator work. ---
+  // A stranger holding only a raw orderId + arbitrary buyer key must NOT be able
+  // to trigger operator-signed create_order (it spends operator XLM fees). Two
+  // accepted proofs: (a) a valid server-signed checkout token that binds THIS
+  // buyer key to THIS order, or (b) an authenticated order owner / admin.
+  const tokenOk =
+    !!deps.config.checkoutTokenSecret &&
+    !!input.checkoutToken &&
+    verifyCheckoutToken(deps.config.checkoutTokenSecret, input.checkoutToken, {
+      orderId: input.orderId,
+      buyerPublicKey: input.buyerPublicKey,
+      contractOrderId,
+      networkPassphrase: input.networkPassphrase,
+    });
+  // Reject anonymous callers (no token, no session) before touching the DB, so
+  // the endpoint is not even an order-existence oracle for the unauthenticated.
+  if (!tokenOk && !actor.isAdmin && !actor.userId) {
+    throw new PaymentError(
+      "Forbidden",
+      "create-order requires a valid checkout token or an authenticated buyer",
+    );
+  }
+
   const ctx = await deps.store.loadByOrderId(input.orderId);
   if (!ctx) throw new PaymentError("OrderNotFound", "order not found");
 
-  const contractOrderId = contractOrderIdToHex(
-    deriveContractOrderId(ctx.order.id),
-  );
+  // A token already binds buyer↔order; otherwise the authenticated caller must
+  // own the order (or be admin). Guest orders (no buyerUserId) are creatable
+  // only via a token — an authenticated stranger cannot claim them.
+  if (!tokenOk && !actor.isAdmin && actor.userId !== ctx.order.buyerUserId) {
+    throw new PaymentError(
+      "Forbidden",
+      "not authorized to create this escrow order",
+    );
+  }
+
   const expectedUnits = usdcToUnits(ctx.order.totalUsdc);
 
   // Idempotency FIRST: if the order already exists on-chain, reconcile — never
@@ -359,8 +421,9 @@ export async function ensureOnChainEscrowOrderCreated(
 }
 
 /** Reconcile the DB escrow row to an on-chain order that already exists. Buyer
- * and amount are validated fail-closed; the escrow row is upserted idempotently
- * (linkEscrowRow never downgrades a funded/terminal escrow). */
+ * and amount are validated fail-closed. The create path owns ONLY the `created`
+ * status — funded/terminal on-chain states yield a typed conflict and write
+ * nothing (M2); their DB transitions belong to payment sync / the indexer. */
 async function reconcileExisting(
   deps: PaymentDeps,
   orderId: string,
@@ -382,6 +445,19 @@ async function reconcileExisting(
       "on-chain order amount does not match the order total",
     );
   }
+  // M2: never adopt funded/released/refunded/cancelled from the create path.
+  if (onchain.status !== "Created") {
+    if (onchain.status === "Funded") {
+      throw new PaymentError(
+        "EscrowAlreadyFunded",
+        "on-chain escrow order is already funded; confirm it via payment sync",
+      );
+    }
+    throw new PaymentError(
+      "ContractOrderAlreadyExists",
+      `on-chain escrow order already exists in a non-creatable state (${onchain.status})`,
+    );
+  }
   const escrow = await deps.store.linkEscrowRow({
     orderId,
     contractId: deps.config.escrowContractId,
@@ -389,7 +465,7 @@ async function reconcileExisting(
     amountUsdc: totalUsdc,
     buyerPublicKey,
     sellerPublicKey: onchain.seller,
-    onChainStatus: ESCROW_STATUS_DB[onchain.status],
+    onChainStatus: "created",
   });
   return {
     orderId,
@@ -423,6 +499,138 @@ async function confirmCreated(
     if (i < CREATE_CONFIRM_ATTEMPTS - 1) await sleep(CREATE_CONFIRM_DELAY_MS);
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// CHECKOUT TOKEN ISSUANCE (Phase 5.0) — the trusted server-side mint point that
+// makes guest checkout possible WITHOUT reopening anonymous operator-signing.
+// ---------------------------------------------------------------------------
+
+export interface IssueCheckoutTokenInput {
+  /** Public checkout link slug the buyer is checking out from. */
+  slug: string;
+  /** Public order number (never a raw order UUID). */
+  orderNo: string;
+  /** Buyer wallet public key, known only after the buyer connects a wallet. */
+  buyerPublicKey: string;
+  networkPassphrase: string;
+}
+
+export interface IssueCheckoutTokenResult {
+  checkoutToken: string;
+  /** Token expiry as ISO-8601 (matches the expiry bound inside the token). */
+  expiresAt: string;
+  orderId: string;
+  orderNo: string;
+  contractOrderId: string;
+  networkPassphrase: string;
+  /** Server-derived order total, DISPLAY ONLY — never a trusted authority.
+   * create_order and prepare re-derive and verify the amount on-chain. */
+  amountUsdc: string;
+}
+
+/**
+ * ISSUE CHECKOUT TOKEN — mint the short-lived, server-signed create-order token
+ * for guest checkout, from a CHECKOUT-LINK context only. This is the trusted
+ * point that vouches "this buyer key belongs to this order": it never accepts a
+ * raw order UUID, requires the order to belong to the given checkout link and be
+ * payable, and binds the token to {orderId, buyerPublicKey, contractOrderId,
+ * network}. It performs NO on-chain work — no create_order, no submit, never
+ * marks paid — and fails closed when the server secret is absent.
+ *
+ * Residual risk (documented, not a regression): any holder of a valid
+ * (slug, order_no) pair can mint a token for an arbitrary buyer key and later
+ * trigger one operator-signed create_order for that (real, payable) order. This
+ * is bounded by rate limiting + create_order idempotency (one on-chain order /
+ * fee per order) and by order_no entropy. SEP-10 wallet-ownership proof is the
+ * planned pre-mainnet hardening; see the Phase 5.0 audit notes.
+ */
+export async function issueCheckoutToken(
+  deps: PaymentDeps,
+  input: IssueCheckoutTokenInput,
+): Promise<IssueCheckoutTokenResult> {
+  requireNetwork(deps, input.networkPassphrase);
+
+  // Guest token issuance requires the server-only secret — fail closed.
+  const secret = deps.config.checkoutTokenSecret;
+  if (!secret) {
+    throw new PaymentError(
+      "CheckoutTokenUnavailable",
+      "guest checkout token issuance is not configured",
+    );
+  }
+
+  if (!isValidPublicKey(input.buyerPublicKey)) {
+    throw new PaymentError("InvalidBuyerPublicKey", "invalid buyer public key");
+  }
+
+  const found = await deps.store.loadCheckoutOrderForIssuance({
+    slug: input.slug,
+    orderNo: input.orderNo,
+  });
+  // One generic not-found for any of {unknown slug, unknown order_no, order not
+  // linked to that slug} — no existence oracle between those cases.
+  if (!found) {
+    throw new PaymentError(
+      "CheckoutNotFound",
+      "no matching checkout order for this link",
+    );
+  }
+
+  // Checkout link must be active and unexpired.
+  if (found.linkStatus !== "active") {
+    throw new PaymentError(
+      "CheckoutNotAvailable",
+      "checkout link is not active",
+    );
+  }
+  if (
+    found.linkExpiresAt !== null &&
+    Date.parse(found.linkExpiresAt) <= Date.now()
+  ) {
+    throw new PaymentError("CheckoutNotAvailable", "checkout link has expired");
+  }
+  // Order must still be awaiting payment (never issue for a paid/closed order).
+  if (found.orderStatus !== "awaiting_payment") {
+    throw new PaymentError(
+      "OrderNotPayable",
+      `order is not awaiting payment (status: ${found.orderStatus})`,
+    );
+  }
+
+  const contractOrderId = contractOrderIdToHex(
+    deriveContractOrderId(found.orderId),
+  );
+  const now = Date.now();
+  const ttlMs = CHECKOUT_TOKEN_DEFAULT_TTL_MS;
+  const checkoutToken = createCheckoutToken(
+    secret,
+    {
+      orderId: found.orderId,
+      buyerPublicKey: input.buyerPublicKey,
+      contractOrderId,
+      // Bind the SERVER network (already validated to match the request) so the
+      // token's network claim is authoritative for the downstream create-order.
+      networkPassphrase: deps.config.networkPassphrase,
+    },
+    now,
+    ttlMs,
+  );
+
+  // TODO(audit): when an audit_events table exists, record a REDACTED issuance
+  // event here (orderId, truncated buyer key, exp, network, client ip) for abuse
+  // forensics. Never log the token or the full buyer key; no console logging of
+  // PII/secrets is done here by design.
+
+  return {
+    checkoutToken,
+    expiresAt: new Date(now + ttlMs).toISOString(),
+    orderId: found.orderId,
+    orderNo: found.orderNo,
+    contractOrderId,
+    networkPassphrase: deps.config.networkPassphrase,
+    amountUsdc: found.totalUsdc,
+  };
 }
 
 /**

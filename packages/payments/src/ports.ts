@@ -5,6 +5,7 @@ export type OrderStatus = Enums<"order_status">;
 export type PaymentStatus = Enums<"payment_status">;
 export type EscrowStatus = Enums<"escrow_status">;
 export type NetworkName = Enums<"network">;
+export type CheckoutLinkStatus = Enums<"checkout_link_status">;
 
 // ---------------------------------------------------------------------------
 // Normalized DB records the payment service reasons about. Amounts are carried
@@ -57,6 +58,21 @@ export interface PaymentContext {
 }
 
 /**
+ * Minimal, checkout-link-scoped view used to issue a create-order token. Loaded
+ * strictly by PUBLIC identifiers (checkout link slug + order number) — never a
+ * raw order UUID — and only for an order that actually belongs to that link. The
+ * caller (service) enforces link-active / not-expired / order-payable policy.
+ */
+export interface CheckoutOrderForIssuance {
+  orderId: string;
+  orderNo: string;
+  orderStatus: OrderStatus;
+  totalUsdc: string;
+  linkStatus: CheckoutLinkStatus;
+  linkExpiresAt: string | null;
+}
+
+/**
  * Storage port for the payment service. The Supabase adapter implements this
  * with the service-role client (server-only); unit tests supply an in-memory
  * fake. All money/escrow state changes are idempotent and status-guarded — the
@@ -65,6 +81,15 @@ export interface PaymentContext {
 export interface PaymentStore {
   loadByOrderId(orderId: string): Promise<PaymentContext | null>;
   loadByPaymentId(paymentId: string): Promise<PaymentContext | null>;
+
+  /** Load a payable order strictly within its checkout-link context, by PUBLIC
+   * codes only (link slug + order_no). Returns null unless an order with that
+   * order_no exists AND belongs to a checkout_link with that slug — so a raw
+   * order UUID alone can never resolve. Status/expiry policy is the caller's. */
+  loadCheckoutOrderForIssuance(input: {
+    slug: string;
+    orderNo: string;
+  }): Promise<CheckoutOrderForIssuance | null>;
 
   /** Ensure the order's single payment row exists and is set to
    * awaiting_signature with the given (server-derived) amount/payer/network. */

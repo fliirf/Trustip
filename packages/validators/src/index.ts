@@ -107,5 +107,38 @@ export const createEscrowOrderSchema = z.object({
   orderId: z.string().uuid(),
   buyerPublicKey: stellarPublicKeySchema,
   networkPassphrase: networkPassphraseSchema,
+  /** Short-lived server-signed checkout token authorizing this buyer↔order for
+   * guest checkout. Required when unauthenticated and the server configures a
+   * TRUSTIP_CHECKOUT_TOKEN_SECRET; carries no amount/status/seller. */
+  checkoutToken: z.string().min(1).max(512).optional(),
 });
 export type CreateEscrowOrderInput = z.infer<typeof createEscrowOrderSchema>;
+
+/** Public checkout link slug (URL-safe unreserved chars). */
+export const checkoutSlugSchema = z
+  .string()
+  .min(1)
+  .max(120)
+  .regex(/^[A-Za-z0-9._~-]+$/, "invalid checkout slug");
+
+/** Public order number (never a raw order UUID). */
+export const orderNoSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/, "invalid order number");
+
+/**
+ * Checkout token issuance (Phase 5.0). Guest checkout requests a short-lived
+ * create-order token from a CHECKOUT-LINK context (public slug + order number)
+ * after connecting a wallet. SHAPE only: no amount/status/seller/recipient is
+ * accepted (unknown keys are stripped) — all authority is server-derived and
+ * verified on-chain downstream.
+ */
+export const issueCheckoutTokenSchema = z.object({
+  slug: checkoutSlugSchema,
+  orderNo: orderNoSchema,
+  buyerPublicKey: stellarPublicKeySchema,
+  networkPassphrase: networkPassphraseSchema,
+});
+export type IssueCheckoutTokenInput = z.infer<typeof issueCheckoutTokenSchema>;

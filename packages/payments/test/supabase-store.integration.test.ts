@@ -32,6 +32,7 @@ describe.skipIf(!LIVE)("supabase-store integration (live local DB)", () => {
   let sellerProfileId: string;
   let sellerUserId: string;
   const createdOrderIds: string[] = [];
+  const createdCheckoutLinkIds: string[] = [];
 
   async function seedOrder(): Promise<{ orderId: string }> {
     const orderId = randomUUID();
@@ -72,6 +73,9 @@ describe.skipIf(!LIVE)("supabase-store integration (live local DB)", () => {
   afterAll(async () => {
     for (const id of createdOrderIds) {
       await client.from("orders").delete().eq("id", id);
+    }
+    for (const id of createdCheckoutLinkIds) {
+      await client.from("checkout_links").delete().eq("id", id);
     }
     if (sellerProfileId) {
       await client.from("seller_profiles").delete().eq("id", sellerProfileId);
@@ -270,5 +274,53 @@ describe.skipIf(!LIVE)("supabase-store integration (live local DB)", () => {
     expect(events?.length).toBe(1);
     expect(events?.[0]?.event_type).toBe("create");
     expect(events?.[0]?.escrow_id).toBe(e.id);
+  });
+
+  it("loadCheckoutOrderForIssuance resolves only within the checkout link", async () => {
+    const slug = `slug-${randomUUID()}`;
+    const { data: link, error: linkErr } = await client
+      .from("checkout_links")
+      .insert({
+        seller_profile_id: sellerProfileId,
+        slug,
+        title: "Issuance IT",
+        price_usdc: 10.5,
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (linkErr) throw linkErr;
+    createdCheckoutLinkIds.push(link.id);
+
+    const orderId = randomUUID();
+    const orderNo = `ON-${randomUUID()}`;
+    const { error: ordErr } = await client.from("orders").insert({
+      id: orderId,
+      order_no: orderNo,
+      seller_profile_id: sellerProfileId,
+      checkout_link_id: link.id,
+      status: "awaiting_payment",
+      total_usdc: 10.5,
+    });
+    if (ordErr) throw ordErr;
+    createdOrderIds.push(orderId);
+
+    const found = await store.loadCheckoutOrderForIssuance({ slug, orderNo });
+    expect(found?.orderId).toBe(orderId);
+    expect(found?.orderNo).toBe(orderNo);
+    expect(found?.orderStatus).toBe("awaiting_payment");
+    expect(found?.linkStatus).toBe("active");
+    expect(found?.totalUsdc).toBe("10.5");
+
+    // Wrong slug and unknown order_no both resolve to null (no oracle/leak).
+    expect(
+      await store.loadCheckoutOrderForIssuance({
+        slug: "does-not-exist",
+        orderNo,
+      }),
+    ).toBeNull();
+    expect(
+      await store.loadCheckoutOrderForIssuance({ slug, orderNo: "ON-missing" }),
+    ).toBeNull();
   });
 });

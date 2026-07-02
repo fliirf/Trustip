@@ -107,6 +107,17 @@ export function getOperatorSecretKey(): string | undefined {
 }
 
 /**
+ * SERVER-ONLY HMAC secret for signing short-lived checkout / create-order
+ * authorization tokens (POST /api/escrows/create-order). Deliberately NOT a
+ * NEXT_PUBLIC var. Returns undefined when unset — in that case the guest
+ * (token) path fails closed and only an authenticated order owner (or admin)
+ * may trigger operator-signed create_order. Never logged or returned to clients.
+ */
+export function getCheckoutTokenSecret(): string | undefined {
+  return envAny("TRUSTIP_CHECKOUT_TOKEN_SECRET");
+}
+
+/**
  * Whether an env-secret operator signer is explicitly permitted on mainnet.
  * Defaults to false: on mainnet the env-key signer is refused unless an approved
  * signer strategy is deliberately enabled (e.g. after wiring KMS/multisig).

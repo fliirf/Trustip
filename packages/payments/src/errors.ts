@@ -26,7 +26,11 @@ export type PaymentErrorCode =
   | "EscrowAlreadyCreated"
   | "EscrowCreateFailed"
   | "ChainOrderMismatch"
-  | "ContractOrderAlreadyExists";
+  | "ContractOrderAlreadyExists"
+  // --- Checkout token issuance (Phase 5.0) ---
+  | "CheckoutNotFound"
+  | "CheckoutNotAvailable"
+  | "CheckoutTokenUnavailable";
 
 const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   InvalidInput: 400,
@@ -54,6 +58,10 @@ const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   EscrowCreateFailed: 502,
   ChainOrderMismatch: 409,
   ContractOrderAlreadyExists: 409,
+  // checkout token issuance
+  CheckoutNotFound: 404,
+  CheckoutNotAvailable: 409,
+  CheckoutTokenUnavailable: 503,
 };
 
 export class PaymentError extends Error {

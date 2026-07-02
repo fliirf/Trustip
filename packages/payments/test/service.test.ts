@@ -1,6 +1,8 @@
 import {
+  contractOrderIdToHex,
   type CreateOrderGatewayInput,
   type CreateOrderGatewayResult,
+  deriveContractOrderId,
   type EscrowGateway,
   type GatewayOrderView,
   OperatorSignerError,
@@ -10,9 +12,15 @@ import {
 } from "@trustip/stellar";
 import { describe, expect, it, vi } from "vitest";
 import { createAttemptToken } from "../src/attempt-token.js";
+import {
+  type CheckoutTokenClaims,
+  createCheckoutToken,
+  verifyCheckoutToken,
+} from "../src/checkout-token.js";
 import { PaymentError, type PaymentErrorCode } from "../src/errors.js";
 import { usdcToUnits } from "../src/money.js";
 import type {
+  CheckoutLinkStatus,
   EscrowRecord,
   OrderRecord,
   PaymentContext,
@@ -20,8 +28,11 @@ import type {
   PaymentStore,
 } from "../src/ports.js";
 import {
+  type EnsureEscrowInput,
   ensureOnChainEscrowOrderCreated,
   getPaymentStatus,
+  issueCheckoutToken,
+  type PaymentActor,
   type PaymentConfig,
   type PaymentDeps,
   preparePayment,
@@ -72,6 +83,11 @@ interface FakeInit {
   escrow?: EscrowRecord | null;
   buyerWalletPublicKey?: string | null;
   sellerWalletPublicKey?: string | null;
+  // Checkout-link context for issuance tests.
+  slug?: string;
+  orderNo?: string;
+  linkStatus?: CheckoutLinkStatus;
+  linkExpiresAt?: string | null;
 }
 
 function createFakeStore(init: FakeInit = {}) {
@@ -90,6 +106,10 @@ function createFakeStore(init: FakeInit = {}) {
     escrow: init.escrow ?? null,
     buyerWalletPublicKey: init.buyerWalletPublicKey ?? null,
     sellerWalletPublicKey: init.sellerWalletPublicKey ?? null,
+    slug: init.slug ?? "shop-slug",
+    orderNo: init.orderNo ?? "ORD-0001",
+    linkStatus: (init.linkStatus ?? "active") as CheckoutLinkStatus,
+    linkExpiresAt: init.linkExpiresAt ?? null,
     txHashIndex: new Map<string, PaymentRecord>(),
     calls: { submission: 0, confirmed: 0, failure: 0, creationTx: 0 },
   };
@@ -108,6 +128,17 @@ function createFakeStore(init: FakeInit = {}) {
     },
     async loadByPaymentId(paymentId) {
       return state.payment && state.payment.id === paymentId ? context() : null;
+    },
+    async loadCheckoutOrderForIssuance({ slug, orderNo }) {
+      if (slug !== state.slug || orderNo !== state.orderNo) return null;
+      return {
+        orderId: state.order.id,
+        orderNo: state.orderNo,
+        orderStatus: state.order.status,
+        totalUsdc: state.order.totalUsdc,
+        linkStatus: state.linkStatus,
+        linkExpiresAt: state.linkExpiresAt,
+      };
     },
     async preparePaymentRow(input) {
       if (
@@ -1061,13 +1092,51 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     return { gateway, createOrder };
   }
 
+  // --- authorization fixtures (M1) ------------------------------------------
+  const ADMIN: PaymentActor = { userId: "op-admin", isAdmin: true };
+  const GUEST: PaymentActor = { userId: null };
+  const CHECKOUT_SECRET = "checkout-secret";
+  const CONFIG_AUTH: PaymentConfig = {
+    ...CONFIG,
+    checkoutTokenSecret: CHECKOUT_SECRET,
+  };
+
+  // Default runner: the existing orchestration cases exercise create/reconcile
+  // logic (not auth), so they run as admin unless a case passes its own actor.
+  function ensure(
+    d: PaymentDeps,
+    input: EnsureEscrowInput = ensureInput(),
+    actor: PaymentActor = ADMIN,
+  ) {
+    return ensureOnChainEscrowOrderCreated(d, input, actor);
+  }
+
+  // Mint a valid checkout token for order-1 / BUYER on testnet (override any
+  // claim, or the issue time / TTL, to model wrong-binding / expiry).
+  function tokenFor(
+    overrides: Partial<CheckoutTokenClaims> = {},
+    issuedAt?: number,
+    ttlMs?: number,
+  ): string {
+    const orderId = overrides.orderId ?? "order-1";
+    return createCheckoutToken(
+      CHECKOUT_SECRET,
+      {
+        orderId,
+        buyerPublicKey: BUYER,
+        contractOrderId: contractOrderIdToHex(deriveContractOrderId(orderId)),
+        networkPassphrase: TESTNET,
+        ...overrides,
+      },
+      issuedAt,
+      ttlMs,
+    );
+  }
+
   it("creates the on-chain order and records escrow + create tx when none exists", async () => {
     const { store, state } = createStore();
     const { gateway, createOrder } = creatingGateway();
-    const res = await ensureOnChainEscrowOrderCreated(
-      deps(store, gateway),
-      ensureInput(),
-    );
+    const res = await ensure(deps(store, gateway), ensureInput());
     expect(res.alreadyExisted).toBe(false);
     expect(res.escrowStatus).toBe("created");
     expect(res.txHash).toBe(CREATE_HASH);
@@ -1086,7 +1155,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
   it("derives the create amount from the server order total, not the client", async () => {
     const { store } = createStore({ order: { totalUsdc: "42" } });
     const { gateway, createOrder } = creatingGateway();
-    await ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput());
+    await ensure(deps(store, gateway), ensureInput());
     expect(createOrder.mock.calls[0]![0].amountUnits).toBe(usdcToUnits("42"));
   });
 
@@ -1095,10 +1164,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     const createOrder = vi.fn();
     // Default fake readOrder returns a Created order for BUYER @ 10.5.
     const gateway = createFakeGateway({ createOrder });
-    const res = await ensureOnChainEscrowOrderCreated(
-      deps(store, gateway),
-      ensureInput(),
-    );
+    const res = await ensure(deps(store, gateway), ensureInput());
     expect(res.alreadyExisted).toBe(true);
     expect(res.escrowStatus).toBe("created");
     expect(createOrder).not.toHaveBeenCalled();
@@ -1110,8 +1176,8 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     const { store } = createStore();
     const { gateway, createOrder } = creatingGateway();
     const d = deps(store, gateway);
-    const first = await ensureOnChainEscrowOrderCreated(d, ensureInput());
-    const second = await ensureOnChainEscrowOrderCreated(d, ensureInput());
+    const first = await ensure(d, ensureInput());
+    const second = await ensure(d, ensureInput());
     expect(first.alreadyExisted).toBe(false);
     expect(second.alreadyExisted).toBe(true);
     expect(createOrder).toHaveBeenCalledTimes(1);
@@ -1143,10 +1209,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       readOrder: vi.fn(async () => chain),
       createOrder,
     });
-    const res = await ensureOnChainEscrowOrderCreated(
-      deps(store, gateway),
-      ensureInput(),
-    );
+    const res = await ensure(deps(store, gateway), ensureInput());
     expect(res.alreadyExisted).toBe(true);
     expect(createOrder).toHaveBeenCalledTimes(1);
     expect(state.escrow?.status).toBe("created");
@@ -1163,8 +1226,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       })),
     });
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "EscrowCreateFailed",
     );
   });
@@ -1181,8 +1243,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       }),
     });
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "AdminSignerMissing",
     );
   });
@@ -1199,8 +1260,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       }),
     });
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "AdminSignerNotAllowedOnMainnet",
     );
   });
@@ -1208,11 +1268,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
   it("rejects an invalid buyer public key", async () => {
     const { store } = createStore();
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(
-          deps(store),
-          ensureInput({ buyerPublicKey: "not-a-key" }),
-        ),
+      () => ensure(deps(store), ensureInput({ buyerPublicKey: "not-a-key" })),
       "InvalidBuyerPublicKey",
     );
   });
@@ -1220,11 +1276,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
   it("rejects an empty buyer public key", async () => {
     const { store } = createStore();
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(
-          deps(store),
-          ensureInput({ buyerPublicKey: "" }),
-        ),
+      () => ensure(deps(store), ensureInput({ buyerPublicKey: "" })),
       "InvalidBuyerPublicKey",
     );
   });
@@ -1232,19 +1284,11 @@ describe("ensureOnChainEscrowOrderCreated", () => {
   it("rejects a missing network and a wrong network (fail closed)", async () => {
     const { store } = createStore();
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(
-          deps(store),
-          ensureInput({ networkPassphrase: "" }),
-        ),
+      () => ensure(deps(store), ensureInput({ networkPassphrase: "" })),
       "InvalidInput",
     );
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(
-          deps(store),
-          ensureInput({ networkPassphrase: MAINNET }),
-        ),
+      () => ensure(deps(store), ensureInput({ networkPassphrase: MAINNET })),
       "WrongNetwork",
     );
   });
@@ -1253,8 +1297,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     const { store } = createStore({ order: { status: "shipped" } });
     const gateway = creatingGateway().gateway; // chain starts null
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "OrderNotEligible",
     );
   });
@@ -1263,8 +1306,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     const { store } = createStore({ sellerWalletPublicKey: null });
     const gateway = creatingGateway().gateway;
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "OrderNotEligible",
     );
   });
@@ -1273,8 +1315,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     const { store } = createStore({ buyerWalletPublicKey: OTHER_BUYER });
     const gateway = creatingGateway().gateway;
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "WrongBuyer",
     );
   });
@@ -1291,8 +1332,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       createOrder: vi.fn(),
     });
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "WrongBuyer",
     );
   });
@@ -1309,8 +1349,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       createOrder: vi.fn(),
     });
     await rejectsWith(
-      () =>
-        ensureOnChainEscrowOrderCreated(deps(store, gateway), ensureInput()),
+      () => ensure(deps(store, gateway), ensureInput()),
       "ChainOrderMismatch",
     );
   });
@@ -1330,7 +1369,7 @@ describe("ensureOnChainEscrowOrderCreated", () => {
       "EscrowNotReady",
     );
     // Orchestrate create_order, then prepare succeeds against the same order.
-    await ensureOnChainEscrowOrderCreated(d, ensureInput());
+    await ensure(d, ensureInput());
     const prep = await preparePayment(d, {
       orderId: "order-1",
       buyerPublicKey: BUYER,
@@ -1338,5 +1377,445 @@ describe("ensureOnChainEscrowOrderCreated", () => {
     });
     expect(prep.unsignedXdr).toBe("UNSIGNED_XDR");
     expect(prep.contractOrderId).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  // --- authorization (M1) ---------------------------------------------------
+
+  it("rejects an anonymous caller with no token before any DB/chain work", async () => {
+    const { store, state } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    const loadByOrderId = vi.spyOn(store, "loadByOrderId");
+    await rejectsWith(
+      () => ensure(deps(store, gateway, CONFIG_AUTH), ensureInput(), GUEST),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(loadByOrderId).not.toHaveBeenCalled(); // not an existence oracle
+    expect(state.escrow).toBeNull();
+  });
+
+  it("accepts a guest with a valid checkout token", async () => {
+    const { store, state } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    const res = await ensure(
+      deps(store, gateway, CONFIG_AUTH),
+      ensureInput({ checkoutToken: tokenFor() }),
+      GUEST,
+    );
+    expect(res.alreadyExisted).toBe(false);
+    expect(res.escrowStatus).toBe("created");
+    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(state.escrow?.status).toBe("created");
+  });
+
+  it("rejects a token minted for a different buyer key", async () => {
+    const { store } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    await rejectsWith(
+      () =>
+        ensure(
+          deps(store, gateway, CONFIG_AUTH),
+          ensureInput({
+            checkoutToken: tokenFor({ buyerPublicKey: OTHER_BUYER }),
+          }),
+          GUEST,
+        ),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token minted for a different order", async () => {
+    const { store } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    await rejectsWith(
+      () =>
+        ensure(
+          deps(store, gateway, CONFIG_AUTH),
+          ensureInput({ checkoutToken: tokenFor({ orderId: "order-2" }) }),
+          GUEST,
+        ),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired checkout token", async () => {
+    const { store } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    const expired = tokenFor({}, Date.now() - 30 * 60 * 1000, 15 * 60 * 1000);
+    await rejectsWith(
+      () =>
+        ensure(
+          deps(store, gateway, CONFIG_AUTH),
+          ensureInput({ checkoutToken: expired }),
+          GUEST,
+        ),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects a token when no server checkout secret is configured (fail closed)", async () => {
+    const { store } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    // CONFIG has no checkoutTokenSecret → a presented token cannot be trusted.
+    await rejectsWith(
+      () =>
+        ensure(
+          deps(store, gateway, CONFIG),
+          ensureInput({ checkoutToken: tokenFor() }),
+          GUEST,
+        ),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("accepts an authenticated order owner without a token", async () => {
+    const { store, state } = createStore({
+      order: { buyerUserId: "buyer-user" },
+    });
+    const { gateway, createOrder } = creatingGateway();
+    const res = await ensure(deps(store, gateway, CONFIG_AUTH), ensureInput(), {
+      userId: "buyer-user",
+    });
+    expect(res.alreadyExisted).toBe(false);
+    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(state.escrow?.status).toBe("created");
+  });
+
+  it("rejects an authenticated non-owner of a user-bound order", async () => {
+    const { store } = createStore({ order: { buyerUserId: "buyer-user" } });
+    const { gateway, createOrder } = creatingGateway();
+    await rejectsWith(
+      () =>
+        ensure(deps(store, gateway, CONFIG_AUTH), ensureInput(), {
+          userId: "someone-else",
+        }),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("rejects an authenticated stranger on a guest order (needs a token)", async () => {
+    const { store } = createStore(); // buyerUserId null → guest order
+    const { gateway, createOrder } = creatingGateway();
+    await rejectsWith(
+      () =>
+        ensure(deps(store, gateway, CONFIG_AUTH), ensureInput(), {
+          userId: "random-user",
+        }),
+      "Forbidden",
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+  });
+
+  it("admin may create without a token", async () => {
+    const { store, state } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    const res = await ensure(
+      deps(store, gateway, CONFIG_AUTH),
+      ensureInput(),
+      ADMIN,
+    );
+    expect(res.alreadyExisted).toBe(false);
+    expect(createOrder).toHaveBeenCalledTimes(1);
+    expect(state.escrow?.status).toBe("created");
+  });
+
+  // --- M2: create path never adopts funded+ / terminal chain status ---------
+
+  it("reports EscrowAlreadyFunded for a funded chain order and writes nothing", async () => {
+    const { store, state } = createStore();
+    const gateway = createFakeGateway({
+      readOrder: vi.fn(async () => ({
+        status: "Funded" as const,
+        amount: usdcToUnits("10.5"),
+        buyer: BUYER,
+        seller: SELLER,
+      })),
+      createOrder: vi.fn(),
+    });
+    await rejectsWith(
+      () => ensure(deps(store, gateway)),
+      "EscrowAlreadyFunded",
+    );
+    expect(state.escrow).toBeNull(); // no created/funded row written
+    expect(state.calls.creationTx).toBe(0);
+  });
+
+  it("reports a conflict for a terminal chain order without adopting it", async () => {
+    const { store, state } = createStore();
+    const gateway = createFakeGateway({
+      readOrder: vi.fn(async () => ({
+        status: "Released" as const,
+        amount: usdcToUnits("10.5"),
+        buyer: BUYER,
+        seller: SELLER,
+      })),
+      createOrder: vi.fn(),
+    });
+    await rejectsWith(
+      () => ensure(deps(store, gateway)),
+      "ContractOrderAlreadyExists",
+    );
+    expect(state.escrow).toBeNull();
+  });
+
+  it("does not let a second caller swap the buyer after create (no mutation)", async () => {
+    const { store, state } = createStore();
+    const { gateway, createOrder } = creatingGateway();
+    const d = deps(store, gateway);
+    const first = await ensure(d, ensureInput({ buyerPublicKey: BUYER }));
+    expect(first.alreadyExisted).toBe(false);
+    const escrowAfterCreate = { ...state.escrow! };
+    // Even an authorized caller cannot rebind the on-chain buyer to another key.
+    await rejectsWith(
+      () => ensure(d, ensureInput({ buyerPublicKey: OTHER_BUYER })),
+      "WrongBuyer",
+    );
+    expect(createOrder).toHaveBeenCalledTimes(1); // no second create_order
+    expect(state.escrow).toEqual(escrowAfterCreate); // escrow row unchanged
+  });
+});
+
+// --- issueCheckoutToken (Phase 5.0) -----------------------------------------
+
+describe("issueCheckoutToken", () => {
+  const CHECKOUT_SECRET = "issue-secret";
+  const CONFIG_AUTH: PaymentConfig = {
+    ...CONFIG,
+    checkoutTokenSecret: CHECKOUT_SECRET,
+  };
+  const SLUG = "shop-slug";
+  const ORDER_NO = "ORD-0001";
+
+  function issuanceStore(init: FakeInit = {}) {
+    return createFakeStore({
+      order: { status: "awaiting_payment", totalUsdc: "10.5" },
+      sellerWalletPublicKey: SELLER,
+      slug: SLUG,
+      orderNo: ORDER_NO,
+      linkStatus: "active",
+      ...init,
+    });
+  }
+
+  function issueInput(overrides: Record<string, unknown> = {}) {
+    return {
+      slug: SLUG,
+      orderNo: ORDER_NO,
+      buyerPublicKey: BUYER,
+      networkPassphrase: TESTNET,
+      ...overrides,
+    };
+  }
+
+  // The exact claim set create-order derives from a request, for verify checks.
+  const claimsFor = (orderId: string, buyer = BUYER, network = TESTNET) => ({
+    orderId,
+    buyerPublicKey: buyer,
+    contractOrderId: contractOrderIdToHex(deriveContractOrderId(orderId)),
+    networkPassphrase: network,
+  });
+
+  const issuer = (store: PaymentStore, config: PaymentConfig = CONFIG_AUTH) =>
+    deps(store, createFakeGateway(), config);
+
+  it("issues a token for an active checkout link + payable order", async () => {
+    const { store } = issuanceStore();
+    const res = await issueCheckoutToken(issuer(store), issueInput());
+    expect(res.orderId).toBe("order-1");
+    expect(res.orderNo).toBe(ORDER_NO);
+    expect(res.amountUsdc).toBe("10.5");
+    expect(res.networkPassphrase).toBe(TESTNET);
+    expect(res.contractOrderId).toMatch(/^[0-9a-f]{64}$/);
+    expect(typeof res.checkoutToken).toBe("string");
+    expect(Date.parse(res.expiresAt)).toBeGreaterThan(Date.now());
+    // The minted token verifies under EXACTLY the claims create-order derives.
+    expect(
+      verifyCheckoutToken(
+        CHECKOUT_SECRET,
+        res.checkoutToken,
+        claimsFor("order-1"),
+      ),
+    ).toBe(true);
+  });
+
+  it("fails closed when no checkout secret is configured", async () => {
+    const { store } = issuanceStore();
+    await rejectsWith(
+      () => issueCheckoutToken(issuer(store, CONFIG), issueInput()),
+      "CheckoutTokenUnavailable",
+    );
+  });
+
+  it("rejects an invalid buyer public key", async () => {
+    const { store } = issuanceStore();
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(
+          issuer(store),
+          issueInput({ buyerPublicKey: "not-a-key" }),
+        ),
+      "InvalidBuyerPublicKey",
+    );
+  });
+
+  it("rejects a missing network and a wrong network (fail closed)", async () => {
+    const { store } = issuanceStore();
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(
+          issuer(store),
+          issueInput({ networkPassphrase: "" }),
+        ),
+      "InvalidInput",
+    );
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(
+          issuer(store),
+          issueInput({ networkPassphrase: MAINNET }),
+        ),
+      "WrongNetwork",
+    );
+  });
+
+  it("rejects when the order does not resolve within the checkout link", async () => {
+    const { store } = issuanceStore();
+    // Unknown order_no → generic not-found (no raw-orderId path exists).
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(issuer(store), issueInput({ orderNo: "NOPE-9" })),
+      "CheckoutNotFound",
+    );
+    // Wrong slug → same generic not-found (order not in that link).
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(issuer(store), issueInput({ slug: "other-shop" })),
+      "CheckoutNotFound",
+    );
+  });
+
+  it("rejects an inactive checkout link", async () => {
+    const { store } = issuanceStore({ linkStatus: "inactive" });
+    await rejectsWith(
+      () => issueCheckoutToken(issuer(store), issueInput()),
+      "CheckoutNotAvailable",
+    );
+  });
+
+  it("rejects an expired checkout link", async () => {
+    const { store } = issuanceStore({
+      linkExpiresAt: new Date(Date.now() - 60_000).toISOString(),
+    });
+    await rejectsWith(
+      () => issueCheckoutToken(issuer(store), issueInput()),
+      "CheckoutNotAvailable",
+    );
+  });
+
+  it("rejects an order that is not awaiting payment", async () => {
+    const { store } = issuanceStore({ order: { status: "shipped" } });
+    await rejectsWith(
+      () => issueCheckoutToken(issuer(store), issueInput()),
+      "OrderNotPayable",
+    );
+  });
+
+  it("binds the token to buyer + order + network (cannot be repurposed)", async () => {
+    const { store } = issuanceStore();
+    const res = await issueCheckoutToken(issuer(store), issueInput());
+    // Different buyer key → invalid.
+    expect(
+      verifyCheckoutToken(
+        CHECKOUT_SECRET,
+        res.checkoutToken,
+        claimsFor("order-1", OTHER_BUYER),
+      ),
+    ).toBe(false);
+    // Different order → invalid.
+    expect(
+      verifyCheckoutToken(
+        CHECKOUT_SECRET,
+        res.checkoutToken,
+        claimsFor("order-2"),
+      ),
+    ).toBe(false);
+    // Different network → invalid.
+    expect(
+      verifyCheckoutToken(
+        CHECKOUT_SECRET,
+        res.checkoutToken,
+        claimsFor("order-1", BUYER, MAINNET),
+      ),
+    ).toBe(false);
+  });
+
+  it("derives the amount from the server order total, never the client", async () => {
+    // The input type has no amount/status/seller field; the server total drives
+    // the display amount and the token encodes no amount at all.
+    const { store } = issuanceStore({ order: { totalUsdc: "42" } });
+    const res = await issueCheckoutToken(
+      issuer(store),
+      // Extra fields a hostile client might send are simply not part of input.
+      issueInput({ amount: "0.01", status: "confirmed", seller: OTHER_BUYER }),
+    );
+    expect(res.amountUsdc).toBe("42");
+    expect(
+      verifyCheckoutToken(
+        CHECKOUT_SECRET,
+        res.checkoutToken,
+        claimsFor("order-1"),
+      ),
+    ).toBe(true);
+  });
+
+  it("mints a token that authorizes guest create_order end to end", async () => {
+    const { store, state } = issuanceStore();
+    const issued = await issueCheckoutToken(issuer(store), issueInput());
+
+    // The guest now calls create-order with ONLY the issued token (no session).
+    let chain: GatewayOrderView | null = null;
+    const gateway = createFakeGateway({
+      readOrder: vi.fn(async () => chain),
+      getTransactionResult: vi.fn(async () => ({
+        status: "SUCCESS" as const,
+        ledger: 7,
+      })),
+      createOrder: vi.fn(
+        async (
+          i: CreateOrderGatewayInput,
+        ): Promise<CreateOrderGatewayResult> => {
+          chain = {
+            status: "Created",
+            amount: i.amountUnits,
+            buyer: i.buyerPublicKey,
+            seller: i.sellerPublicKey,
+          };
+          return {
+            hash: CREATE_HASH,
+            status: "PENDING",
+            sourceAccount: OPERATOR,
+          };
+        },
+      ),
+    });
+
+    const res = await ensureOnChainEscrowOrderCreated(
+      deps(store, gateway, CONFIG_AUTH),
+      {
+        orderId: issued.orderId,
+        buyerPublicKey: BUYER,
+        networkPassphrase: issued.networkPassphrase,
+        checkoutToken: issued.checkoutToken,
+      },
+      { userId: null }, // guest — authorized solely by the issued token
+    );
+    expect(res.alreadyExisted).toBe(false);
+    expect(res.escrowStatus).toBe("created");
+    expect(state.escrow?.status).toBe("created");
   });
 });

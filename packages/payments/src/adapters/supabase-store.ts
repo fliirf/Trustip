@@ -1,6 +1,7 @@
 import type { Json, TablesInsert, TrustipClient } from "@trustip/database";
 import { usdcAmountToString } from "../money.js";
 import type {
+  CheckoutOrderForIssuance,
   EscrowRecord,
   NetworkName,
   OrderRecord,
@@ -179,6 +180,38 @@ export function createSupabasePaymentStore(
         .maybeSingle();
       if (!order) return null;
       return buildContext(order as OrderRow);
+    },
+
+    async loadCheckoutOrderForIssuance({
+      slug,
+      orderNo,
+    }): Promise<CheckoutOrderForIssuance | null> {
+      // Resolve the checkout link by its PUBLIC slug first, then the order by its
+      // PUBLIC order_no, and require the order to actually belong to that link.
+      // A raw order UUID can never satisfy this (no UUID is accepted), and an
+      // order_no from a different link is rejected by the linkage check.
+      const { data: link } = await client
+        .from("checkout_links")
+        .select("id, status, expires_at")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!link) return null;
+
+      const { data: order } = await client
+        .from("orders")
+        .select("id, order_no, status, total_usdc, checkout_link_id")
+        .eq("order_no", orderNo)
+        .maybeSingle();
+      if (!order || order.checkout_link_id !== link.id) return null;
+
+      return {
+        orderId: order.id,
+        orderNo: order.order_no,
+        orderStatus: order.status,
+        totalUsdc: money(order.total_usdc),
+        linkStatus: link.status,
+        linkExpiresAt: link.expires_at,
+      };
     },
 
     async preparePaymentRow(input) {

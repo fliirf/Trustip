@@ -3,7 +3,7 @@
 // imported from a Client Component. (Kept to the Next route layer — the
 // @trustip/payments package itself stays framework-agnostic for workers/tests.)
 import "server-only";
-import { getEscrowContractId } from "@trustip/config";
+import { getCheckoutTokenSecret, getEscrowContractId } from "@trustip/config";
 import { getServiceClient, supabase } from "@trustip/database";
 import {
   createInMemoryRateLimiter,
@@ -35,6 +35,8 @@ export function getPaymentDeps(): PaymentDeps {
     escrowContractId: getEscrowContractId(),
     // Optional: when set, submit requires a valid prepare attempt token.
     attemptSecret: process.env.PAYMENT_ATTEMPT_SECRET,
+    // Optional: when set, guest create-order requires a valid checkout token.
+    checkoutTokenSecret: getCheckoutTokenSecret(),
   };
   return {
     store: createSupabasePaymentStore(getServiceClient()),
@@ -129,6 +131,20 @@ const statusLimiter: RateLimiter = createInMemoryRateLimiter({
   limit: 120,
   windowMs: 60_000,
 });
+// create_order triggers operator-signed on-chain writes (spends operator XLM
+// fees), so it gets a tighter, dedicated budget layered on top of the token /
+// ownership authorization enforced in the service. Keyed by client IP.
+const createOrderLimiter: RateLimiter = createInMemoryRateLimiter({
+  limit: 12,
+  windowMs: 60_000,
+});
+// Checkout-token issuance: no on-chain work, but this is the brute-force surface
+// for order_no (a valid slug+order_no mints a token). A tight per-IP budget
+// slows enumeration; the service still fails closed on every invalid lookup.
+const checkoutIssueLimiter: RateLimiter = createInMemoryRateLimiter({
+  limit: 20,
+  windowMs: 60_000,
+});
 
 function clientIp(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
@@ -165,5 +181,26 @@ export function enforceRateLimit(
  * polling stays usable). Returns a 429 response when over budget, else null. */
 export function enforceStatusRateLimit(request: Request): NextResponse | null {
   const result = statusLimiter.check(`status:${clientIp(request)}`);
+  return result.allowed ? null : tooManyRequests(result.retryAfterMs);
+}
+
+/** Rate-limit create_order (operator-fee abuse guard). Tighter than the generic
+ * write budget because each call can trigger operator-signed on-chain writes.
+ * Returns a 429 response when over budget, else null. */
+export function enforceCreateOrderRateLimit(
+  request: Request,
+): NextResponse | null {
+  const result = createOrderLimiter.check(`create-order:${clientIp(request)}`);
+  return result.allowed ? null : tooManyRequests(result.retryAfterMs);
+}
+
+/** Rate-limit checkout-token issuance (order_no enumeration guard). Returns a
+ * 429 response when over budget, else null. */
+export function enforceCheckoutIssueRateLimit(
+  request: Request,
+): NextResponse | null {
+  const result = checkoutIssueLimiter.check(
+    `checkout-issue:${clientIp(request)}`,
+  );
   return result.allowed ? null : tooManyRequests(result.retryAfterMs);
 }
