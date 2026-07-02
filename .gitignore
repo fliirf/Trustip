@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+dist/
+build/
+target/
+contracts/escrow/target/
+
+# Caches
+.turbo/
+.vercel/
+*.tsbuildinfo
+
+# Supabase CLI runtime artifacts
+supabase/.temp/
+supabase/.branches/
+
+# Environment files (keep .env.example tracked)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db

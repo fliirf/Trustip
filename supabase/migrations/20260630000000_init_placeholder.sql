@@ -1,0 +1,1 @@
+-- Trustip Migration Setup Placeholder (empty migration for Phase 0 setup)

@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+:root {
+  --void-black: #030303;
+  --trust-blue: #0ea5e9;
+  --stellar-purple: #8b5cf6;
+  --success-emerald: #10b981;
+  --warning-red: #ef4444;
+  --glass-bg: rgba(10, 10, 10, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+body {
+  background-color: var(--void-black);
+  color: #f3f4f6;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}

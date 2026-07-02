@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@trustip/config": "workspace:*",
+    "@trustip/database": "workspace:*",
+    "@trustip/payments": "workspace:*",
+    "@trustip/stellar": "workspace:*",
+    "@trustip/ui": "workspace:*",
+    "@trustip/validators": "workspace:*",
+    "clsx": "^2.1.0",
+    "next": "^16.2.0-canary.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^2.2.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0-alpha.0",
+    "@types/node": "^20.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^4.0.0-alpha.0",
+    "typescript": "^5.0.0"
+  }
+}

@@ -1,0 +1,20 @@
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Rust / Soroban generated artifacts
+target/
+contracts/escrow/target/
+contracts/escrow/test_snapshots/
+
+# Lockfiles
+pnpm-lock.yaml
+
+# Generated Supabase types (regenerate with `pnpm db:generate-types`)
+packages/database/src/types.ts
+
+# Supabase CLI runtime artifacts
+supabase/.temp/
+supabase/.branches/

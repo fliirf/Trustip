@@ -1,0 +1,8 @@
+-- Row-Level Security policies for Trustip are defined as a versioned migration
+-- so they apply on `supabase db reset` / deploy:
+--
+--   supabase/migrations/20260630020000_enable_rls.sql
+--
+-- That migration is the source of truth for RLS. This directory is kept for
+-- organizational reference per the Code Architecture spec. Do not define
+-- divergent policies here.

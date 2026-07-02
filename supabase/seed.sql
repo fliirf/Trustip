@@ -1,0 +1,10 @@
+-- Seed data for Trustip local development.
+--
+-- Intentionally empty for Phase 1. Application rows (users, seller_profiles,
+-- orders, ...) depend on Supabase Auth users (public.users.id references
+-- auth.users.id) and on verified on-chain state, so they are created through
+-- the app/services rather than seeded directly.
+--
+-- Do NOT seed fake payments, escrow funding, or payout completions — payment
+-- and escrow state must come from verified Stellar/Soroban data only
+-- (Security & Risk Spec v1.1 §3).

@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npx pnpm --version)",
+      "PowerShell(npx pnpm install 2>&1)",
+      "PowerShell(npx pnpm format 2>&1)",
+      "PowerShell(npx pnpm typecheck 2>&1)",
+      "PowerShell(npx pnpm build 2>&1)",
+      "PowerShell(cargo check --tests --manifest-path contracts/escrow/Cargo.toml 2>&1)",
+      "PowerShell(cargo test --manifest-path contracts/escrow/Cargo.toml 2>&1)",
+      "PowerShell(node -v)",
+      "PowerShell(pnpm -v)"
+    ]
+  }
+}
