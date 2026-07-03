@@ -190,7 +190,7 @@ export function SocialCommerceSection() {
                 animate={{ scale: [1, 1.18, 1], opacity: [0.5, 0.1, 0.5] }}
                 transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
               />
-              <span className="w-3 h-3 rounded-full bg-[#FF2D00]" />
+              <span className="w-3 h-3 rounded-full bg-[#FF2D00] shadow-blood" />
             </div>
             <div className="mt-4 font-display font-medium text-[clamp(20px,3vw,32px)] text-[#EDEAE3]">
               Trustip Escrow Layer

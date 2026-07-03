@@ -252,6 +252,14 @@
     );
   }
 
+  /* Accent bloom — red-orange glows instead of flat fill */
+  .glow-blood {
+    filter: drop-shadow(0 0 6px rgba(255, 45, 0, 0.55)) drop-shadow(0 0 18px rgba(255, 45, 0, 0.25));
+  }
+  .shadow-blood {
+    box-shadow: 0 0 10px rgba(255, 45, 0, 0.45), 0 0 32px rgba(255, 45, 0, 0.18);
+  }
+
   /* Marquee keyframes */
   @keyframes void-marquee {
     0% { transform: translateX(0); }

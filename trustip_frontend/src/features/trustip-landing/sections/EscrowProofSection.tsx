@@ -78,7 +78,7 @@ export function EscrowProofSection() {
               <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(237,234,227,0.1)" strokeWidth="0.3" />
               <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(237,234,227,0.15)" strokeWidth="0.3" />
               <circle cx="50" cy="50" r="15" fill="none" stroke="#FF2D00" strokeWidth="0.3" strokeDasharray="2 2" />
-              <circle cx="50" cy="50" r="4" fill="#FF2D00" opacity="0.7" />
+              <circle cx="50" cy="50" r="4" fill="#FF2D00" opacity="0.7" className="glow-blood" />
               <circle cx="50" cy="50" r="7" fill="none" stroke="#FF2D00" strokeWidth="0.3" opacity="0.4" />
 
               {/* Travelling dot */}

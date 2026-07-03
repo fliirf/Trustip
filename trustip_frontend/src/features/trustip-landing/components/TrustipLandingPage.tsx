@@ -45,6 +45,15 @@ export function TrustipLandingPage() {
         <Grain />
         <ScrollProgress />
         <BackgroundSystem />
+        {/* Viewport vignette — cinematic edge falloff over everything */}
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none z-[60]"
+          style={{
+            background:
+              "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.32) 88%, rgba(0,0,0,0.5) 100%)",
+          }}
+        />
         <LandingNav />
         <RouteThread />
         <PrototypeBadge />

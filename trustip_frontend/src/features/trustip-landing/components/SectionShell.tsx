@@ -47,6 +47,18 @@ export function SectionShell({ id, children, className = "", ghostWord, sectionR
         }}
       />
 
+      {/* Focal glow — soft red-orange radial that parallaxes behind the content,
+          replacing flat black with ambient depth. */}
+      <motion.div
+        aria-hidden
+        className="absolute left-[30%] top-1/2 -translate-x-1/2 -translate-y-1/2 w-[70vw] h-[70vw] max-w-[900px] max-h-[900px] pointer-events-none z-0"
+        style={{
+          y: ghostY,
+          background:
+            "radial-gradient(circle at center, rgba(255,45,0,0.07) 0%, rgba(255,45,0,0.025) 35%, transparent 65%)",
+        }}
+      />
+
       {ghostWord && (
         <motion.div
           className="absolute pointer-events-none z-0 select-none"

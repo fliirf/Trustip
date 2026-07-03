@@ -208,7 +208,7 @@ export function OrbitalCore({ className = "", progress }: OrbitalCoreProps) {
           animate={reduce ? undefined : { rotate: 360 }}
           transition={reduce ? undefined : { duration: 34, repeat: Infinity, ease: "linear" }}
         >
-          <circle cx="90" cy="50" r="1.1" fill={BLOOD} />
+          <circle cx="90" cy="50" r="1.1" fill={BLOOD} className="glow-blood" />
           <circle cx="90" cy="50" r="2.6" fill="none" stroke={BLOOD} strokeWidth="0.2" opacity="0.3" />
         </motion.g>
 
