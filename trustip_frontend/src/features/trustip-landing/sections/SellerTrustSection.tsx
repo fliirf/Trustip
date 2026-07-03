@@ -1,14 +1,21 @@
 "use client"
 
 import { useRef } from "react"
+import dynamic from "next/dynamic"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { TrustGraphCanvas } from "../motion/TrustGraphCanvas"
+import { useCan3D } from "../three/useCan3D"
+
+const TrustGraph3D = dynamic(() => import("../three/TrustGraph3D"), {
+  ssr: false,
+})
 import { SectionShell } from "../components/SectionShell"
 import { MetaCluster } from "../components/MetaCluster"
 import { TRUST_METRICS, TRUST_REVIEWS, EVIDENCE_PLATES } from "../data/landing-content"
 import { EASE, fadeUp, cardStagger } from "../motion/motion-presets"
 
 export function SellerTrustSection() {
+  const can3D = useCan3D()
   const ref = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -115,10 +122,14 @@ export function SellerTrustSection() {
           </div>
 
           <div className="aspect-square w-full">
-            <TrustGraphCanvas progress={scrollYProgress} />
+            {can3D ? (
+              <TrustGraph3D />
+            ) : (
+              <TrustGraphCanvas progress={scrollYProgress} />
+            )}
           </div>
           <div className="mt-2 pt-3 border-t border-[rgba(237,234,227,0.06)] font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40">
-            NODES ACTIVATE ON SCROLL · HOVER TO TRACE EDGES
+            {can3D ? "HOVER NODES · DRAG TO ROTATE" : "NODES ACTIVATE ON SCROLL · HOVER TO TRACE EDGES"}
           </div>
         </motion.div>
 

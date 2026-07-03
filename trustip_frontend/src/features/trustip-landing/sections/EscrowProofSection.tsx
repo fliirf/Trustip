@@ -1,7 +1,9 @@
 "use client"
 
 import { useRef, useState } from "react"
+import dynamic from "next/dynamic"
 import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-motion"
+import { useCan3D } from "../three/useCan3D"
 import { ProofRail } from "../motion/ProofRail"
 import { ScanSweep } from "../motion/ScanSweep"
 import { SectionShell } from "../components/SectionShell"
@@ -11,7 +13,12 @@ import { EASE, fadeUp } from "../motion/motion-presets"
 
 const RESOLVE_THRESHOLD = 0.55
 
+const EscrowOrbit3D = dynamic(() => import("../three/EscrowOrbit3D"), {
+  ssr: false,
+})
+
 export function EscrowProofSection() {
+  const can3D = useCan3D()
   const ref = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -74,7 +81,14 @@ export function EscrowProofSection() {
         {/* Left: orbit SVG — pins while the proof rail scrolls past */}
         <div className="lg:col-span-6 lg:sticky lg:top-[8vh] lg:self-start">
           <PlateFrame className="aspect-square bg-[#0A0A0A] overflow-hidden">
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
+            {/* 3D escrow orbit — metallic coin + orbiting payment dot (desktop, lazy).
+                The SVG below stays as the fallback and as the cardinal-label layer. */}
+            {can3D && (
+              <div className="absolute inset-0" aria-hidden>
+                <EscrowOrbit3D />
+              </div>
+            )}
+            <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${can3D ? "opacity-40" : ""}`}>
               <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(237,234,227,0.1)" strokeWidth="0.3" />
               <circle cx="50" cy="50" r="28" fill="none" stroke="rgba(237,234,227,0.15)" strokeWidth="0.3" />
               <circle cx="50" cy="50" r="15" fill="none" stroke="#FF2D00" strokeWidth="0.3" strokeDasharray="2 2" />

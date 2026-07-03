@@ -1,7 +1,9 @@
 "use client"
 
 import { useRef } from "react"
+import dynamic from "next/dynamic"
 import { motion, useScroll, useTransform } from "framer-motion"
+import { useCan3D } from "../three/useCan3D"
 import { KineticWords } from "../motion/KineticWords"
 import { OrbitalCore } from "../motion/OrbitalCore"
 import { WalletCTAButton } from "../components/WalletCTAButton"
@@ -9,7 +11,12 @@ import { CTAButton } from "../components/CTAButton"
 import { MetaCluster } from "../components/MetaCluster"
 import { EASE } from "../motion/motion-presets"
 
+const HeroParticleField = dynamic(() => import("../three/HeroParticleField"), {
+  ssr: false,
+})
+
 export function HeroSection() {
+  const can3D = useCan3D()
   const ref = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -40,6 +47,13 @@ export function HeroSection() {
     >
       {/* Void background — plain near-black; the shell's grid/scanlines fill it */}
       <div className="absolute inset-0 z-0 bg-[#050505]" />
+
+      {/* Mouse-reactive particle field behind the wordmark (desktop, lazy) */}
+      {can3D && (
+        <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
+          <HeroParticleField />
+        </div>
+      )}
 
       {/* Protected-core artifact — the single symbolic escrow object.
           Oversized so the tilted orbits interleave with the wordmark, per the VOID reference. */}
