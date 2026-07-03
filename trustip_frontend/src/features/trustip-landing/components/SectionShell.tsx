@@ -8,11 +8,13 @@ type SectionShellProps = {
   children: ReactNode
   className?: string
   ghostWord?: string
+  /** Entrance axis — content drifts in from this side; ghost word counter-drifts vertically. */
+  drift?: "left" | "right"
   /** Attach a scroll-measurement ref to the section element (for useScroll targets). */
   sectionRef?: React.RefObject<HTMLElement | null>
 }
 
-export function SectionShell({ id, children, className = "", ghostWord, sectionRef }: SectionShellProps) {
+export function SectionShell({ id, children, className = "", ghostWord, drift, sectionRef }: SectionShellProps) {
   const localRef = useRef<HTMLElement | null>(null)
   const { scrollYProgress } = useScroll({
     target: localRef,
@@ -22,9 +24,17 @@ export function SectionShell({ id, children, className = "", ghostWord, sectionR
   // Multi-layer parallax: ghost word drifts slower than content, content
   // itself eases upward slightly, so section boundaries read as continuity
   // rather than hard black cuts.
-  const ghostY = useTransform(scrollYProgress, [0, 1], [80, -80])
+  // Ghost words counter-drift: sections with a drift axis run the numeral the
+  // opposite vertical direction so entrances feel choreographed, not uniform.
+  const ghostDir = drift === "right" ? -1 : 1
+  const ghostY = useTransform(scrollYProgress, [0, 1], [80 * ghostDir, -80 * ghostDir])
   const ghostOpacity = useTransform(scrollYProgress, [0, 0.25, 0.75, 1], [0, 1, 1, 0.4])
-  const contentY = useTransform(scrollYProgress, [0, 0.3], [28, 0])
+  const contentY = useTransform(scrollYProgress, [0, 0.3], [drift ? 12 : 28, 0])
+  const contentX = useTransform(
+    scrollYProgress,
+    [0, 0.28],
+    [drift === "left" ? -48 : drift === "right" ? 48 : 0, 0],
+  )
   const contentOpacity = useTransform(scrollYProgress, [0, 0.18], [0.35, 1])
 
   return (
@@ -73,7 +83,7 @@ export function SectionShell({ id, children, className = "", ghostWord, sectionR
           </span>
         </motion.div>
       )}
-      <motion.div style={{ y: contentY, opacity: contentOpacity }} className="relative z-10">
+      <motion.div style={{ y: contentY, x: contentX, opacity: contentOpacity }} className="relative z-10">
         {children}
       </motion.div>
 

@@ -27,7 +27,7 @@ export function SellerTrustSection() {
   const ringProgress = useTransform(scrollYProgress, [0.15, 0.55], [0, 0.964])
 
   return (
-    <SectionShell id="trust" ghostWord="TRUST" sectionRef={ref}>
+    <SectionShell id="trust" drift="right" ghostWord="TRUST" sectionRef={ref}>
       {/* Opener-right metadata — control-room corner annotation (lg+) */}
       <div aria-hidden className="hidden lg:block absolute right-14 top-32 pointer-events-none">
         <MetaCluster

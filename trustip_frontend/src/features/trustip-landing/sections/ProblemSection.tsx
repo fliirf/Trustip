@@ -19,7 +19,7 @@ export function ProblemSection() {
   const opacity = useTransform(scrollYProgress, [0, 0.15, 0.6, 0.85], [0, 1, 1, 0])
 
   return (
-    <SectionShell id="problem" ghostWord="RISK" sectionRef={ref}>
+    <SectionShell id="problem" drift="right" ghostWord="RISK" sectionRef={ref}>
       {/* Ambient disruption layer — unstable field behind the editorial content */}
       <SignalField className="absolute inset-0" />
 

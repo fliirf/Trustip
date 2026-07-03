@@ -37,7 +37,7 @@ export function EscrowProofSection() {
   const dotY = useTransform(dotRad, (r) => 50 + 38 * Math.sin(r))
 
   return (
-    <SectionShell id="escrow" ghostWord="PROOF" sectionRef={ref}>
+    <SectionShell id="escrow" drift="left" ghostWord="PROOF" sectionRef={ref}>
       <div className="px-5 md:px-10 mb-10 md:mb-16 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"

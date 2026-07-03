@@ -15,7 +15,7 @@ export function PayoutRouteSection() {
   const displayed = preview ?? active
 
   return (
-    <SectionShell id="payout" ghostWord="DANA">
+    <SectionShell id="payout" drift="left" ghostWord="DANA">
       <div className="px-5 md:px-10 mb-10 md:mb-14 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"

@@ -41,7 +41,7 @@ export function SocialCommerceSection() {
   const routeDensity = useTransform(scrollYProgress, [0.2, 0.55], [0, 1])
 
   return (
-    <SectionShell id="commerce" ghostWord="SOCIAL">
+    <SectionShell id="commerce" drift="left" ghostWord="SOCIAL">
       <div className="px-5 md:px-10 mb-10 md:mb-16 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"
