@@ -39,7 +39,7 @@ export function ProtectedCheckoutSection() {
     <section
       ref={sectionRef}
       id="checkout"
-      className="relative w-full overflow-hidden border-t border-[rgba(237,234,227,0.08)] py-24 md:py-36 lg:pl-32"
+      className="relative w-full overflow-hidden border-t border-[rgba(237,234,227,0.08)] py-16 md:py-24 lg:pl-32"
       style={{ scrollMarginTop: "60px" }}
     >
       {/* Cropped ghost numeral — right edge */}
@@ -76,8 +76,26 @@ export function ProtectedCheckoutSection() {
           />
       </div>
 
+      {/* Connector thread — carries the eye from the headline down into the card */}
+      <div aria-hidden className="relative z-10 flex flex-col items-center -mt-2 mb-2">
+        <motion.div
+          className="w-px h-16 md:h-24 origin-top"
+          style={{
+            scaleY: gateProgress,
+            background:
+              "linear-gradient(180deg, rgba(237,234,227,0.05) 0%, rgba(255,45,0,0.55) 100%)",
+          }}
+        />
+        <motion.span
+          className="mt-1.5 font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#C6C2B8]/50"
+          style={{ opacity: gateProgress }}
+        >
+          LINK ENTERS THE MACHINE
+        </motion.span>
+      </div>
+
       {/* Sticky checkout card — a passage through layered gates */}
-      <StickyScene height="180vh">
+      <StickyScene height="150vh">
         <div className="relative w-full h-full flex items-center">
           {/* Entry route — the link entering the machine */}
           <div
@@ -315,7 +333,7 @@ export function ProtectedCheckoutSection() {
       </StickyScene>
 
       {/* Order rail — the cinematic protection sequence (all states simulated) */}
-      <div className="relative z-10 px-5 md:px-10 mt-14">
+      <div className="relative z-10 px-5 md:px-10 mt-8 md:mt-10">
         <OrderRail activeIndex={2} />
       </div>
     </section>

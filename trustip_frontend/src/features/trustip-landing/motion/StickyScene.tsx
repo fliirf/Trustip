@@ -16,8 +16,9 @@ export function StickyScene({ children, className = "", height = "200vh" }: Stic
     offset: ["start end", "end end"],
   })
 
-  const opacity = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0, 1, 1, 0])
-  const scale = useTransform(scrollYProgress, [0, 0.2, 0.8, 1], [0.92, 1, 1, 0.95])
+  // Card resolves early and holds late so the pinned zone never reads as a void
+  const opacity = useTransform(scrollYProgress, [0, 0.12, 0.92, 1], [0.15, 1, 1, 0.5])
+  const scale = useTransform(scrollYProgress, [0, 0.12, 0.92, 1], [0.95, 1, 1, 0.97])
 
   return (
     <div ref={ref} style={{ height }} className="relative">
