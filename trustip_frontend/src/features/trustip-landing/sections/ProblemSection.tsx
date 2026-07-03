@@ -68,7 +68,7 @@ export function ProblemSection() {
       </div>
 
       {/* Opener */}
-      <div className="px-5 md:px-10 mb-16 md:mb-28 max-w-3xl">
+      <div className="px-5 md:px-10 mb-10 md:mb-16 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"
           initial={{ opacity: 0, y: 8 }}

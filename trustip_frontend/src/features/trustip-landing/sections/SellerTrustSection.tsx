@@ -32,7 +32,7 @@ export function SellerTrustSection() {
         />
       </div>
 
-      <div className="px-5 md:px-10 mb-12 md:mb-20 max-w-3xl">
+      <div className="px-5 md:px-10 mb-10 md:mb-14 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"
           initial={{ opacity: 0, y: 8 }}
@@ -68,7 +68,7 @@ export function SellerTrustSection() {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          className="relative lg:col-span-5 border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] p-6"
+          className="relative lg:col-span-5 lg:sticky lg:top-[8vh] lg:self-start border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] p-6"
         >
           <span aria-hidden className="absolute top-0 left-0 w-0 h-0 crosshair-tl" />
           <span aria-hidden className="absolute top-0 right-0 w-0 h-0 crosshair-tr" />

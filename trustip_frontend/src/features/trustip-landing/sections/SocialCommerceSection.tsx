@@ -41,7 +41,7 @@ export function SocialCommerceSection() {
 
   return (
     <SectionShell id="commerce" ghostWord="SOCIAL">
-      <div className="px-5 md:px-10 mb-16 md:mb-28 max-w-3xl">
+      <div className="px-5 md:px-10 mb-10 md:mb-16 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"
           initial={{ opacity: 0, y: 8 }}
@@ -71,7 +71,7 @@ export function SocialCommerceSection() {
 
       {/* Convergence composition: platforms → escrow → seller */}
       <div ref={ref} className="relative z-10 px-5 md:px-10">
-        <div className="relative border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] px-5 md:px-10 py-14 md:py-20">
+        <div className="relative border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] px-5 md:px-10 py-12 md:py-16">
           {/* Channel fragments — messy inputs crossing the plate boundary */}
           {FRAGMENTS.map((f, i) => (
             <motion.span

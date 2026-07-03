@@ -30,7 +30,7 @@ export function EscrowProofSection() {
 
   return (
     <SectionShell id="escrow" ghostWord="PROOF" sectionRef={ref}>
-      <div className="px-5 md:px-10 mb-16 md:mb-28 max-w-3xl">
+      <div className="px-5 md:px-10 mb-10 md:mb-16 max-w-3xl">
         <motion.div
           className="flex items-center gap-3 mb-10"
           initial={{ opacity: 0, y: 8 }}
@@ -71,8 +71,8 @@ export function EscrowProofSection() {
 
       {/* Two-column: orbit diagram + proof rail */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 px-5 md:px-10">
-        {/* Left: orbit SVG */}
-        <div className="lg:col-span-6">
+        {/* Left: orbit SVG — pins while the proof rail scrolls past */}
+        <div className="lg:col-span-6 lg:sticky lg:top-[8vh] lg:self-start">
           <PlateFrame className="aspect-square bg-[#0A0A0A] overflow-hidden">
             <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full">
               <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(237,234,227,0.1)" strokeWidth="0.3" />

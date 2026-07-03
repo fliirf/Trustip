@@ -1,8 +1,7 @@
 "use client"
 
-import { type ReactNode } from "react"
-import { motion } from "framer-motion"
-import { EASE } from "../motion/motion-presets"
+import { useRef, type ReactNode } from "react"
+import { motion, useScroll, useTransform } from "framer-motion"
 
 type SectionShellProps = {
   id: string
@@ -14,11 +13,28 @@ type SectionShellProps = {
 }
 
 export function SectionShell({ id, children, className = "", ghostWord, sectionRef }: SectionShellProps) {
+  const localRef = useRef<HTMLElement | null>(null)
+  const { scrollYProgress } = useScroll({
+    target: localRef,
+    offset: ["start end", "end start"],
+  })
+
+  // Multi-layer parallax: ghost word drifts slower than content, content
+  // itself eases upward slightly, so section boundaries read as continuity
+  // rather than hard black cuts.
+  const ghostY = useTransform(scrollYProgress, [0, 1], [80, -80])
+  const ghostOpacity = useTransform(scrollYProgress, [0, 0.25, 0.75, 1], [0, 1, 1, 0.4])
+  const contentY = useTransform(scrollYProgress, [0, 0.3], [28, 0])
+  const contentOpacity = useTransform(scrollYProgress, [0, 0.18], [0.35, 1])
+
   return (
     <section
-      ref={sectionRef}
+      ref={(el) => {
+        localRef.current = el
+        if (sectionRef) sectionRef.current = el
+      }}
       id={id}
-      className={`relative w-full overflow-hidden border-t border-[rgba(237,234,227,0.08)] py-24 md:py-36 lg:pl-32 ${className}`}
+      className={`relative w-full overflow-clip border-t border-[rgba(237,234,227,0.08)] py-16 md:py-24 lg:pl-32 ${className}`}
       style={{ scrollMarginTop: "60px" }}
     >
       {/* Top tick ruler — quiet grid logic along the section boundary */}
@@ -34,10 +50,7 @@ export function SectionShell({ id, children, className = "", ghostWord, sectionR
       {ghostWord && (
         <motion.div
           className="absolute pointer-events-none z-0 select-none"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, ease: EASE }}
+          style={{ y: ghostY, opacity: ghostOpacity }}
           aria-hidden
         >
           <span
@@ -48,9 +61,9 @@ export function SectionShell({ id, children, className = "", ghostWord, sectionR
           </span>
         </motion.div>
       )}
-      <div className="relative z-10">
+      <motion.div style={{ y: contentY, opacity: contentOpacity }} className="relative z-10">
         {children}
-      </div>
+      </motion.div>
 
       {/* Bottom-right coordinate punctuation */}
       <span
