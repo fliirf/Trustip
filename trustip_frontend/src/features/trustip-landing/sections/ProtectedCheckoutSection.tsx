@@ -17,9 +17,12 @@ const GATE_STAGES = [
   { id: "escrow", label: "SOROBAN ESCROW CONTRACT" },
 ] as const
 
+type FlowPhase = "idle" | "connecting" | "connected" | "paying" | "locked"
+
 export function ProtectedCheckoutSection() {
   const [wallet, setWallet] = useState<string | null>(null)
-  const [step, setStep] = useState(0)
+  const [phase, setPhase] = useState<FlowPhase>("idle")
+  const [railIndex, setRailIndex] = useState(2)
   const reduce = useReducedMotion()
   const sectionRef = useRef<HTMLElement>(null)
   const { scrollYProgress: gateProgress } = useScroll({
@@ -27,12 +30,31 @@ export function ProtectedCheckoutSection() {
     offset: ["start 0.8", "start 0.15"],
   })
 
+  // Mock state machine — front-end only, no wallet SDK, no network.
+  const step = phase === "idle" ? 0 : phase === "connecting" || phase === "connected" ? 1 : 2
+  const connected = phase === "connected" || phase === "paying" || phase === "locked"
+
   const connectMock = (id: string) => {
     console.warn("[MOCK] Wallet connect — no real wallet SDK")
     setWallet(id)
-    setTimeout(() => setStep(1), 500)
-    setTimeout(() => setStep(2), 1200)
-    setTimeout(() => setStep(3), 2000)
+    setPhase("connecting")
+    setTimeout(() => setPhase("connected"), 700)
+  }
+
+  const payMock = () => {
+    if (phase !== "connected") return
+    console.warn("[MOCK] Payment preview — no real transaction")
+    setPhase("paying")
+    setTimeout(() => {
+      setPhase("locked")
+      setRailIndex(1)
+    }, 1100)
+  }
+
+  const resetMock = () => {
+    setWallet(null)
+    setPhase("idle")
+    setRailIndex(2)
   }
 
   return (
@@ -191,12 +213,13 @@ export function ProtectedCheckoutSection() {
                 <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-2">
                   SELLER
                 </div>
-                <div className="flex items-baseline gap-3 flex-wrap">
+                <div className="group flex items-baseline gap-3 flex-wrap cursor-default" data-cursor="TRUST">
                   <span className="font-display font-medium text-[clamp(24px,4vw,52px)] text-[#EDEAE3] leading-[1.04]">
                     {MOCK_ORDER.seller}
                   </span>
-                  <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
+                  <span className="relative font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] transition-colors duration-300 group-hover:text-[#FF2D00]">
                     TRUST PROFILE · {MOCK_ORDER.sellerRating} ★ (DEMO)
+                    <span className="absolute -bottom-1 left-0 h-px w-0 bg-[#FF2D00] transition-all duration-500 group-hover:w-full" />
                   </span>
                 </div>
                 <p className="mt-3 font-body text-[15px] text-[#C6C2B8] max-w-md">
@@ -278,9 +301,24 @@ export function ProtectedCheckoutSection() {
                       <div className="font-display font-medium text-[15px] text-[#EDEAE3]">
                         {w.name}
                       </div>
-                      <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-                        {w.network}
-                      </div>
+                      <motion.div
+                        key={wallet === w.id ? phase : "net"}
+                        initial={{ opacity: 0, y: 3 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`font-mono-jb text-[9px] uppercase tracking-[0.22em] ${
+                          wallet === w.id && connected
+                            ? "text-[#FF2D00]"
+                            : wallet === w.id && phase === "connecting"
+                              ? "text-[#EDEAE3]/70"
+                              : "text-[#C6C2B8]"
+                        }`}
+                      >
+                        {wallet === w.id
+                          ? connected
+                            ? "● CONNECTED (DEMO)"
+                            : "CONNECTING…"
+                          : w.network}
+                      </motion.div>
                     </button>
                   ))}
                 </div>
@@ -308,23 +346,71 @@ export function ProtectedCheckoutSection() {
                 ))}
               </div>
 
-              {/* Checkout CTA */}
-              <button
-                data-cursor="PAY"
-                disabled={!wallet}
-                className={`group w-full flex items-center justify-between px-6 py-5 border transition-all duration-500 ${
-                  wallet
-                    ? "border-[#FF2D00] hover:bg-[#101010] cursor-pointer"
-                    : "border-[rgba(237,234,227,0.08)] opacity-40 cursor-not-allowed"
-                }`}
+              {/* Checkout CTA — morphs through the mock flow */}
+              <motion.button
+                data-cursor={phase === "connected" ? "PAY" : "OPEN"}
+                disabled={phase !== "connected"}
+                onClick={payMock}
+                animate={{
+                  borderColor:
+                    phase === "locked"
+                      ? "rgba(255,45,0,0.9)"
+                      : connected
+                        ? "rgba(255,45,0,0.8)"
+                        : "rgba(237,234,227,0.08)",
+                  backgroundColor: phase === "locked" ? "rgba(255,45,0,0.06)" : "rgba(0,0,0,0)",
+                  opacity: phase === "idle" ? 0.4 : 1,
+                }}
+                transition={{ duration: 0.5, ease: EASE }}
+                className={`group w-full flex items-center justify-between px-6 py-5 border ${
+                  phase === "connected" ? "hover:bg-[#101010] cursor-pointer shadow-blood" : ""
+                } ${phase === "idle" ? "cursor-not-allowed" : ""}`}
               >
-                <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#EDEAE3]">
-                  {wallet ? "Preview Payment → Escrow Lock (DEMO)" : "Connect wallet to continue"}
-                </span>
+                <motion.span
+                  key={phase}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: EASE }}
+                  className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#EDEAE3]"
+                >
+                  {phase === "idle" && "Connect wallet to continue"}
+                  {phase === "connecting" && "Connecting wallet… (DEMO)"}
+                  {phase === "connected" && `Pay ${MOCK_ORDER.amount} USDC (DEMO)`}
+                  {phase === "paying" && "Signing & locking escrow… (DEMO)"}
+                  {phase === "locked" && "● Escrow locked — funds protected (DEMO)"}
+                </motion.span>
                 <span className="font-mono-jb text-[#FF2D00]">
-                  {MOCK_ORDER.amount} USDC (DEMO) →
+                  {phase === "locked" ? "LOCKED ✓ (SIM)" : `${MOCK_ORDER.amount} USDC (DEMO) →`}
                 </span>
-              </button>
+              </motion.button>
+
+              {/* Simulation controls — appear once the mock escrow locks */}
+              {phase === "locked" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: EASE }}
+                  className="mt-4 flex flex-wrap items-center gap-3"
+                >
+                  <button
+                    data-cursor="STEP"
+                    onClick={() => setRailIndex((i) => Math.min(i + 1, 5))}
+                    className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#EDEAE3] border border-[rgba(237,234,227,0.18)] hover:border-[#FF2D00] px-4 py-2 transition-colors duration-300"
+                  >
+                    Advance order state →
+                  </button>
+                  <button
+                    data-cursor="RESET"
+                    onClick={resetMock}
+                    className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] hover:text-[#EDEAE3] px-2 py-2 transition-colors duration-300"
+                  >
+                    Reset demo
+                  </button>
+                  <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00]/60">
+                    SIMULATION — SCRUB THE RAIL BELOW
+                  </span>
+                </motion.div>
+              )}
               </div>
               </div>
             </div>
@@ -334,7 +420,7 @@ export function ProtectedCheckoutSection() {
 
       {/* Order rail — the cinematic protection sequence (all states simulated) */}
       <div className="relative z-10 px-5 md:px-10 mt-8 md:mt-10">
-        <OrderRail activeIndex={2} />
+        <OrderRail activeIndex={railIndex} onSelect={setRailIndex} />
       </div>
     </section>
   )

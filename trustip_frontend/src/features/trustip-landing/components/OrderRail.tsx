@@ -7,6 +7,8 @@ import { ORDER_RAIL_STATES, ALT_RAIL_STATE } from "../data/landing-content"
 type OrderRailProps = {
   /** Index of the currently active station (0-based). Purely visual demo state. */
   activeIndex?: number
+  /** When provided, stations become scrubbable — clicking one jumps the demo state. */
+  onSelect?: (index: number) => void
   className?: string
 }
 
@@ -16,7 +18,7 @@ type OrderRailProps = {
  * carries a pulsing halo, upcoming states stay ash. Includes the ALT STATE
  * branch row for the refund-review path. All states are simulated.
  */
-export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
+export function OrderRail({ activeIndex = 2, onSelect, className = "" }: OrderRailProps) {
   const reduce = useReducedMotion()
   const count = ORDER_RAIL_STATES.length
   const trailPct = ((activeIndex + 0.5) / count) * 100
@@ -55,7 +57,12 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
               return (
                 <motion.div
                   key={s.id}
-                  className="flex flex-col items-start gap-2"
+                  role={onSelect ? "button" : undefined}
+                  data-cursor={onSelect ? "SET" : undefined}
+                  onClick={onSelect ? () => onSelect(i) : undefined}
+                  className={`group flex flex-col items-start gap-2 transition-transform duration-300 ${
+                    onSelect ? "cursor-pointer hover:-translate-y-1" : ""
+                  }`}
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-15%" }}
@@ -88,9 +95,9 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
                   </span>
                   <div className="pr-3">
                     <div
-                      className={`font-display text-[14px] leading-tight ${
+                      className={`font-display text-[14px] leading-tight transition-colors duration-300 ${
                         active ? "text-[#EDEAE3]" : done ? "text-[#EDEAE3]/70" : "text-[#C6C2B8]/50"
-                      }`}
+                      } ${onSelect ? "group-hover:text-[#EDEAE3]" : ""}`}
                     >
                       {s.label}
                     </div>
