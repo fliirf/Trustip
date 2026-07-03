@@ -51,7 +51,7 @@ export function HeroSection() {
       {/* Mouse-reactive particle field behind the wordmark (desktop, lazy) */}
       {can3D && (
         <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
-          <HeroParticleField />
+          <HeroParticleField progress={scrollYProgress} />
         </div>
       )}
 

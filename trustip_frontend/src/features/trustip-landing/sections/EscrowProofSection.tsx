@@ -82,7 +82,7 @@ export function EscrowProofSection() {
                 The SVG below stays as the fallback and as the cardinal-label layer. */}
             {can3D && (
               <div className="absolute inset-0" aria-hidden>
-                <EscrowOrbit3D />
+                <EscrowOrbit3D progress={scrollYProgress} />
               </div>
             )}
             <svg viewBox="0 0 100 100" className={`absolute inset-0 w-full h-full ${can3D ? "opacity-40" : ""}`}>
