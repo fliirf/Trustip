@@ -14,17 +14,17 @@ export const PRINCIPLES = [
   {
     numeral: "I",
     title: "Trust is not a screenshot.",
-    body: "A chat log, a transfer receipt, a promise in a bio — none of it holds up. Trustip replaces proof-by-screenshot with proof-by-contract.",
+    body: "A chat log, a transfer receipt, a promise in a bio: none of it holds up. Trustip replaces proof by screenshot with proof by contract.",
   },
   {
     numeral: "II",
-    title: "Payment is not proof until the chain confirms.",
-    body: "A signed transaction is not a finished one. Nothing is considered locked until backend and on-chain confirmation agree (DEMO).",
+    title: "Payment is not proof until it clears.",
+    body: "A signed payment is not a finished one. Nothing is locked until the payment is fully confirmed (DEMO).",
   },
   {
     numeral: "III",
     title: "The buyer never marks paid.",
-    body: "There is no ‘I’ve paid’ button in Trustip. Payment status comes from a verified Stellar transaction, never from a click.",
+    body: "There is no ‘I’ve paid’ button in Trustip. Payment is confirmed on Stellar, never by a click.",
   },
   {
     numeral: "IV",
@@ -34,7 +34,7 @@ export const PRINCIPLES = [
   {
     numeral: "V",
     title: "Escrow is the room between strangers.",
-    body: "Buyer and seller never have to trust each other — only the Soroban contract between them.",
+    body: "Buyer and seller never have to trust each other, only the contract that holds the money between them.",
   },
 ] as const
 
@@ -135,14 +135,14 @@ export const PAYOUT_ROUTES: import("@/features/trustip-landing/types").PayoutRou
   {
     id: "xlm",
     label: "XLM Wallet",
-    desc: "Auto-convert USDC → XLM on release. Best for native Stellar users.",
+    desc: "Convert to XLM automatically on payout. Best if you already use Stellar.",
     eta: "INSTANT",
     icon: "✧",
   },
   {
     id: "moneygram",
     label: "MoneyGram Cash-out",
-    desc: "Withdraw cash via MoneyGram Stellar integration. Step-by-step guide included.",
+    desc: "Withdraw as cash through MoneyGram. Step-by-step guide included.",
     eta: "1–3 DAYS",
     icon: "◎",
   },

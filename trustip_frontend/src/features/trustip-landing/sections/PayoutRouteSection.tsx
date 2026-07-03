@@ -29,7 +29,7 @@ export function PayoutRouteSection() {
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-            Seller Payout Routes — Cara Terima Dana
+How sellers get paid
           </span>
         </motion.div>
 
@@ -55,7 +55,7 @@ export function PayoutRouteSection() {
       <div className="relative z-10 px-5 md:px-10 mb-12">
         <PlateFrame status="RELEASE · CONTROLLED (DEMO)" className="bg-[#0A0A0A] p-6 md:p-8">
           <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-6 pr-24 md:pr-44">
-            PAYOUT ROUTE SPLIT — ESCROW → RELEASE → ROUTE
+ESCROW · RELEASE · PAYOUT (DEMO)
           </div>
           <div className="relative h-56 md:h-72 mb-4">
             <svg viewBox="0 0 800 240" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid meet">

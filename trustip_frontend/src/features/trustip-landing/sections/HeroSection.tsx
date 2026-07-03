@@ -62,22 +62,13 @@ export function HeroSection() {
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[1] w-[130vw] h-[130vw] md:w-[100vw] md:h-[100vw] max-w-[1100px] max-h-[1100px]"
       />
 
-      {/* Cropped ghost numeral — section 01, right edge */}
-      <span
-        aria-hidden
-        className="hidden md:block absolute -right-10 top-[14%] z-[1] font-display font-light leading-none text-bone-4 select-none pointer-events-none"
-        style={{ fontSize: "clamp(180px, 26vw, 440px)" }}
-      >
-        01
-      </span>
-
       {/* Top metadata — sparse */}
       <motion.div
         style={{ opacity: metaOpacity }}
         className="relative z-20 flex items-start justify-between px-5 md:px-10 pt-20 md:pt-10 lg:pl-32"
       >
         <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40">
-          [01] — Protected Checkout
+          [01] / Protected Checkout
         </div>
         <div className="hidden md:block font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40 text-right">
           STELLAR NATIVE · PROTOTYPE
@@ -85,23 +76,31 @@ export function HeroSection() {
       </motion.div>
 
       {/* Center wordmark with per-letter parallax */}
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-[60svh] px-5">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-[76svh] px-5">
         <motion.div
           style={{ y: wordY, scale: wordScale }}
           className="relative"
           suppressHydrationWarning
         >
-          <div className="relative flex">
+          <div className="relative flex items-baseline">
             {letters.map((letter, i) => (
               <motion.span
                 key={i}
-                className="font-display font-medium text-[clamp(64px,18vw,280px)] text-[#EDEAE3] leading-none"
+                className="font-display font-medium text-[clamp(56px,15vw,236px)] text-[#EDEAE3] leading-none"
                 style={{ y: letterYs[i], display: "inline-block" }}
                 suppressHydrationWarning
               >
                 {letter}
               </motion.span>
             ))}
+            {/* Logo dot — the orange period, matching the nav + loading wordmark */}
+            <motion.span
+              className="font-display font-medium text-[clamp(56px,15vw,236px)] text-[#FF2D00] leading-none"
+              style={{ y: letterYs[6], display: "inline-block" }}
+              suppressHydrationWarning
+            >
+              .
+            </motion.span>
           </div>
         </motion.div>
 
@@ -114,7 +113,7 @@ export function HeroSection() {
         >
           <KineticWords
             text="Protected checkout for risky social commerce."
-            className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
+            className="font-display font-normal text-[clamp(26px,4.2vw,56px)] text-[#EDEAE3] leading-[1.04] tracking-[-0.02em]"
             delay={0.6}
           />
         </motion.div>
@@ -125,9 +124,9 @@ export function HeroSection() {
           transition={{ delay: 1.2, duration: 1, ease: EASE }}
           className="mt-5 max-w-md text-center font-body text-[clamp(17px,1.4vw,21px)] text-bone-60 leading-[1.55]"
         >
-          A checkout link becomes an{" "}
+          A checkout link becomes a{" "}
           <span className="relative inline-block text-[#EDEAE3]">
-            escrow contract
+            protected payment
             <motion.span
               className="absolute -bottom-0.5 left-0 h-px bg-[#FF2D00]"
               initial={{ width: 0 }}
@@ -135,7 +134,7 @@ export function HeroSection() {
               transition={{ delay: 1.9, duration: 0.7, ease: EASE }}
             />
           </span>
-          . Buyer pays with USDC on Stellar.
+          . The buyer pays in USDC on Stellar.
         </motion.p>
 
         {/* CTA row */}
@@ -146,7 +145,7 @@ export function HeroSection() {
           className="mt-10 md:mt-14 flex flex-col sm:flex-row items-center gap-4"
         >
           <CTAButton label="Open Protected Checkout" targetId="checkout" />
-          <WalletCTAButton label="Preview Wallet Connect" />
+          <WalletCTAButton label="Connect a wallet" />
 
           <button
             data-cursor="OPEN"
@@ -155,7 +154,7 @@ export function HeroSection() {
             }}
             className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40 hover:text-[#EDEAE3] transition-colors duration-300 link-underline"
           >
-            See the problem →
+            See the problem
           </button>
         </motion.div>
       </div>
@@ -202,15 +201,14 @@ export function HeroSection() {
         </div>
       </motion.div>
 
-      {/* Left edge label */}
-      <div className="hidden lg:block absolute left-3 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
-        <span
-          className="font-mono-jb text-[9px] uppercase tracking-[0.4em] text-bone-20"
-          style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
-        >
-          [ PROTOCOL // TRUSTIP — SOCIAL COMMERCE ESCROW ]
-        </span>
-      </div>
+      {/* Orbital bleed — the artifact dissolves into black toward the seam so
+          it is never hard-clipped when Section 02 arrives. Sits above the orbit
+          (z-1) but below content (z-10). */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-0 h-[38vh] z-[2] pointer-events-none"
+        style={{ background: "linear-gradient(to bottom, transparent, #050505 82%)" }}
+      />
     </section>
   )
 }

@@ -43,27 +43,7 @@ export function ProblemSection() {
             <br />
             CHAT DELETED (MOCK)
             <br />
-            LAST SEEN — UNKNOWN
-          </p>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 14, rotate: -2 }}
-          whileInView={{ opacity: 1, y: 0, rotate: -2 }}
-          viewport={{ once: true, margin: "-10%" }}
-          transition={{ duration: 0.8, ease: EASE, delay: 0.5 }}
-          className="absolute top-72 right-32 w-56 border border-[rgba(237,234,227,0.1)] bg-[#0A0A0A]/70 p-4"
-        >
-          <div className="flex items-center justify-between mb-2.5">
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-              ROUTE BROKEN
-            </span>
-            <span className="font-mono-jb text-[8px] text-[#FF2D00]/60">×</span>
-          </div>
-          <p className="font-mono-jb text-[9px] uppercase tracking-[0.16em] leading-[1.7] text-[#C6C2B8]/70">
-            TRANSFER SENT (MOCK)
-            <br />
-            NO ESCROW · NO RECOURSE
+            LAST SEEN / UNKNOWN
           </p>
         </motion.div>
       </div>
@@ -82,14 +62,14 @@ export function ProblemSection() {
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-            The Problem — Social Commerce Has No Protection
+            The Problem
           </span>
         </motion.div>
 
         <KineticWords
           as="p"
           text="Every day, buyers lose money to ghost sellers, fake goods, and disappeared deposits."
-          className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
+          className="font-display font-normal text-[clamp(32px,5.5vw,72px)] text-[#EDEAE3] leading-[0.98] tracking-[-0.025em]"
           />
       </div>
 
@@ -152,7 +132,7 @@ export function ProblemSection() {
       {/* Risk word cloud */}
       <div className="relative z-10 px-5 md:px-10">
         <div className="flex flex-wrap gap-3">
-          {RISK_WORDS.map((word, i) => (
+          {RISK_WORDS.slice(0, 8).map((word, i) => (
             <motion.span
               key={word}
               initial={{ opacity: 0, scale: 0.8 }}

@@ -44,17 +44,25 @@ export function SectionShell({ id, children, className = "", ghostWord, drift, s
         if (sectionRef) sectionRef.current = el
       }}
       id={id}
-      className={`relative w-full overflow-clip border-t border-[rgba(237,234,227,0.08)] py-16 md:py-24 lg:pl-32 ${className}`}
+      className={`relative w-full overflow-clip py-20 md:py-28 lg:pl-32 ${className}`}
       style={{ scrollMarginTop: "60px" }}
     >
-      {/* Top tick ruler — quiet grid logic along the section boundary */}
+      {/* Soft seam — a center-weighted hairline that fades to nothing at both
+          edges, so sections read as continuous rather than hard-cut. Replaces
+          the old full-bleed border + tick ruler double-cut. */}
       <div
         aria-hidden
-        className="absolute top-0 left-0 right-0 h-[6px] pointer-events-none opacity-60"
+        className="absolute top-0 left-0 right-0 h-px pointer-events-none"
         style={{
-          backgroundImage:
-            "repeating-linear-gradient(90deg, rgba(237,234,227,0.10) 0 1px, transparent 1px 80px)",
+          background:
+            "linear-gradient(90deg, transparent, rgba(237,234,227,0.11) 30%, rgba(237,234,227,0.11) 70%, transparent)",
         }}
+      />
+      {/* Top bleed mask — content emerges from black instead of starting at a line. */}
+      <div
+        aria-hidden
+        className="absolute top-0 left-0 right-0 h-24 pointer-events-none z-0"
+        style={{ background: "linear-gradient(to bottom, #050505, transparent)" }}
       />
 
       {/* Focal glow — soft red-orange radial that parallaxes behind the content,

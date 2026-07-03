@@ -51,7 +51,7 @@ export function EscrowProofSection() {
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-            Escrow Proof — Soroban / Stellar (Demo Simulation)
+How funds stay protected
           </span>
         </motion.div>
 
@@ -68,8 +68,8 @@ export function EscrowProofSection() {
           viewport={{ once: true }}
           transition={{ delay: 0.2 }}
         >
-          After backend and on-chain confirmation, USDC locks into a Soroban escrow
-          contract. The orbit closes. These values are demo simulations.
+          Once the payment is confirmed, the funds are locked and held safely until
+          the order arrives. The orbit closes. Everything shown here is a demo.
         </motion.p>
       </div>
 

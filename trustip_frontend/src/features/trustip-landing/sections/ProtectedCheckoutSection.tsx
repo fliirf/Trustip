@@ -87,7 +87,7 @@ export function ProtectedCheckoutSection() {
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-            Protected Checkout — Review & Connect
+            Review and pay
           </span>
         </motion.div>
 
@@ -143,7 +143,7 @@ export function ProtectedCheckoutSection() {
             className="hidden xl:block absolute left-6 top-1/2 -translate-y-1/2 font-mono-jb text-[8px] uppercase tracking-[0.4em] text-[#C6C2B8]/35 pointer-events-none select-none"
             style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
           >
-            [ GATE SEQUENCE — LINK → VERIFY → ESCROW (DEMO) ]
+            [ LINK · VERIFY · PROTECT (DEMO) ]
           </span>
 
           {/* Right gutter — chamber metadata (xl+) */}
@@ -257,7 +257,7 @@ export function ProtectedCheckoutSection() {
               <div className="flex items-center gap-3 border-t border-[rgba(237,234,227,0.08)] pt-7 mb-8">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EDEAE3] shrink-0" />
                 <p className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#C6C2B8]">
-                  Accepted: USDC on Stellar only, via Freighter or xBull — no bank transfer, no QRIS
+                  Accepted: USDC on Stellar, via Freighter or xBull. No bank transfer, no QRIS
                 </p>
               </div>
 
@@ -267,8 +267,8 @@ export function ProtectedCheckoutSection() {
                   PROTECTION (DEMO)
                 </div>
                 <p className="font-body text-[15px] text-[#EDEAE3]/80">
-                  Funds lock in a Soroban escrow contract after on-chain confirmation, and
-                  stay locked until the order is received. Buyer can request review within{" "}
+                  Funds are held safely the moment payment is confirmed, and stay
+                  locked until the order is received. The buyer can request a review within{" "}
                   {MOCK_ORDER.protection}.
                 </p>
               </div>
@@ -373,11 +373,11 @@ export function ProtectedCheckoutSection() {
                   transition={{ duration: 0.35, ease: EASE }}
                   className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#EDEAE3]"
                 >
-                  {phase === "idle" && "Connect wallet to continue"}
-                  {phase === "connecting" && "Connecting wallet… (DEMO)"}
+                  {phase === "idle" && "Connect a wallet to continue"}
+                  {phase === "connecting" && "Connecting… (DEMO)"}
                   {phase === "connected" && `Pay ${MOCK_ORDER.amount} USDC (DEMO)`}
-                  {phase === "paying" && "Signing & locking escrow… (DEMO)"}
-                  {phase === "locked" && "● Escrow locked — funds protected (DEMO)"}
+                  {phase === "paying" && "Confirming payment… (DEMO)"}
+                  {phase === "locked" && "● Funds protected (DEMO)"}
                 </motion.span>
                 <span className="font-mono-jb text-[#FF2D00]">
                   {phase === "locked" ? "LOCKED ✓ (SIM)" : `${MOCK_ORDER.amount} USDC (DEMO) →`}
@@ -397,7 +397,7 @@ export function ProtectedCheckoutSection() {
                     onClick={() => setRailIndex((i) => Math.min(i + 1, 5))}
                     className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#EDEAE3] border border-[rgba(237,234,227,0.18)] hover:border-[#FF2D00] px-4 py-2 transition-colors duration-300"
                   >
-                    Advance order state →
+                    Advance order
                   </button>
                   <button
                     data-cursor="RESET"
@@ -407,7 +407,7 @@ export function ProtectedCheckoutSection() {
                     Reset demo
                   </button>
                   <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00]/60">
-                    SIMULATION — SCRUB THE RAIL BELOW
+                    DEMO · DRAG THE TIMELINE BELOW
                   </span>
                 </motion.div>
               )}

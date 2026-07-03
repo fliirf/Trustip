@@ -53,13 +53,13 @@ export function SellerTrustSection() {
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-            Seller Trust Profile — Reputation & Dispute Safety
+A seller's track record
           </span>
         </motion.div>
 
         <KineticWords
           as="p"
-          text="A living trust archive."
+          text="Every order leaves a mark."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
           />
       </div>
@@ -194,7 +194,7 @@ export function SellerTrustSection() {
                   {ev.note}
                 </span>
                 <span className="link-underline font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40 transition-colors duration-300 hover:text-[#EDEAE3]">
-                  INSPECT →
+                  VIEW
                 </span>
               </div>
             </motion.div>

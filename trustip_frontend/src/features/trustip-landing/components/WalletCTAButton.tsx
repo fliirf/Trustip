@@ -10,7 +10,7 @@ type WalletCTAButtonProps = {
   onPreview?: () => void
 }
 
-export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "primary", onPreview }: WalletCTAButtonProps) {
+export function WalletCTAButton({ label = "Connect a wallet", variant = "primary", onPreview }: WalletCTAButtonProps) {
   const [preview, setPreview] = useState(false)
 
   const handleClick = () => {
@@ -47,10 +47,10 @@ export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "p
         </span>
         <span className="flex flex-col items-start leading-tight">
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#EDEAE3]">
-            {preview ? "✓ Wallet Preview Active" : label}
+            {preview ? "✓ Demo wallet connected" : label}
           </span>
           <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/70">
-            {preview ? "Prototype · no real wallet" : "Freighter · xBull · Stellar"}
+            {preview ? "Preview only · no real wallet" : "Freighter · xBull · Stellar"}
           </span>
         </span>
         <AnimatePresence>

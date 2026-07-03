@@ -55,13 +55,13 @@ export function SocialCommerceSection() {
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-            Social Commerce — Where Trustip Lives
+Where Trustip lives
           </span>
         </motion.div>
 
         <KineticWords
           as="p"
-          text="Every social checkout link routes through the same escrow layer."
+          text="Every social checkout link routes through the same protection."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
           />
       </div>
@@ -193,8 +193,8 @@ export function SocialCommerceSection() {
               Trustip Escrow Layer
             </div>
             <p className="mt-2 max-w-sm text-center font-body text-[14px] text-[#C6C2B8] leading-[1.6]">
-              Instagram, TikTok, or WhatsApp — the checkout link always locks into the
-              same Soroban escrow contract (DEMO).
+              Instagram, TikTok, or WhatsApp: every checkout link is protected the
+              same way (DEMO).
             </p>
           </motion.div>
 

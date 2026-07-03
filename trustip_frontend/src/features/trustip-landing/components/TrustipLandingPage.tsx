@@ -10,7 +10,7 @@ import { BackgroundSystem } from "@/components/void/background-system"
 import { RouteThread } from "../motion/RouteThread"
 import { PrototypeBadge } from "./PrototypeBadge"
 import { SectionMarquee } from "./SectionMarquee"
-import { RISK_WORDS, PROOF_MARQUEE_ITEMS } from "../data/landing-content"
+import { RISK_WORDS } from "../data/landing-content"
 import { LandingNav } from "./LandingNav"
 import { HeroSection } from "../sections/HeroSection"
 import { ProblemSection } from "../sections/ProblemSection"
@@ -91,7 +91,6 @@ export function TrustipLandingPage() {
           <SectionMarquee items={RISK_WORDS} reverse />
           <ProtectedCheckoutSection />
           <EscrowProofSection />
-          <SectionMarquee items={PROOF_MARQUEE_ITEMS} />
           <ManifestoSection />
           <SocialCommerceSection />
           <SellerTrustSection />
