@@ -205,7 +205,7 @@ export function PayoutRouteSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: i * 0.1, duration: 0.7, ease: EASE }}
-            className={`relative text-left border p-6 transition-all duration-500 ${
+            className={`group card-hover relative text-left border p-6 transition-all duration-500 ${
               displayed === route.id
                 ? "border-[#FF2D00] bg-[#0A0A0A]"
                 : "border-[rgba(237,234,227,0.08)] hover:border-[#EDEAE3]/30 bg-[#0A0A0A]"
@@ -223,7 +223,7 @@ export function PayoutRouteSection() {
             </div>
             <div className="flex items-center gap-3 mb-3">
               <span
-                className={`text-[26px] leading-none transition-colors duration-500 ${
+                className={`text-[26px] leading-none transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 ${
                   displayed === route.id ? "text-[#FF2D00]" : "text-[#EDEAE3]/30"
                 }`}
                 aria-hidden

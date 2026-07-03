@@ -153,7 +153,7 @@ export function HeroSection() {
             onClick={() => {
               document.getElementById("problem")?.scrollIntoView({ behavior: "smooth" })
             }}
-            className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40 hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline"
+            className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40 hover:text-[#EDEAE3] transition-colors duration-300 link-underline"
           >
             See the problem →
           </button>

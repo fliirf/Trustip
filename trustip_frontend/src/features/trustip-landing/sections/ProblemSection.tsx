@@ -99,7 +99,7 @@ export function ProblemSection() {
           {SOCIAL_RISK_EXAMPLES.map((risk, i) => (
             <motion.div
               key={i}
-              className="relative flex-shrink-0 w-[320px] md:w-[400px] border border-[rgba(237,234,227,0.08)] border-t-transparent bg-[#0A0A0A] p-6 overflow-hidden"
+              className="card-hover relative flex-shrink-0 w-[320px] md:w-[400px] border border-[rgba(237,234,227,0.08)] border-t-transparent bg-[#0A0A0A] p-6 overflow-hidden"
               initial={{ opacity: 0, y: 20, rotate: i % 2 === 0 ? -1 : 1 }}
               whileInView={{ opacity: 1, y: 0, rotate: i % 2 === 0 ? -1 : 1 }}
               viewport={{ once: true }}

@@ -167,7 +167,7 @@ export function SellerTrustSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-10%" }}
               transition={{ duration: 0.6, ease: EASE, delay: i * 0.1 }}
-              className="relative border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] p-5"
+              className="card-hover relative border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] p-5"
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00]">
@@ -193,7 +193,7 @@ export function SellerTrustSection() {
                 <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50">
                   {ev.note}
                 </span>
-                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40">
+                <span className="link-underline font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40 transition-colors duration-300 hover:text-[#EDEAE3]">
                   INSPECT →
                 </span>
               </div>

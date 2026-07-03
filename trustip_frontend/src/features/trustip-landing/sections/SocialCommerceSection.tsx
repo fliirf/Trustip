@@ -142,7 +142,7 @@ export function SocialCommerceSection() {
                 whileInView={{ opacity: 1, y: i === 1 ? -6 : 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1, duration: 0.7, ease: EASE }}
-                className={`flex-1 border border-[rgba(237,234,227,0.08)] bg-[#050505] p-5 ${
+                className={`card-hover flex-1 border border-[rgba(237,234,227,0.08)] bg-[#050505] p-5 ${
                   i === 1 ? "sm:shadow-[0_12px_28px_rgba(0,0,0,0.4)] sm:z-10" : ""
                 }`}
               >

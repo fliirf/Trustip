@@ -260,6 +260,51 @@
     box-shadow: 0 0 10px rgba(255, 45, 0, 0.45), 0 0 32px rgba(255, 45, 0, 0.18);
   }
 
+  /* Card hover — lift + border glow + accent underline reveal */
+  .card-hover {
+    position: relative;
+    transition:
+      transform 0.45s var(--ease-void),
+      border-color 0.45s var(--ease-void),
+      box-shadow 0.45s var(--ease-void);
+  }
+  .card-hover:hover {
+    transform: translateY(-4px);
+    border-color: rgba(255, 45, 0, 0.45);
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 45, 0, 0.08);
+  }
+  .card-hover::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -1px;
+    height: 1px;
+    width: 0%;
+    background: var(--color-void-blood);
+    transition: width 0.5s var(--ease-void);
+  }
+  .card-hover:hover::after {
+    width: 100%;
+  }
+
+  /* Animated label underline */
+  .link-underline {
+    position: relative;
+  }
+  .link-underline::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    height: 1px;
+    width: 0%;
+    background: var(--color-void-blood);
+    transition: width 0.4s var(--ease-void);
+  }
+  .link-underline:hover::after {
+    width: 100%;
+  }
+
   /* Marquee keyframes */
   @keyframes void-marquee {
     0% { transform: translateX(0); }
