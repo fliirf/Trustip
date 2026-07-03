@@ -3,6 +3,7 @@
 import { useRef, useState } from "react"
 import { motion, useReducedMotion, useScroll } from "framer-motion"
 import { StickyScene } from "../motion/StickyScene"
+import { KineticWords } from "../motion/KineticWords"
 import { RouteGate } from "../motion/RouteGate"
 import { WalletCTAButton } from "../components/WalletCTAButton"
 import { OrderRail } from "../components/OrderRail"
@@ -59,24 +60,20 @@ export function ProtectedCheckoutSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [03]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             Protected Checkout — Review & Connect
           </span>
         </motion.div>
 
-        <motion.p
+        <KineticWords
+          as="p"
+          text="A protected link is not a normal checkout."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          A protected link is not a normal checkout.
-        </motion.p>
+          />
       </div>
 
       {/* Sticky checkout card — a passage through layered gates */}
@@ -103,7 +100,7 @@ export function ProtectedCheckoutSection() {
           {/* Left gutter — vertical gate label (xl+) */}
           <span
             aria-hidden
-            className="hidden xl:block absolute left-6 top-1/2 -translate-y-1/2 font-mono-jb text-[8px] uppercase tracking-[0.4em] text-[#B9B5AB]/35 pointer-events-none select-none"
+            className="hidden xl:block absolute left-6 top-1/2 -translate-y-1/2 font-mono-jb text-[8px] uppercase tracking-[0.4em] text-[#C6C2B8]/35 pointer-events-none select-none"
             style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
           >
             [ GATE SEQUENCE — LINK → VERIFY → ESCROW (DEMO) ]
@@ -142,7 +139,7 @@ export function ProtectedCheckoutSection() {
             {/* Card header */}
             <div className="flex items-center justify-between border-b border-[rgba(237,234,227,0.08)] px-5 md:px-7 py-4">
               <div className="flex items-center gap-3">
-                <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                   [ORDER {MOCK_ORDER.code}]
                 </span>
                 <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#FF2D00] border border-[#FF2D00]/30 px-2 py-0.5">
@@ -158,7 +155,7 @@ export function ProtectedCheckoutSection() {
             {/* Link → verify → escrow staged passage */}
             <div className="border-b border-[rgba(237,234,227,0.08)]">
               <RouteGate stages={GATE_STAGES} progress={gateProgress} />
-              <div className="px-5 md:px-7 pb-3 -mt-1 font-mono-jb text-[9px] text-[#B9B5AB]/50 truncate">
+              <div className="px-5 md:px-7 pb-3 -mt-1 font-mono-jb text-[9px] text-[#C6C2B8]/50 truncate">
                 trustip.link/{MOCK_ORDER.seller.replace("@", "")}/{MOCK_ORDER.code}
               </div>
             </div>
@@ -173,18 +170,18 @@ export function ProtectedCheckoutSection() {
                 whileInView="visible"
                 viewport={{ once: true }}
               >
-                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-2">
+                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-2">
                   SELLER
                 </div>
                 <div className="flex items-baseline gap-3 flex-wrap">
                   <span className="font-display font-medium text-[clamp(24px,4vw,52px)] text-[#EDEAE3] leading-[1.04]">
                     {MOCK_ORDER.seller}
                   </span>
-                  <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                  <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                     TRUST PROFILE · {MOCK_ORDER.sellerRating} ★ (DEMO)
                   </span>
                 </div>
-                <p className="mt-3 font-body text-[15px] text-[#B9B5AB] max-w-md">
+                <p className="mt-3 font-body text-[15px] text-[#C6C2B8] max-w-md">
                   {MOCK_ORDER.sellerTx} protected transactions completed. Refund rate 1.8%.
                 </p>
               </motion.div>
@@ -192,18 +189,18 @@ export function ProtectedCheckoutSection() {
               {/* Item + price grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8 border-t border-[rgba(237,234,227,0.08)] pt-7">
                 <motion.div variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}>
-                  <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-2">
+                  <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-2">
                     ITEM
                   </div>
                   <div className="font-display font-normal text-[clamp(17px,1.4vw,21px)] text-[#EDEAE3]">
                     {MOCK_ORDER.item}
                   </div>
-                  <div className="font-body text-[15px] text-[#B9B5AB] mt-1">
+                  <div className="font-body text-[15px] text-[#C6C2B8] mt-1">
                     {MOCK_ORDER.size}
                   </div>
                 </motion.div>
                 <motion.div variants={fadeUp} initial="hidden" whileInView="visible" viewport={{ once: true }}>
-                  <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-2">
+                  <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-2">
                     PRICE (DEMO)
                   </div>
                   <div className="font-display font-medium text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92]">
@@ -218,14 +215,14 @@ export function ProtectedCheckoutSection() {
               {/* USDC payment requirement */}
               <div className="flex items-center gap-3 border-t border-[rgba(237,234,227,0.08)] pt-7 mb-8">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#EDEAE3] shrink-0" />
-                <p className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#B9B5AB]">
+                <p className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#C6C2B8]">
                   Accepted: USDC on Stellar only, via Freighter or xBull — no bank transfer, no QRIS
                 </p>
               </div>
 
               {/* Protection terms */}
               <div className="border-t border-[rgba(237,234,227,0.08)] pt-7 mb-8">
-                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-3">
+                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-3">
                   PROTECTION (DEMO)
                 </div>
                 <p className="font-body text-[15px] text-[#EDEAE3]/80">
@@ -237,7 +234,7 @@ export function ProtectedCheckoutSection() {
 
               {/* Mock wallet connect */}
               <div className="mb-8">
-                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-3">
+                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-3">
                   CONNECT WALLET (DEMO)
                 </div>
                 <div className="grid grid-cols-3 gap-3">
@@ -254,7 +251,7 @@ export function ProtectedCheckoutSection() {
                     >
                       <span
                         className={`grid place-items-center w-6 h-6 border text-[11px] leading-none transition-colors duration-300 ${
-                          wallet === w.id ? "border-[#FF2D00] text-[#FF2D00]" : "border-[#B9B5AB]/30 text-[#B9B5AB] group-hover:border-[#B9B5AB]/60"
+                          wallet === w.id ? "border-[#FF2D00] text-[#FF2D00]" : "border-[#C6C2B8]/30 text-[#C6C2B8] group-hover:border-[#C6C2B8]/60"
                         }`}
                         aria-hidden
                       >
@@ -263,7 +260,7 @@ export function ProtectedCheckoutSection() {
                       <div className="font-display font-medium text-[15px] text-[#EDEAE3]">
                         {w.name}
                       </div>
-                      <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                      <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                         {w.network}
                       </div>
                     </button>
@@ -280,7 +277,7 @@ export function ProtectedCheckoutSection() {
                   <span
                     key={label}
                     className={`flex items-center gap-1.5 transition-colors duration-500 ${
-                      step >= i ? "text-[#FF2D00]" : "text-[#B9B5AB]/40"
+                      step >= i ? "text-[#FF2D00]" : "text-[#C6C2B8]/40"
                     }`}
                   >
                     <span

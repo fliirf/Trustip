@@ -65,12 +65,12 @@ export function RouteGate({ stages, progress, className = "" }: RouteGateProps) 
             )}
             <div
               className={`flex-1 flex items-center gap-2 px-5 md:px-7 py-3 transition-colors duration-500 ${
-                armed ? "text-[#FF2D00]" : "text-[#B9B5AB]"
+                armed ? "text-[#FF2D00]" : "text-[#C6C2B8]"
               }`}
             >
               <span
                 className={`w-1.5 h-1.5 rounded-full shrink-0 transition-colors duration-500 ${
-                  armed ? "bg-[#FF2D00]" : "bg-[rgba(185,181,171,0.4)]"
+                  armed ? "bg-[#FF2D00]" : "bg-[rgba(198,194,184,0.4)]"
                 }`}
               />
               <span className="truncate">{stage.label}</span>

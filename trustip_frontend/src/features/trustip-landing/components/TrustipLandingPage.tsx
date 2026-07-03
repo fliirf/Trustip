@@ -77,7 +77,7 @@ export function TrustipLandingPage() {
                 <div className="font-display font-medium text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92]">
                   TRUSTIP<span className="text-[#FF2D00]">.</span>
                 </div>
-                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                   ● PROTOTYPE / DEMO
                 </div>
               </motion.div>

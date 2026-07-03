@@ -80,7 +80,7 @@ export function SectionShell({ id, children, className = "", ghostWord, sectionR
       {/* Bottom-right coordinate punctuation */}
       <span
         aria-hidden
-        className="hidden lg:block absolute bottom-5 right-12 font-mono-jb text-[8px] uppercase tracking-[0.4em] text-[#B9B5AB]/30 pointer-events-none select-none"
+        className="hidden lg:block absolute bottom-5 right-12 font-mono-jb text-[8px] uppercase tracking-[0.4em] text-[#C6C2B8]/30 pointer-events-none select-none"
       >
         GRID · {id}
       </span>

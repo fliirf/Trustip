@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { motion, useReducedMotion } from "framer-motion"
+import { KineticWords } from "../motion/KineticWords"
 import { SectionShell } from "../components/SectionShell"
 import { PlateFrame } from "../components/PlateFrame"
 import { PAYOUT_ROUTES } from "../data/landing-content"
@@ -23,26 +24,22 @@ export function PayoutRouteSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [08]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             Seller Payout Routes — Cara Terima Dana
           </span>
         </motion.div>
 
-        <motion.p
+        <KineticWords
+          as="p"
+          text="Three quiet routes to cash."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          Three quiet routes to cash.
-        </motion.p>
+          />
         <motion.p
-          className="mt-6 font-body text-[clamp(17px,1.4vw,21px)] text-[#B9B5AB] max-w-xl leading-[1.55]"
+          className="mt-6 font-body text-[clamp(17px,1.4vw,21px)] text-[#C6C2B8] max-w-xl leading-[1.55]"
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
@@ -57,7 +54,7 @@ export function PayoutRouteSection() {
       {/* Route-split diagram */}
       <div className="relative z-10 px-5 md:px-10 mb-12">
         <PlateFrame status="RELEASE · CONTROLLED (DEMO)" className="bg-[#0A0A0A] p-6 md:p-8">
-          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-6 pr-24 md:pr-44">
+          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-6 pr-24 md:pr-44">
             PAYOUT ROUTE SPLIT — ESCROW → RELEASE → ROUTE
           </div>
           <div className="relative h-56 md:h-72 mb-4">
@@ -69,8 +66,8 @@ export function PayoutRouteSection() {
               {[60, 180].map((my) => (
                 <line key={`my-${my}`} x1="20" y1={my} x2="780" y2={my} stroke="rgba(237,234,227,0.035)" strokeWidth="1" strokeDasharray="2 6" />
               ))}
-              <text x="24" y="26" fill="rgba(185,181,171,0.35)" fontFamily="JetBrains Mono" fontSize="7" letterSpacing="0.2em">GRID · P-08</text>
-              <text x="776" y="234" textAnchor="end" fill="rgba(185,181,171,0.35)" fontFamily="JetBrains Mono" fontSize="7" letterSpacing="0.2em">TOPOLOGY (DEMO)</text>
+              <text x="24" y="26" fill="rgba(198,194,184,0.35)" fontFamily="JetBrains Mono" fontSize="7" letterSpacing="0.2em">GRID · P-08</text>
+              <text x="776" y="234" textAnchor="end" fill="rgba(198,194,184,0.35)" fontFamily="JetBrains Mono" fontSize="7" letterSpacing="0.2em">TOPOLOGY (DEMO)</text>
 
               {/* Trunk: escrow → release */}
               <line x1="80" y1="120" x2="300" y2="120" stroke="rgba(237,234,227,0.08)" strokeWidth="1.5" />
@@ -111,7 +108,7 @@ export function PayoutRouteSection() {
                       x="500"
                       y={(120 + destY) / 2 - 8}
                       textAnchor="middle"
-                      fill={isActive ? "rgba(255,45,0,0.85)" : "rgba(185,181,171,0.4)"}
+                      fill={isActive ? "rgba(255,45,0,0.85)" : "rgba(198,194,184,0.4)"}
                       fontFamily="JetBrains Mono"
                       fontSize="7"
                       letterSpacing="0.18em"
@@ -132,13 +129,13 @@ export function PayoutRouteSection() {
                       cx="708"
                       cy={destY}
                       r="2.5"
-                      fill={isActive ? "#FF2D00" : "rgba(185,181,171,0.4)"}
+                      fill={isActive ? "#FF2D00" : "rgba(198,194,184,0.4)"}
                     />
                     <text
                       x="750"
                       y={destY + 4}
                       textAnchor="middle"
-                      fill={isActive ? "#FF2D00" : "#B9B5AB"}
+                      fill={isActive ? "#FF2D00" : "#C6C2B8"}
                       fontFamily="JetBrains Mono"
                       fontSize="8"
                       letterSpacing="0.14em"
@@ -185,10 +182,10 @@ export function PayoutRouteSection() {
 
           {/* Map legend strip */}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[rgba(237,234,227,0.06)] pt-3">
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/50">
+            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50">
               SPLIT · PAYOUT — ROUTES 3 · USDC / XLM / MONEYGRAM
             </span>
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/50">
+            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50">
               RELEASE AFTER CONFIRMATION (DEMO) · NO BANK TRANSFER
             </span>
           </div>
@@ -215,7 +212,7 @@ export function PayoutRouteSection() {
             }`}
           >
             <div className="flex items-center justify-between mb-4">
-              <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+              <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                 ROUTE · 00{i + 1}
               </span>
               <span
@@ -240,7 +237,7 @@ export function PayoutRouteSection() {
             <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#FF2D00] mb-4">
               ETA · {route.eta}
             </div>
-            <p className="font-body text-[15px] text-[#B9B5AB]">{route.desc}</p>
+            <p className="font-body text-[15px] text-[#C6C2B8]">{route.desc}</p>
           </motion.button>
         ))}
       </div>
@@ -259,7 +256,7 @@ export function PayoutRouteSection() {
             <span className="text-[#EDEAE3]">after the order is confirmed</span> or after
             review resolution.
           </p>
-          <p className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mt-3">
+          <p className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mt-3">
             [ NOTE — USDC / XLM / MONEYGRAM ONLY · NO BANK TRANSFER · NO BINANCE PAY ]
           </p>
         </div>

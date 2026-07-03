@@ -77,7 +77,7 @@ export function FinalCTASection() {
           delay={0.4}
         />
 
-        <p className="font-serif text-[clamp(17px,1.4vw,21px)] text-[#B9B5AB] mt-8 max-w-xl italic">
+        <p className="font-serif text-[clamp(17px,1.4vw,21px)] text-[#C6C2B8] mt-8 max-w-xl italic">
           A protected checkout layer for social commerce — silent, serious, precise.
         </p>
 
@@ -89,7 +89,7 @@ export function FinalCTASection() {
           <button
             data-cursor="OPEN"
             onClick={() => document.getElementById("hero")?.scrollIntoView({ behavior: "smooth" })}
-            className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline self-center px-4"
+            className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline self-center px-4"
           >
             ↑ Back to top
           </button>
@@ -99,7 +99,7 @@ export function FinalCTASection() {
             <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00] border border-[#FF2D00]/30 px-2.5 py-1.5">
               ▣ TRANSMISSION COMPLETE
             </span>
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#B9B5AB]/40">
+            <span className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#C6C2B8]/40">
               09 / 09 · PROTOTYPE
             </span>
           </div>
@@ -108,44 +108,44 @@ export function FinalCTASection() {
         {/* Footer */}
         <div className="mt-24 grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-0 border-t border-[rgba(237,234,227,0.08)] pt-10">
           <div className="md:pr-10">
-            <div className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#B9B5AB]/35 mb-4">
+            <div className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#C6C2B8]/35 mb-4">
               F-01
             </div>
-            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-3">
+            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-3">
               PROTOCOL
             </div>
             <div className="font-display font-medium text-[15px] text-[#EDEAE3] mb-1">
               Trustip
             </div>
-            <div className="font-body text-[12px] text-[#B9B5AB]">
+            <div className="font-body text-[12px] text-[#C6C2B8]">
               Protected checkout layer for social commerce. Stellar-native USDC escrow via Soroban.
             </div>
           </div>
           <div className="md:border-l md:border-[rgba(237,234,227,0.06)] md:px-10">
-            <div className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#B9B5AB]/35 mb-4">
+            <div className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#C6C2B8]/35 mb-4">
               F-02
             </div>
-            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-3">
+            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-3">
               CHANNELS
             </div>
             <ul className="space-y-1.5">
               {["Instagram", "TikTok", "WhatsApp", "Link-in-bio"].map((c) => (
-                <li key={c} className="font-body text-[12px] text-[#B9B5AB] hover:text-[#EDEAE3] transition-colors">
+                <li key={c} className="font-body text-[12px] text-[#C6C2B8] hover:text-[#EDEAE3] transition-colors">
                   {c}
                 </li>
               ))}
             </ul>
           </div>
           <div className="md:border-l md:border-[rgba(237,234,227,0.06)] md:pl-10">
-            <div className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#B9B5AB]/35 mb-4">
+            <div className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#C6C2B8]/35 mb-4">
               F-03
             </div>
-            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-3">
+            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-3">
               STACK
             </div>
             <ul className="space-y-1.5">
               {["Stellar Network", "USDC", "Soroban Smart Contracts", "Freighter · xBull"].map((s) => (
-                <li key={s} className="font-body text-[12px] text-[#B9B5AB]">
+                <li key={s} className="font-body text-[12px] text-[#C6C2B8]">
                   {s}
                 </li>
               ))}

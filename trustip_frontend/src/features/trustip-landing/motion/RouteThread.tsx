@@ -20,7 +20,7 @@ export function RouteThread() {
       className="hidden lg:flex fixed right-6 top-0 bottom-0 z-40 flex-col items-center pointer-events-none py-8"
     >
       <span
-        className="font-mono-jb text-[9px] uppercase tracking-[0.4em] text-[#B9B5AB]/40 mb-4"
+        className="font-mono-jb text-[9px] uppercase tracking-[0.4em] text-[#C6C2B8]/40 mb-4"
         style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
       >
         ROUTE
@@ -39,7 +39,7 @@ export function RouteThread() {
         </motion.div>
       </div>
 
-      <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]/40 mt-4">
+      <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]/40 mt-4">
         ●
       </span>
     </div>

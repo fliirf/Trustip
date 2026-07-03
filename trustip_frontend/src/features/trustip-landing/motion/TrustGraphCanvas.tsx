@@ -96,7 +96,7 @@ export function TrustGraphCanvas({ className = "", progress }: TrustGraphCanvasP
               cx={sat.x}
               cy={sat.y}
               r={lit ? "1.1" : "0.8"}
-              fill={lit ? "#FF2D00" : "rgba(185,181,171,0.7)"}
+              fill={lit ? "#FF2D00" : "rgba(198,194,184,0.7)"}
             />
           </motion.g>
         )

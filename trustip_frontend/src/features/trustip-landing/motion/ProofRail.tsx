@@ -22,7 +22,7 @@ export function ProofRail({ items, className = "" }: ProofRailProps) {
           transition={{ duration: 0.5, ease: EASE, delay: i * 0.06 }}
           className="flex items-center justify-between px-5 py-3 border-b border-[rgba(237,234,227,0.06)] last:border-b-0"
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#C6C2B8]">
             {item.label}
           </span>
           {item.mono ? (

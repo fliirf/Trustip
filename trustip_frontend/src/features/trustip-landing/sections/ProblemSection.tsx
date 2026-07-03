@@ -4,6 +4,7 @@ import { useRef } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { VelocityScrollBand } from "../motion/VelocityScrollBand"
 import { SignalField } from "../motion/SignalField"
+import { KineticWords } from "../motion/KineticWords"
 import { SectionShell } from "../components/SectionShell"
 import { SOCIAL_RISK_EXAMPLES, RISK_WORDS } from "../data/landing-content"
 import { EASE, fadeUp } from "../motion/motion-presets"
@@ -37,7 +38,7 @@ export function ProblemSection() {
             </span>
             <span className="w-1 h-1 rounded-full bg-[#FF2D00]/80 animate-pulse" />
           </div>
-          <p className="font-mono-jb text-[9px] uppercase tracking-[0.16em] leading-[1.7] text-[#B9B5AB]/70">
+          <p className="font-mono-jb text-[9px] uppercase tracking-[0.16em] leading-[1.7] text-[#C6C2B8]/70">
             SELLER OFFLINE · 14D
             <br />
             CHAT DELETED (MOCK)
@@ -54,12 +55,12 @@ export function ProblemSection() {
           className="absolute top-72 right-32 w-56 border border-[rgba(237,234,227,0.1)] bg-[#0A0A0A]/70 p-4"
         >
           <div className="flex items-center justify-between mb-2.5">
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]">
               ROUTE BROKEN
             </span>
             <span className="font-mono-jb text-[8px] text-[#FF2D00]/60">×</span>
           </div>
-          <p className="font-mono-jb text-[9px] uppercase tracking-[0.16em] leading-[1.7] text-[#B9B5AB]/70">
+          <p className="font-mono-jb text-[9px] uppercase tracking-[0.16em] leading-[1.7] text-[#C6C2B8]/70">
             TRANSFER SENT (MOCK)
             <br />
             NO ESCROW · NO RECOURSE
@@ -76,24 +77,20 @@ export function ProblemSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [02]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             The Problem — Social Commerce Has No Protection
           </span>
         </motion.div>
 
-        <motion.p
+        <KineticWords
+          as="p"
+          text="Every day, buyers lose money to ghost sellers, fake goods, and disappeared deposits."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          Every day, buyers lose money to ghost sellers, fake goods, and disappeared deposits.
-        </motion.p>
+          />
       </div>
 
       {/* Velocity scroll band: risk cards */}
@@ -113,11 +110,11 @@ export function ProblemSection() {
 
               {/* Chat/receipt header */}
               <div className="flex items-center justify-between mb-4 pt-1">
-                <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] flex items-center gap-2">
+                <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] flex items-center gap-2">
                   <span className="w-1 h-1 rounded-full bg-[#FF2D00] animate-pulse" />
                   {risk.platform} · CHAT LOG
                 </span>
-                <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                   {risk.amount}
                 </span>
               </div>
@@ -129,12 +126,12 @@ export function ProblemSection() {
               <div className="font-display font-medium text-[17px] text-[#EDEAE3] mb-3">
                 {risk.scenario}
               </div>
-              <p className="font-body text-[15px] text-[#B9B5AB] leading-[1.6]">
+              <p className="font-body text-[15px] text-[#C6C2B8] leading-[1.6]">
                 {risk.risk}
               </p>
 
               {/* Footer + stamp */}
-              <div className="mt-5 pt-4 border-t border-dashed border-[rgba(237,234,227,0.08)] font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/50">
+              <div className="mt-5 pt-4 border-t border-dashed border-[rgba(237,234,227,0.08)] font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50">
                 NO ESCROW · NO REFUND · NO RECOURSE
               </div>
               <motion.span

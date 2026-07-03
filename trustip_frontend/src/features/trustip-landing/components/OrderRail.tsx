@@ -25,7 +25,7 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
     <div className={`border border-[rgba(237,234,227,0.08)] bg-[#0A0A0A] ${className}`}>
       {/* Panel header */}
       <div className="flex items-center justify-between border-b border-[rgba(237,234,227,0.08)] px-5 md:px-7 py-3.5">
-        <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+        <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
           ORDER RAIL · TRP-DEMO-0042
         </span>
         <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#FF2D00] flex items-center gap-2">
@@ -63,7 +63,7 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
                 >
                   <span
                     className={`font-mono-jb text-[9px] tracking-[0.22em] ${
-                      active ? "text-[#FF2D00]" : done ? "text-[#B9B5AB]" : "text-[#B9B5AB]/40"
+                      active ? "text-[#FF2D00]" : done ? "text-[#C6C2B8]" : "text-[#C6C2B8]/40"
                     }`}
                   >
                     {s.n}
@@ -89,14 +89,14 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
                   <div className="pr-3">
                     <div
                       className={`font-display text-[14px] leading-tight ${
-                        active ? "text-[#EDEAE3]" : done ? "text-[#EDEAE3]/70" : "text-[#B9B5AB]/50"
+                        active ? "text-[#EDEAE3]" : done ? "text-[#EDEAE3]/70" : "text-[#C6C2B8]/50"
                       }`}
                     >
                       {s.label}
                     </div>
                     <div
                       className={`font-mono-jb text-[8px] uppercase tracking-[0.22em] mt-1 ${
-                        active ? "text-[#FF2D00]" : "text-[#B9B5AB]/40"
+                        active ? "text-[#FF2D00]" : "text-[#C6C2B8]/40"
                       }`}
                     >
                       {s.en}
@@ -133,14 +133,14 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
               <div>
                 <div
                   className={`font-display text-[15px] leading-tight ${
-                    active ? "text-[#EDEAE3]" : done ? "text-[#EDEAE3]/70" : "text-[#B9B5AB]/50"
+                    active ? "text-[#EDEAE3]" : done ? "text-[#EDEAE3]/70" : "text-[#C6C2B8]/50"
                   }`}
                 >
                   {s.label}
                 </div>
                 <div
                   className={`font-mono-jb text-[8px] uppercase tracking-[0.22em] mt-0.5 ${
-                    active ? "text-[#FF2D00]" : "text-[#B9B5AB]/40"
+                    active ? "text-[#FF2D00]" : "text-[#C6C2B8]/40"
                   }`}
                 >
                   {s.n} · {s.en}
@@ -166,19 +166,19 @@ export function OrderRail({ activeIndex = 2, className = "" }: OrderRailProps) {
           </span>
           <div>
             <div className="font-display text-[17px] text-[#EDEAE3]">{ALT_RAIL_STATE.label} (DEMO)</div>
-            <div className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/50 mt-0.5">
+            <div className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50 mt-0.5">
               {ALT_RAIL_STATE.en}
             </div>
           </div>
         </div>
-        <p className="md:col-span-7 font-body text-[13px] text-[#B9B5AB] leading-[1.6] md:text-right">
+        <p className="md:col-span-7 font-body text-[13px] text-[#C6C2B8] leading-[1.6] md:text-right">
           {ALT_RAIL_STATE.body}
         </p>
       </motion.div>
 
       {/* Honesty strip */}
       <div className="border-t border-[rgba(237,234,227,0.06)] px-5 md:px-7 py-2.5">
-        <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40">
+        <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40">
           ALL RAIL STATES SIMULATED · PROTOTYPE ONLY — NO REAL ORDER
         </span>
       </div>

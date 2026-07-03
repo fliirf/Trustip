@@ -34,7 +34,7 @@ export function CTAButton({ label, targetId = "checkout", onClick, variant = "pr
         data-cursor="OPEN"
         className={`group relative flex items-center gap-3 px-6 py-3.5 border transition-colors duration-500 bg-[#050505] ${
           primary
-            ? "border-[rgba(237,234,227,0.18)] hover:border-[#FF2D00]"
+            ? "border-[rgba(237,234,227,0.18)] hover:border-[#FF2D00] hover:shadow-blood"
             : "border-[rgba(237,234,227,0.1)] hover:border-[#EDEAE3]/40"
         }`}
       >
@@ -44,7 +44,7 @@ export function CTAButton({ label, targetId = "checkout", onClick, variant = "pr
         <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] font-medium text-[#EDEAE3]">
           {label}
         </span>
-        <span className="font-mono-jb text-[12px] text-[#B9B5AB] transition-transform duration-500 group-hover:translate-x-1">
+        <span className="font-mono-jb text-[12px] text-[#C6C2B8] transition-transform duration-500 group-hover:translate-x-1">
           →
         </span>
       </button>

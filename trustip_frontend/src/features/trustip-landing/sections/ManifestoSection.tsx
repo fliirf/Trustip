@@ -57,7 +57,7 @@ function PrincipleRow({
           {title}
         </motion.p>
         <motion.p
-          className="mt-4 max-w-xl font-body text-[15px] text-[#B9B5AB] leading-[1.6]"
+          className="mt-4 max-w-xl font-body text-[15px] text-[#C6C2B8] leading-[1.6]"
           initial={{ opacity: 0, y: 12 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-15%" }}
@@ -81,14 +81,14 @@ export function ManifestoSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [05]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             Protection Principles
           </span>
-          <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]/50 ml-auto">
+          <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]/50 ml-auto">
             [read by scrolling]
           </span>
         </motion.div>

@@ -24,7 +24,7 @@ export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "p
     return (
       <button
         onClick={handleClick}
-        className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline"
+        className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline"
       >
         {label} →
       </button>
@@ -49,7 +49,7 @@ export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "p
           <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#EDEAE3]">
             {preview ? "✓ Wallet Preview Active" : label}
           </span>
-          <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/70">
+          <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/70">
             {preview ? "Prototype · no real wallet" : "Freighter · xBull · Stellar"}
           </span>
         </span>

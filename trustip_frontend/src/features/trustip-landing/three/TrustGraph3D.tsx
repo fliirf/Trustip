@@ -75,7 +75,7 @@ function Graph() {
   const group = useRef<THREE.Group>(null)
   const dragging = useRef(false)
   const last = useRef({ x: 0, y: 0 })
-  const { nodes, edges } = useMemo(buildGraph, [])
+  const { nodes, edges } = useMemo(() => buildGraph(), [])
 
   const lineGeom = useMemo(() => {
     const pts: number[] = []

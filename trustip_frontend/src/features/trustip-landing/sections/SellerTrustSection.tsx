@@ -5,14 +5,15 @@ import dynamic from "next/dynamic"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { TrustGraphCanvas } from "../motion/TrustGraphCanvas"
 import { useCan3D } from "../three/useCan3D"
-
-const TrustGraph3D = dynamic(() => import("../three/TrustGraph3D"), {
-  ssr: false,
-})
+import { KineticWords } from "../motion/KineticWords"
 import { SectionShell } from "../components/SectionShell"
 import { MetaCluster } from "../components/MetaCluster"
 import { TRUST_METRICS, TRUST_REVIEWS, EVIDENCE_PLATES } from "../data/landing-content"
 import { EASE, fadeUp, cardStagger } from "../motion/motion-presets"
+
+const TrustGraph3D = dynamic(() => import("../three/TrustGraph3D"), {
+  ssr: false,
+})
 
 export function SellerTrustSection() {
   const can3D = useCan3D()
@@ -47,24 +48,20 @@ export function SellerTrustSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [07]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             Seller Trust Profile — Reputation & Dispute Safety
           </span>
         </motion.div>
 
-        <motion.p
+        <KineticWords
+          as="p"
+          text="A living trust archive."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          A living trust archive.
-        </motion.p>
+          />
       </div>
 
       {/* Trust graph + metrics side by side */}
@@ -83,7 +80,7 @@ export function SellerTrustSection() {
           <span aria-hidden className="absolute bottom-0 right-0 w-0 h-0 crosshair-br" />
 
           <div className="flex items-center justify-between mb-4">
-            <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+            <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
               TRUST CONSTELLATION (DEMO)
             </span>
             <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00]/70">
@@ -112,7 +109,7 @@ export function SellerTrustSection() {
               </div>
             </div>
             <div>
-              <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-1">
+              <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-1">
                 REPUTATION SIGNAL (DEMO)
               </div>
               <div className="font-display font-normal text-[15px] text-[#EDEAE3] leading-tight">
@@ -128,7 +125,7 @@ export function SellerTrustSection() {
               <TrustGraphCanvas progress={scrollYProgress} />
             )}
           </div>
-          <div className="mt-2 pt-3 border-t border-[rgba(237,234,227,0.06)] font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40">
+          <div className="mt-2 pt-3 border-t border-[rgba(237,234,227,0.06)] font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40">
             {can3D ? "HOVER NODES · DRAG TO ROTATE" : "NODES ACTIVATE ON SCROLL · HOVER TO TRACE EDGES"}
           </div>
         </motion.div>
@@ -145,10 +142,10 @@ export function SellerTrustSection() {
               className="flex items-baseline justify-between px-5 md:px-7 py-5 border-b border-[rgba(237,234,227,0.06)] last:border-b-0"
             >
               <div>
-                <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                   {m.label}
                 </div>
-                <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]/50 mt-1">
+                <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]/50 mt-1">
                   {m.sub}
                 </div>
               </div>
@@ -176,7 +173,7 @@ export function SellerTrustSection() {
                 <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00]">
                   {ev.tag}
                 </span>
-                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40 border border-[rgba(237,234,227,0.1)] px-1.5 py-0.5">
+                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40 border border-[rgba(237,234,227,0.1)] px-1.5 py-0.5">
                   DEMO
                 </span>
               </div>
@@ -193,10 +190,10 @@ export function SellerTrustSection() {
                 {ev.title}
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/50">
+                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50">
                   {ev.note}
                 </span>
-                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40">
+                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40">
                   INSPECT →
                 </span>
               </div>
@@ -209,10 +206,10 @@ export function SellerTrustSection() {
       <div className="relative z-10 px-5 md:px-10">
         <div className="border border-[rgba(237,234,227,0.08)]">
           <div className="flex items-center justify-between border-b border-[rgba(237,234,227,0.06)] px-6 py-4">
-            <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+            <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
               RECENT BUYER REVIEWS (DEMO DATA)
             </span>
-            <span className="hidden sm:block font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40">
+            <span className="hidden sm:block font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40">
               ARCHIVE · 04 ENTRIES
             </span>
           </div>
@@ -226,7 +223,7 @@ export function SellerTrustSection() {
                 transition={{ delay: i * 0.06, duration: 0.5, ease: EASE }}
                 className="px-6 py-4 flex items-start gap-4"
               >
-                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/40 pt-1.5 shrink-0">
+                <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/40 pt-1.5 shrink-0">
                   R-0{i + 1}
                 </span>
                 <div className="flex gap-0.5 pt-1">
@@ -241,7 +238,7 @@ export function SellerTrustSection() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-baseline justify-between mb-1">
-                    <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                    <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                       {r.buyer}
                     </span>
                   </div>

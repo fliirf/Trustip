@@ -6,6 +6,7 @@ import { motion, useScroll, useTransform, useMotionValueEvent } from "framer-mot
 import { useCan3D } from "../three/useCan3D"
 import { ProofRail } from "../motion/ProofRail"
 import { ScanSweep } from "../motion/ScanSweep"
+import { KineticWords } from "../motion/KineticWords"
 import { SectionShell } from "../components/SectionShell"
 import { PlateFrame } from "../components/PlateFrame"
 import { MOCK_PROOF_ITEMS, ESCROW_STATES, DEMO_DISCLAIMER } from "../data/landing-content"
@@ -45,26 +46,22 @@ export function EscrowProofSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [04]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             Escrow Proof — Soroban / Stellar (Demo Simulation)
           </span>
         </motion.div>
 
-        <motion.p
+        <KineticWords
+          as="p"
+          text="Payment travels a closed orbit."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          Payment travels a closed orbit.
-        </motion.p>
+          />
         <motion.p
-          className="mt-6 font-body text-[clamp(17px,1.4vw,21px)] text-[#B9B5AB] max-w-xl leading-[1.55]"
+          className="mt-6 font-body text-[clamp(17px,1.4vw,21px)] text-[#C6C2B8] max-w-xl leading-[1.55]"
           variants={fadeUp}
           initial="hidden"
           whileInView="visible"
@@ -103,10 +100,10 @@ export function EscrowProofSection() {
               />
 
               {/* Cardinal labels */}
-              <text x="50" y="6" textAnchor="middle" fill="#B9B5AB" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">N</text>
-              <text x="50" y="98" textAnchor="middle" fill="#B9B5AB" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">S</text>
-              <text x="6" y="52" textAnchor="middle" fill="#B9B5AB" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">W</text>
-              <text x="94" y="52" textAnchor="middle" fill="#B9B5AB" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">E</text>
+              <text x="50" y="6" textAnchor="middle" fill="#C6C2B8" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">N</text>
+              <text x="50" y="98" textAnchor="middle" fill="#C6C2B8" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">S</text>
+              <text x="6" y="52" textAnchor="middle" fill="#C6C2B8" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">W</text>
+              <text x="94" y="52" textAnchor="middle" fill="#C6C2B8" fontFamily="JetBrains Mono" fontSize="2.5" letterSpacing="0.3em">E</text>
             </svg>
 
             {/* Scanline texture — the chamber reads as a machine surface */}
@@ -118,16 +115,16 @@ export function EscrowProofSection() {
             {/* Overlay label */}
             <div className="absolute top-4 left-4 right-4 flex items-start justify-between">
               <div className="flex flex-col gap-1">
-                <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                   ESCROW ORBIT · DEMO
                 </span>
-                <span className="font-mono-jb text-[8px] uppercase tracking-[0.18em] text-[#B9B5AB]/45">
+                <span className="font-mono-jb text-[8px] uppercase tracking-[0.18em] text-[#C6C2B8]/45">
                   CONTRACT · CBX7QK…J4P2RA (MOCK)
                 </span>
               </div>
               <motion.span
                 className="font-mono-jb text-[9px] uppercase tracking-[0.22em]"
-                animate={{ color: resolved ? "#FF2D00" : "#B9B5AB" }}
+                animate={{ color: resolved ? "#FF2D00" : "#C6C2B8" }}
                 transition={{ duration: 0.4, ease: EASE }}
               >
                 {resolved ? "● SIMULATED" : "○ SCANNING…"}
@@ -139,7 +136,7 @@ export function EscrowProofSection() {
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden className="mb-0.5">
                   <motion.path
                     d="M8 10 V7 a4 4 0 0 1 8 0 V10"
-                    stroke={resolved ? "#FF2D00" : "#B9B5AB"}
+                    stroke={resolved ? "#FF2D00" : "#C6C2B8"}
                     strokeWidth="1.5"
                     animate={{ y: resolved ? 0 : -2, opacity: resolved ? 1 : 0.4 }}
                     transition={{ duration: 0.4, ease: EASE }}
@@ -149,19 +146,19 @@ export function EscrowProofSection() {
                     y="10"
                     width="14"
                     height="10"
-                    stroke={resolved ? "#FF2D00" : "#B9B5AB"}
+                    stroke={resolved ? "#FF2D00" : "#C6C2B8"}
                     strokeWidth="1.5"
                   />
                   <motion.circle
                     cx="12"
                     cy="15"
                     r="1.4"
-                    fill={resolved ? "#FF2D00" : "#B9B5AB"}
+                    fill={resolved ? "#FF2D00" : "#C6C2B8"}
                     animate={{ opacity: resolved ? 1 : 0.5 }}
                   />
                 </svg>
                 <div>
-                  <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-1">
+                  <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-1">
                     STATE
                   </div>
                   <div className="font-display font-medium text-[clamp(17px,1.4vw,21px)] text-[#EDEAE3]">
@@ -170,7 +167,7 @@ export function EscrowProofSection() {
                 </div>
               </div>
               <div className="text-right">
-                <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-1">
+                <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-1">
                   VERIFICATION
                 </div>
                 <div className="font-mono-jb text-[15px] text-[#FF2D00]">
@@ -190,7 +187,7 @@ export function EscrowProofSection() {
                 borderBottom: "1px solid rgba(237,234,227,0.08)",
               }}
             />
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#B9B5AB]/40 shrink-0">
+            <span className="font-mono-jb text-[8px] uppercase tracking-[0.3em] text-[#C6C2B8]/40 shrink-0">
               SCAN AXIS · 0—360°
             </span>
           </div>
@@ -202,7 +199,7 @@ export function EscrowProofSection() {
 
           {/* Escrow state timeline */}
           <div className="border border-[rgba(237,234,227,0.08)] p-6">
-            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-4">
+            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-4">
               ESCROW LIFECYCLE (DEMO)
             </div>
             {ESCROW_STATES.map((s, i) => (
@@ -239,7 +236,7 @@ export function EscrowProofSection() {
           <p className="font-body text-[15px] text-[#EDEAE3]/60">
             {DEMO_DISCLAIMER}
           </p>
-          <p className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mt-3">
+          <p className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mt-3">
             [ NO REAL BLOCKCHAIN ACTIVITY — PROTOTYPE ONLY ]
           </p>
         </div>

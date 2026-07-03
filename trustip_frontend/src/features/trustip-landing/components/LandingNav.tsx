@@ -62,7 +62,7 @@ export function LandingNav() {
             TRUSTIP
             <span className="text-[#FF2D00]">.</span>
           </button>
-          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mt-1">
+          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mt-1">
             STELLAR NATIVE
           </div>
         </div>
@@ -86,7 +86,7 @@ export function LandingNav() {
                 />
                 <span
                   className={`font-mono-jb text-[9.5px] uppercase tracking-[0.22em] transition-colors duration-300 ${
-                    active ? "text-[#EDEAE3]" : "text-[#B9B5AB] group-hover:text-[#EDEAE3]/60"
+                    active ? "text-[#EDEAE3]" : "text-[#C6C2B8] group-hover:text-[#EDEAE3]/60"
                   }`}
                 >
                   {s.n} {s.label}
@@ -98,7 +98,7 @@ export function LandingNav() {
 
         <div className="pointer-events-auto flex flex-col gap-3">
           <WalletCTAButton variant="ghost" label="Preview Wallet" />
-          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             {clock}
           </div>
         </div>
@@ -120,7 +120,7 @@ export function LandingNav() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.3, ease: EASE }}
-              className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]"
+              className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]"
             >
               {NAV_ITEMS.find((s) => s.id === activeId)?.n} —{" "}
               {NAV_ITEMS.find((s) => s.id === activeId)?.label}

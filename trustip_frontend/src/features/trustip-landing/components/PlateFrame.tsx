@@ -29,7 +29,7 @@ export function PlateFrame({ label, status, children, className = "" }: PlateFra
       )}
       {children}
       {label && (
-        <span className="absolute bottom-4 left-4 z-10 font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+        <span className="absolute bottom-4 left-4 z-10 font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
           {label}
         </span>
       )}

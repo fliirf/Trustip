@@ -2,6 +2,7 @@
 
 import { useRef } from "react"
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion"
+import { KineticWords } from "../motion/KineticWords"
 import { SectionShell } from "../components/SectionShell"
 import { EASE, fadeUp } from "../motion/motion-presets"
 
@@ -49,24 +50,20 @@ export function SocialCommerceSection() {
           viewport={{ once: true, margin: "-10%" }}
           transition={{ duration: 0.6, ease: EASE }}
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             [06]
           </span>
           <span className="h-px w-8 bg-[rgba(237,234,227,0.08)]" />
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
             Social Commerce — Where Trustip Lives
           </span>
         </motion.div>
 
-        <motion.p
+        <KineticWords
+          as="p"
+          text="Every social checkout link routes through the same escrow layer."
           className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          Every social checkout link routes through the same escrow layer.
-        </motion.p>
+          />
       </div>
 
       {/* Convergence composition: platforms → escrow → seller */}
@@ -82,7 +79,7 @@ export function SocialCommerceSection() {
               viewport={{ once: true, margin: "-10%" }}
               transition={{ duration: 0.5, ease: EASE, delay: 0.2 + i * 0.08 }}
               className={`hidden md:flex absolute ${f.pos} z-20 items-center gap-1.5 border border-[rgba(237,234,227,0.12)] bg-[#050505] px-2.5 py-1.5 font-mono-jb text-[8px] uppercase tracking-[0.18em] ${
-                f.accent ? "text-[#FF2D00]" : "text-[#B9B5AB]"
+                f.accent ? "text-[#FF2D00]" : "text-[#C6C2B8]"
               }`}
             >
               <span className="w-1 h-1 rounded-full shrink-0" style={{ backgroundColor: f.dot }} />
@@ -154,11 +151,11 @@ export function SocialCommerceSection() {
                     className="w-1.5 h-1.5 rounded-full"
                     style={{ backgroundColor: p.accent }}
                   />
-                  <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
+                  <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]">
                     {p.name}
                   </span>
                 </div>
-                <p className="font-body text-[13px] text-[#B9B5AB]/80 leading-[1.5]">
+                <p className="font-body text-[13px] text-[#C6C2B8]/80 leading-[1.5]">
                   {p.desc}
                 </p>
               </motion.div>
@@ -171,7 +168,7 @@ export function SocialCommerceSection() {
               style={{ scaleY: lineScale }}
               className="w-px h-10 bg-gradient-to-b from-[rgba(237,234,227,0.15)] to-[#FF2D00] origin-top"
             />
-            <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]/60 mt-2">
+            <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8]/60 mt-2">
               routes through
             </span>
           </div>
@@ -195,7 +192,7 @@ export function SocialCommerceSection() {
             <div className="mt-4 font-display font-medium text-[clamp(20px,3vw,32px)] text-[#EDEAE3]">
               Trustip Escrow Layer
             </div>
-            <p className="mt-2 max-w-sm text-center font-body text-[14px] text-[#B9B5AB] leading-[1.6]">
+            <p className="mt-2 max-w-sm text-center font-body text-[14px] text-[#C6C2B8] leading-[1.6]">
               Instagram, TikTok, or WhatsApp — the checkout link always locks into the
               same Soroban escrow contract (DEMO).
             </p>
@@ -209,17 +206,17 @@ export function SocialCommerceSection() {
             transition={{ delay: 0.2, duration: 0.6, ease: EASE }}
             className="relative z-10 mt-10 pt-8 border-t border-dashed border-[rgba(237,234,227,0.1)] flex flex-col items-center"
           >
-            <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mb-2">
+            <span className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#C6C2B8] mb-2">
               SELLER
             </span>
-            <p className="font-body text-[14px] text-[#B9B5AB]/80 text-center">
+            <p className="font-body text-[14px] text-[#C6C2B8]/80 text-center">
               Receives protected payout after delivery is confirmed.
             </p>
           </motion.div>
 
           {/* Convergence meta strip */}
           <div className="relative z-10 mt-10 -mx-5 md:-mx-10 -mb-14 md:-mb-20 border-t border-[rgba(237,234,227,0.06)] px-5 md:px-10 py-3 flex items-center justify-between">
-            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/50">
+            <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#C6C2B8]/50">
               INPUTS 6 · CHANNELS 3 · ROUTE 1 — PROTECTED LAYER (DEMO)
             </span>
             <span className="hidden sm:block font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00]/60">
