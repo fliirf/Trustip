@@ -145,6 +145,13 @@ const checkoutIssueLimiter: RateLimiter = createInMemoryRateLimiter({
   limit: 20,
   windowMs: 60_000,
 });
+// Order creation from a public checkout link: each call inserts DB rows, so a
+// tight per-IP budget bounds junk-order spam (orders are money-inert until the
+// buyer actually funds them on-chain).
+const orderCreateLimiter: RateLimiter = createInMemoryRateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+});
 
 function clientIp(request: Request): string {
   const fwd = request.headers.get("x-forwarded-for");
@@ -191,6 +198,15 @@ export function enforceCreateOrderRateLimit(
   request: Request,
 ): NextResponse | null {
   const result = createOrderLimiter.check(`create-order:${clientIp(request)}`);
+  return result.allowed ? null : tooManyRequests(result.retryAfterMs);
+}
+
+/** Rate-limit order creation from a checkout link (junk-order spam guard).
+ * Returns a 429 response when over budget, else null. */
+export function enforceOrderCreateRateLimit(
+  request: Request,
+): NextResponse | null {
+  const result = orderCreateLimiter.check(`order-create:${clientIp(request)}`);
   return result.allowed ? null : tooManyRequests(result.retryAfterMs);
 }
 

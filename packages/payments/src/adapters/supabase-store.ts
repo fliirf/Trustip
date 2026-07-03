@@ -1,6 +1,7 @@
 import type { Json, TablesInsert, TrustipClient } from "@trustip/database";
 import { usdcAmountToString } from "../money.js";
 import type {
+  CheckoutLinkForOrder,
   CheckoutOrderForIssuance,
   EscrowRecord,
   NetworkName,
@@ -212,6 +213,74 @@ export function createSupabasePaymentStore(
         linkStatus: link.status,
         linkExpiresAt: link.expires_at,
       };
+    },
+
+    async loadCheckoutLinkBySlug(slug): Promise<CheckoutLinkForOrder | null> {
+      const { data: link } = await client
+        .from("checkout_links")
+        .select(
+          "id, seller_profile_id, title, price_usdc, price_idr_reference, status, expires_at",
+        )
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!link) return null;
+      return {
+        id: link.id,
+        sellerProfileId: link.seller_profile_id,
+        title: link.title,
+        priceUsdc: money(link.price_usdc),
+        // numeric(20,2) display reference — 2-decimal string, no exponent.
+        priceIdrReference:
+          link.price_idr_reference === null
+            ? null
+            : link.price_idr_reference.toFixed(2),
+        status: link.status,
+        expiresAt: link.expires_at,
+      };
+    },
+
+    async insertCheckoutOrder(input) {
+      const orderRow: TablesInsert<"orders"> = {
+        order_no: input.orderNo,
+        checkout_link_id: input.checkoutLinkId,
+        seller_profile_id: input.sellerProfileId,
+        status: "awaiting_payment",
+        total_usdc: moneyValue(input.totalUsdc),
+        total_idr_reference:
+          input.totalIdrReference === null
+            ? null
+            : (input.totalIdrReference as unknown as number),
+      };
+      const { data: order, error } = await client
+        .from("orders")
+        .insert(orderRow)
+        .select("id, order_no")
+        .single();
+      if (error) {
+        // order_no is the only unique constraint hit by this insert — signal a
+        // collision so the service retries with a fresh order_no.
+        if (error.code === UNIQUE_VIOLATION) return null;
+        throw error;
+      }
+
+      const itemRow: TablesInsert<"order_items"> = {
+        order_id: order.id,
+        name: input.item.name,
+        quantity: input.item.quantity,
+        unit_price_usdc: moneyValue(input.item.unitPriceUsdc),
+        subtotal_usdc: moneyValue(input.item.subtotalUsdc),
+        metadata: input.item.metadata as Json,
+      };
+      const { error: itemError } = await client
+        .from("order_items")
+        .insert(itemRow);
+      if (itemError) {
+        // Best-effort rollback: an awaiting_payment order without its item row
+        // is never payable UI-wise; remove it so no dangling order remains.
+        await client.from("orders").delete().eq("id", order.id);
+        throw itemError;
+      }
+      return { orderId: order.id, orderNo: order.order_no };
     },
 
     async preparePaymentRow(input) {

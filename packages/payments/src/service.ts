@@ -7,6 +7,7 @@ import {
   isValidPublicKey,
   OperatorSignerError,
 } from "@trustip/stellar";
+import { randomBytes } from "node:crypto";
 import { createAttemptToken, verifyAttemptToken } from "./attempt-token.js";
 import {
   CHECKOUT_TOKEN_DEFAULT_TTL_MS,
@@ -14,7 +15,7 @@ import {
   verifyCheckoutToken,
 } from "./checkout-token.js";
 import { PaymentError } from "./errors.js";
-import { usdcToUnits } from "./money.js";
+import { unitsToUsdc, usdcToUnits } from "./money.js";
 import type {
   EscrowStatus,
   NetworkName,
@@ -631,6 +632,147 @@ export async function issueCheckoutToken(
     networkPassphrase: deps.config.networkPassphrase,
     amountUsdc: found.totalUsdc,
   };
+}
+
+// ---------------------------------------------------------------------------
+// ORDER CREATE FROM CHECKOUT LINK (Phase 6) — the public entry point that turns
+// an active checkout link into an `awaiting_payment` order the rest of the
+// pipeline (token → create_order → prepare → submit → sync) can operate on.
+// ---------------------------------------------------------------------------
+
+export interface CreateCheckoutOrderInput {
+  /** Public checkout link slug (route param — never a link UUID). */
+  slug: string;
+  quantity: number;
+  buyerEmail: string;
+  buyerName: string;
+  shippingAddress: {
+    name: string;
+    phone: string;
+    addressLine1: string;
+    city: string;
+    postalCode: string;
+    country: string;
+  };
+}
+
+export interface CreateCheckoutOrderResult {
+  orderId: string;
+  orderNo: string;
+  status: "awaiting_payment";
+  /** Server-derived total, DISPLAY ONLY — re-verified on-chain downstream. */
+  totalUsdc: string;
+}
+
+/** Abuse guard: bounds total_usdc growth from a single request. */
+export const MAX_CHECKOUT_ORDER_QUANTITY = 100;
+const ORDER_NO_ATTEMPTS = 5;
+
+// Crockford base32 (no I/L/O/U) — unambiguous in support conversations.
+const ORDER_NO_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+/** High-entropy public order number: TRP- + 16 base32 chars (80 bits). The
+ * (slug, order_no) pair later authorizes checkout-token issuance, so order_no
+ * entropy is a security property, not just an id format. */
+export function generateOrderNo(): string {
+  const bytes = randomBytes(16);
+  let out = "";
+  for (let i = 0; i < 16; i++) {
+    out += ORDER_NO_ALPHABET[bytes[i]! % 32];
+  }
+  return `TRP-${out}`;
+}
+
+/** Multiply a 2-decimal display reference price (IDR) by quantity without
+ * float drift. Display-only — never an authority. */
+function multiplyIdrReference(price: string, quantity: number): string {
+  const match = /^(\d+)(?:\.(\d{1,2}))?$/.exec(price.trim());
+  if (!match) return price; // unexpected format — pass through, display only
+  const cents =
+    BigInt(match[1]!) * 100n + BigInt((match[2] ?? "").padEnd(2, "0") || "0");
+  const total = cents * BigInt(quantity);
+  const intPart = total / 100n;
+  const frac = (total % 100n).toString().padStart(2, "0");
+  return frac === "00" ? `${intPart}` : `${intPart}.${frac}`;
+}
+
+/**
+ * CREATE ORDER FROM CHECKOUT — validate an ACTIVE, unexpired checkout link and
+ * insert a new `awaiting_payment` order for it. Price and seller are derived
+ * strictly from the link (the client sends no amount/seller/status). Buyer
+ * contact/shipping is stored on the order's single item row (metadata). Never
+ * touches payment/escrow state and never marks anything paid.
+ */
+export async function createOrderFromCheckout(
+  deps: PaymentDeps,
+  input: CreateCheckoutOrderInput,
+): Promise<CreateCheckoutOrderResult> {
+  if (
+    !Number.isInteger(input.quantity) ||
+    input.quantity < 1 ||
+    input.quantity > MAX_CHECKOUT_ORDER_QUANTITY
+  ) {
+    throw new PaymentError(
+      "InvalidInput",
+      `quantity must be an integer between 1 and ${MAX_CHECKOUT_ORDER_QUANTITY}`,
+    );
+  }
+
+  const link = await deps.store.loadCheckoutLinkBySlug(input.slug);
+  if (!link) {
+    throw new PaymentError("CheckoutNotFound", "checkout link not found");
+  }
+  if (link.status !== "active") {
+    throw new PaymentError(
+      "CheckoutNotAvailable",
+      "checkout link is not active",
+    );
+  }
+  if (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now()) {
+    throw new PaymentError("CheckoutNotAvailable", "checkout link has expired");
+  }
+
+  // Server-derived money, computed in integer units (no float math).
+  const totalUnits = usdcToUnits(link.priceUsdc) * BigInt(input.quantity);
+  const totalUsdc = unitsToUsdc(totalUnits);
+  const totalIdrReference =
+    link.priceIdrReference === null
+      ? null
+      : multiplyIdrReference(link.priceIdrReference, input.quantity);
+
+  // Retry on the (astronomically unlikely) order_no unique collision.
+  for (let attempt = 0; attempt < ORDER_NO_ATTEMPTS; attempt++) {
+    const created = await deps.store.insertCheckoutOrder({
+      orderNo: generateOrderNo(),
+      checkoutLinkId: link.id,
+      sellerProfileId: link.sellerProfileId,
+      totalUsdc,
+      totalIdrReference,
+      item: {
+        name: link.title,
+        quantity: input.quantity,
+        unitPriceUsdc: link.priceUsdc,
+        subtotalUsdc: totalUsdc,
+        metadata: {
+          buyerEmail: input.buyerEmail,
+          buyerName: input.buyerName,
+          shippingAddress: input.shippingAddress,
+        },
+      },
+    });
+    if (created) {
+      return {
+        orderId: created.orderId,
+        orderNo: created.orderNo,
+        status: "awaiting_payment",
+        totalUsdc,
+      };
+    }
+  }
+  throw new PaymentError(
+    "Conflict",
+    "could not allocate a unique order number; please retry",
+  );
 }
 
 /**

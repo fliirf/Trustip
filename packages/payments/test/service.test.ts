@@ -140,6 +140,12 @@ function createFakeStore(init: FakeInit = {}) {
         linkExpiresAt: state.linkExpiresAt,
       };
     },
+    async loadCheckoutLinkBySlug() {
+      throw new Error("not used in these tests");
+    },
+    async insertCheckoutOrder() {
+      throw new Error("not used in these tests");
+    },
     async preparePaymentRow(input) {
       if (
         state.payment &&

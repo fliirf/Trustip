@@ -73,6 +73,22 @@ export interface CheckoutOrderForIssuance {
 }
 
 /**
+ * Public checkout-link view used to create an order from a link. Loaded by the
+ * PUBLIC slug only; price/seller are server-derived from this record — never
+ * from the client.
+ */
+export interface CheckoutLinkForOrder {
+  id: string;
+  sellerProfileId: string;
+  title: string;
+  priceUsdc: string;
+  /** Display-only IDR reference price, if the seller configured one. */
+  priceIdrReference: string | null;
+  status: CheckoutLinkStatus;
+  expiresAt: string | null;
+}
+
+/**
  * Storage port for the payment service. The Supabase adapter implements this
  * with the service-role client (server-only); unit tests supply an in-memory
  * fake. All money/escrow state changes are idempotent and status-guarded — the
@@ -90,6 +106,29 @@ export interface PaymentStore {
     slug: string;
     orderNo: string;
   }): Promise<CheckoutOrderForIssuance | null>;
+
+  /** Load an order-creatable checkout link by its PUBLIC slug. Status/expiry
+   * policy is the caller's (service). */
+  loadCheckoutLinkBySlug(slug: string): Promise<CheckoutLinkForOrder | null>;
+
+  /** Insert a new order (+ its single order_items row carrying buyer contact in
+   * metadata) for a checkout link. All money values are SERVER-derived by the
+   * service. Returns null when the generated order_no collides with an existing
+   * one (unique violation), so the caller can retry with a fresh order_no. */
+  insertCheckoutOrder(input: {
+    orderNo: string;
+    checkoutLinkId: string;
+    sellerProfileId: string;
+    totalUsdc: string;
+    totalIdrReference: string | null;
+    item: {
+      name: string;
+      quantity: number;
+      unitPriceUsdc: string;
+      subtotalUsdc: string;
+      metadata: Record<string, unknown>;
+    };
+  }): Promise<{ orderId: string; orderNo: string } | null>;
 
   /** Ensure the order's single payment row exists and is set to
    * awaiting_signature with the given (server-derived) amount/payer/network. */
