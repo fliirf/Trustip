@@ -12,7 +12,7 @@ type ProofRailProps = {
 
 export function ProofRail({ items, className = "" }: ProofRailProps) {
   return (
-    <div className={`border border-[rgba(255,255,255,0.08)] ${className}`}>
+    <div className={`border border-[rgba(237,234,227,0.08)] ${className}`}>
       {items.map((item, i) => (
         <motion.div
           key={item.label}
@@ -20,19 +20,19 @@ export function ProofRail({ items, className = "" }: ProofRailProps) {
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, ease: EASE, delay: i * 0.06 }}
-          className="flex items-center justify-between px-5 py-3 border-b border-[rgba(255,255,255,0.06)] last:border-b-0"
+          className="flex items-center justify-between px-5 py-3 border-b border-[rgba(237,234,227,0.06)] last:border-b-0"
         >
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#A6ADBB]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.18em] text-[#B9B5AB]">
             {item.label}
           </span>
           {item.mono ? (
             <ScrambleText
               text={item.value}
-              className={`font-mono-jb text-[13px] ${item.accent ? "text-[#16C784]" : "text-[#F7F8FA]"}`}
+              className={`font-mono-jb text-[13px] ${item.accent ? "text-[#FF2D00]" : "text-[#EDEAE3]"}`}
             />
           ) : (
             <span
-              className={`font-mono-jb text-[13px] ${item.accent ? "text-[#16C784]" : "text-[#F7F8FA]"}`}
+              className={`font-mono-jb text-[13px] ${item.accent ? "text-[#FF2D00]" : "text-[#EDEAE3]"}`}
             >
               {item.value}
             </span>

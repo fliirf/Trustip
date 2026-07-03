@@ -57,12 +57,12 @@ export function LandingNav() {
           <button
             onClick={() => scrollTo("hero")}
             data-cursor="OPEN"
-            className="font-display font-medium text-[15px] tracking-tight text-[#F7F8FA]"
+            className="font-display font-medium text-[15px] tracking-tight text-[#EDEAE3]"
           >
             TRUSTIP
-            <span className="text-[#16C784]">.</span>
+            <span className="text-[#FF2D00]">.</span>
           </button>
-          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#A6ADBB] mt-1">
+          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB] mt-1">
             STELLAR NATIVE
           </div>
         </div>
@@ -81,12 +81,12 @@ export function LandingNav() {
                   className="h-px transition-all duration-500"
                   style={{
                     width: active ? 40 : 20,
-                    backgroundColor: active ? "#16C784" : "rgba(247,248,250,0.3)",
+                    backgroundColor: active ? "#FF2D00" : "rgba(237,234,227,0.3)",
                   }}
                 />
                 <span
                   className={`font-mono-jb text-[9.5px] uppercase tracking-[0.22em] transition-colors duration-300 ${
-                    active ? "text-[#F7F8FA]" : "text-[#A6ADBB] group-hover:text-[#F7F8FA]/60"
+                    active ? "text-[#EDEAE3]" : "text-[#B9B5AB] group-hover:text-[#EDEAE3]/60"
                   }`}
                 >
                   {s.n} {s.label}
@@ -98,20 +98,20 @@ export function LandingNav() {
 
         <div className="pointer-events-auto flex flex-col gap-3">
           <WalletCTAButton variant="ghost" label="Preview Wallet" />
-          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#A6ADBB]">
+          <div className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]">
             {clock}
           </div>
         </div>
       </div>
 
       {/* Mobile top bar */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 border-b border-[rgba(255,255,255,0.08)] bg-[#020204]/80 backdrop-blur-md">
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 border-b border-[rgba(237,234,227,0.08)] bg-[#050505]/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-5 py-3">
           <button
             onClick={() => scrollTo("hero")}
-            className="font-display font-medium text-[14px] tracking-tight text-[#F7F8FA]"
+            className="font-display font-medium text-[14px] tracking-tight text-[#EDEAE3]"
           >
-            TRUSTIP<span className="text-[#16C784]">.</span>
+            TRUSTIP<span className="text-[#FF2D00]">.</span>
           </button>
           <AnimatePresence mode="wait">
             <motion.div
@@ -120,7 +120,7 @@ export function LandingNav() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.3, ease: EASE }}
-              className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#A6ADBB]"
+              className="font-mono-jb text-[9px] uppercase tracking-[0.22em] text-[#B9B5AB]"
             >
               {NAV_ITEMS.find((s) => s.id === activeId)?.n} —{" "}
               {NAV_ITEMS.find((s) => s.id === activeId)?.label}

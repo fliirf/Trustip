@@ -24,7 +24,7 @@ export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "p
     return (
       <button
         onClick={handleClick}
-        className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB] hover:text-[#F7F8FA] transition-colors duration-300 underline-offset-4 hover:underline"
+        className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB] hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline"
       >
         {label} →
       </button>
@@ -36,20 +36,20 @@ export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "p
       <button
         onClick={handleClick}
         data-cursor="CONNECT"
-        className="group relative flex items-center gap-3 px-6 py-3 border border-[rgba(255,255,255,0.15)] hover:border-[#16C784] transition-colors duration-500 bg-[#0D1018]"
+        className="group relative flex items-center gap-3 px-6 py-3 border border-[rgba(237,234,227,0.15)] hover:border-[#FF2D00] transition-colors duration-500 bg-[#0A0A0A]"
       >
         {/* Wallet glyph */}
         <span
           aria-hidden
-          className="grid place-items-center w-6 h-6 border border-[#16C784]/40 text-[#16C784] text-[11px] leading-none group-hover:border-[#16C784] transition-colors duration-500"
+          className="grid place-items-center w-6 h-6 border border-[#FF2D00]/40 text-[#FF2D00] text-[11px] leading-none group-hover:border-[#FF2D00] transition-colors duration-500"
         >
           ◈
         </span>
         <span className="flex flex-col items-start leading-tight">
-          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#F7F8FA]">
+          <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#EDEAE3]">
             {preview ? "✓ Wallet Preview Active" : label}
           </span>
-          <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#A6ADBB]/70">
+          <span className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#B9B5AB]/70">
             {preview ? "Prototype · no real wallet" : "Freighter · xBull · Stellar"}
           </span>
         </span>
@@ -59,7 +59,7 @@ export function WalletCTAButton({ label = "Preview Wallet Connect", variant = "p
               initial={{ opacity: 0, scale: 0 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0 }}
-              className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#16C784] border border-[#16C784]/30 px-1.5 py-0.5"
+              className="font-mono-jb text-[8px] uppercase tracking-[0.22em] text-[#FF2D00] border border-[#FF2D00]/30 px-1.5 py-0.5"
             >
               DEMO
             </motion.span>

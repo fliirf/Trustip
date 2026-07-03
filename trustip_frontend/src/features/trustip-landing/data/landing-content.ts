@@ -155,3 +155,35 @@ export const RISK_WORDS = [
   "SCAM", "FRAUD", "GHOSTING", "FAKE", "NO REFUND",
   "BAYAR", "TIDAK DIKIRIM", "PALSU", "HILANG", "PENIPUAN",
 ]
+
+/** Order rail stations — buyer-facing Indonesian labels per approved UX language. */
+export const ORDER_RAIL_STATES: import("@/features/trustip-landing/types").RailState[] = [
+  { n: "01", id: "awaiting", label: "Menunggu Pembayaran", en: "AWAITING PAYMENT" },
+  { n: "02", id: "funded", label: "Pesanan Aman", en: "FUNDED — MOCK" },
+  { n: "03", id: "packed", label: "Dikemas", en: "PACKED" },
+  { n: "04", id: "shipped", label: "Dikirim", en: "SHIPPED" },
+  { n: "05", id: "received", label: "Pesanan Diterima", en: "RECEIVED" },
+  { n: "06", id: "released", label: "Selesai", en: "RELEASED" },
+]
+
+export const ALT_RAIL_STATE = {
+  label: "Refund Ditinjau",
+  en: "REFUND REVIEW — MOCK",
+  body:
+    "Jika buyer mengajukan bantuan dalam 72 jam setelah pesanan diterima, rail bercabang ke status review. Admin memutuskan refund atau release (DEMO).",
+} as const
+
+export const EVIDENCE_PLATES: import("@/features/trustip-landing/types").EvidencePlate[] = [
+  { id: "chat", tag: "EV-01", title: "Chat · Komunikasi seller", note: "MOCK LOG" },
+  { id: "resi", tag: "EV-02", title: "Resi · JNE 8821-XXXX", note: "MOCK TRACKING" },
+  { id: "video", tag: "EV-03", title: "Video · Unboxing recording", note: "MOCK FILE" },
+]
+
+export const PROOF_MARQUEE_ITEMS = [
+  "PROOF OF LOCK (DEMO)", "ORBIT CLOSED", "VERIFIED (SIM)",
+  "SOROBAN ESCROW", "TX RECORDED (MOCK)", "USDC ON STELLAR",
+]
+
+export const CHANNEL_MARQUEE_ITEMS = [
+  "INSTAGRAM", "TIKTOK", "WHATSAPP", "LINK-IN-BIO", "JASTIP", "GROUP BUY", "PRE-ORDER",
+]

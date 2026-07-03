@@ -3,8 +3,10 @@
 import { useRef } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { KineticWords } from "../motion/KineticWords"
+import { OrbitalCore } from "../motion/OrbitalCore"
 import { WalletCTAButton } from "../components/WalletCTAButton"
 import { CTAButton } from "../components/CTAButton"
+import { MetaCluster } from "../components/MetaCluster"
 import { EASE } from "../motion/motion-presets"
 
 export function HeroSection() {
@@ -19,8 +21,15 @@ export function HeroSection() {
   const metaOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0])
 
   const letters = ["T", "R", "U", "S", "T", "I", "P"]
-  const letterOffsets = [0, -25, -50, -75, -100, -125, -150]
-  const letterYs = letterOffsets.map((o) => useTransform(scrollYProgress, [0, 1], [0, o]))
+  // Unrolled (not .map(useTransform)) — hooks must be called unconditionally, not inside a loop.
+  const letterY0 = useTransform(scrollYProgress, [0, 1], [0, 0])
+  const letterY1 = useTransform(scrollYProgress, [0, 1], [0, -25])
+  const letterY2 = useTransform(scrollYProgress, [0, 1], [0, -50])
+  const letterY3 = useTransform(scrollYProgress, [0, 1], [0, -75])
+  const letterY4 = useTransform(scrollYProgress, [0, 1], [0, -100])
+  const letterY5 = useTransform(scrollYProgress, [0, 1], [0, -125])
+  const letterY6 = useTransform(scrollYProgress, [0, 1], [0, -150])
+  const letterYs = [letterY0, letterY1, letterY2, letterY3, letterY4, letterY5, letterY6]
 
   return (
     <section
@@ -29,48 +38,35 @@ export function HeroSection() {
       className="relative min-h-[100svh] w-full overflow-hidden"
       style={{ scrollMarginTop: "0px" }}
     >
-      {/* Ambient background */}
-      <div className="absolute inset-0 z-0 bg-[#020204]">
-        <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[80vw] h-[80vw] max-w-[900px] max-h-[900px]"
-          style={{
-            background: "radial-gradient(circle at center, rgba(22,199,132,0.08) 0%, rgba(22,199,132,0.02) 30%, transparent 60%)",
-          }}
-          aria-hidden
-        />
-        <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[60vw] h-[60vw] max-w-[600px] max-h-[600px]"
-          style={{
-            background: "radial-gradient(circle at center, rgba(79,140,255,0.05) 0%, transparent 50%)",
-          }}
-          aria-hidden
-        />
-      </div>
+      {/* Void background — plain near-black; the shell's grid/scanlines fill it */}
+      <div className="absolute inset-0 z-0 bg-[#050505]" />
 
-      {/* Top metadata */}
+      {/* Protected-core artifact — the single symbolic escrow object.
+          Oversized so the tilted orbits interleave with the wordmark, per the VOID reference. */}
+      <OrbitalCore
+        progress={scrollYProgress}
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[1] w-[130vw] h-[130vw] md:w-[100vw] md:h-[100vw] max-w-[1100px] max-h-[1100px]"
+      />
+
+      {/* Cropped ghost numeral — section 01, right edge */}
+      <span
+        aria-hidden
+        className="hidden md:block absolute -right-10 top-[14%] z-[1] font-display font-light leading-none text-bone-4 select-none pointer-events-none"
+        style={{ fontSize: "clamp(180px, 26vw, 440px)" }}
+      >
+        01
+      </span>
+
+      {/* Top metadata — sparse */}
       <motion.div
         style={{ opacity: metaOpacity }}
         className="relative z-20 flex items-start justify-between px-5 md:px-10 pt-20 md:pt-10 lg:pl-32"
       >
-        <div className="flex flex-col gap-1">
-          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB]">
-            SECTION INDEX
-          </div>
-          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB]/60">
-            [01] — Protected Checkout
-          </div>
+        <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40">
+          [01] — Protected Checkout
         </div>
-        <div className="hidden md:flex flex-col items-end gap-1">
-          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB]">
-            STELLAR NATIVE
-          </div>
-          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB]">
-            USDC ESCROW
-          </div>
-          <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#16C784] flex items-center gap-2">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#16C784] animate-pulse" />
-            PROTOTYPE / DEMO
-          </div>
+        <div className="hidden md:block font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40 text-right">
+          STELLAR NATIVE · PROTOTYPE
         </div>
       </motion.div>
 
@@ -85,7 +81,7 @@ export function HeroSection() {
             {letters.map((letter, i) => (
               <motion.span
                 key={i}
-                className="font-display font-medium text-[clamp(64px,18vw,280px)] text-[#F7F8FA] leading-none"
+                className="font-display font-medium text-[clamp(64px,18vw,280px)] text-[#EDEAE3] leading-none"
                 style={{ y: letterYs[i], display: "inline-block" }}
                 suppressHydrationWarning
               >
@@ -104,7 +100,7 @@ export function HeroSection() {
         >
           <KineticWords
             text="Protected checkout for risky social commerce."
-            className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#F7F8FA] leading-[0.92] tracking-[-0.03em]"
+            className="font-display font-normal text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92] tracking-[-0.03em]"
             delay={0.6}
           />
         </motion.div>
@@ -113,13 +109,13 @@ export function HeroSection() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1.2, duration: 1, ease: EASE }}
-          className="mt-5 max-w-md text-center font-body text-[clamp(17px,1.4vw,21px)] text-[#A6ADBB] leading-[1.55]"
+          className="mt-5 max-w-md text-center font-body text-[clamp(17px,1.4vw,21px)] text-bone-60 leading-[1.55]"
         >
           A checkout link becomes an{" "}
-          <span className="relative inline-block text-[#F7F8FA]">
+          <span className="relative inline-block text-[#EDEAE3]">
             escrow contract
             <motion.span
-              className="absolute -bottom-0.5 left-0 h-px bg-[#16C784]"
+              className="absolute -bottom-0.5 left-0 h-px bg-[#FF2D00]"
               initial={{ width: 0 }}
               animate={{ width: "100%" }}
               transition={{ delay: 1.9, duration: 0.7, ease: EASE }}
@@ -143,17 +139,39 @@ export function HeroSection() {
             onClick={() => {
               document.getElementById("problem")?.scrollIntoView({ behavior: "smooth" })
             }}
-            className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB] hover:text-[#F7F8FA] transition-colors duration-300 underline-offset-4 hover:underline"
+            className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40 hover:text-[#EDEAE3] transition-colors duration-300 underline-offset-4 hover:underline"
           >
             See the problem →
           </button>
         </motion.div>
       </div>
 
+      {/* Lower-right metadata cluster (xl+) — sparse, single instrument */}
+      <motion.div
+        style={{ opacity: metaOpacity }}
+        className="hidden xl:block absolute bottom-24 right-14 z-20"
+        aria-hidden
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.8, duration: 0.8, ease: EASE }}
+        >
+          <MetaCluster
+            align="right"
+            rows={[
+              { label: "NETWORK", value: "STELLAR TESTNET (DEMO)" },
+              { label: "ESCROW", value: "SOROBAN (DEMO)" },
+              { label: "MODE", value: "PROTOTYPE", accent: true },
+            ]}
+          />
+        </motion.div>
+      </motion.div>
+
       {/* Bottom marquee */}
       <motion.div
         style={{ opacity: metaOpacity }}
-        className="absolute bottom-0 left-0 right-0 z-20 border-t border-[rgba(255,255,255,0.08)] py-4 lg:pl-32 overflow-hidden"
+        className="absolute bottom-0 left-0 right-0 z-20 border-t border-fog py-4 lg:pl-32 overflow-hidden"
       >
         <div className="animate-marquee flex whitespace-nowrap">
           {[
@@ -161,10 +179,10 @@ export function HeroSection() {
             "SOCIAL COMMERCE", "TRUST PROFILE", "JASTIP", "PRE-ORDER", "GROUP BUY",
           ].map((item, i) => (
             <span key={i} className="flex items-center mx-4">
-              <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB]/60">
+              <span className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-bone-40">
                 {item}
               </span>
-              <span className="ml-4 text-[#A6ADBB]/20">·</span>
+              <span className="ml-4 text-bone-20">·</span>
             </span>
           ))}
         </div>
@@ -173,7 +191,7 @@ export function HeroSection() {
       {/* Left edge label */}
       <div className="hidden lg:block absolute left-3 top-1/2 -translate-y-1/2 z-20 pointer-events-none">
         <span
-          className="font-mono-jb text-[9px] uppercase tracking-[0.4em] text-[#A6ADBB]/40"
+          className="font-mono-jb text-[9px] uppercase tracking-[0.4em] text-bone-20"
           style={{ writingMode: "vertical-rl", textOrientation: "mixed" }}
         >
           [ PROTOCOL // TRUSTIP — SOCIAL COMMERCE ESCROW ]

@@ -18,16 +18,13 @@
   --color-void-mist: rgba(237, 234, 227, 0.04);
   --color-void-fog-strong: rgba(237, 234, 227, 0.18);
 
-  /* Trustip-specific color tokens */
-  --color-trustip-base: #020204;
-  --color-trustip-surface: #0D1018;
-  --color-trustip-elevated: #121722;
-  --color-trustip-text: #F7F8FA;
-  --color-trustip-muted: #A6ADBB;
-  --color-trustip-green: #16C784;
-  --color-trustip-blue: #4F8CFF;
-  --color-trustip-violet: #7B61FF;
-  --color-trustip-border: rgba(255, 255, 255, 0.08);
+  /* Trustip-specific color tokens — aligned to the VOID palette */
+  --color-trustip-base: #050505;
+  --color-trustip-surface: #0A0A0A;
+  --color-trustip-elevated: #101010;
+  --color-trustip-text: #EDEAE3;
+  --color-trustip-muted: #B9B5AB;
+  --color-trustip-border: rgba(237, 234, 227, 0.10);
 
   /* Font families */
   --font-display: "Space Grotesk", sans-serif;

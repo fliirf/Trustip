@@ -43,3 +43,19 @@ export type TrustMetric = {
   decimals?: number
   sub: string
 }
+
+export type RailState = {
+  n: string
+  id: string
+  /** Buyer-facing Indonesian display label (approved UX language). */
+  label: string
+  /** English mono micro-label. */
+  en: string
+}
+
+export type EvidencePlate = {
+  id: string
+  tag: string
+  title: string
+  note: string
+}

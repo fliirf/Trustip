@@ -7,7 +7,10 @@ import { Cursor } from "@/components/void/cursor"
 import { Grain } from "@/components/void/grain"
 import { ScrollProgress } from "@/components/void/scroll-progress"
 import { BackgroundSystem } from "@/components/void/background-system"
+import { RouteThread } from "../motion/RouteThread"
 import { PrototypeBadge } from "./PrototypeBadge"
+import { SectionMarquee } from "./SectionMarquee"
+import { RISK_WORDS, PROOF_MARQUEE_ITEMS } from "../data/landing-content"
 import { LandingNav } from "./LandingNav"
 import { HeroSection } from "../sections/HeroSection"
 import { ProblemSection } from "../sections/ProblemSection"
@@ -29,6 +32,12 @@ export function TrustipLandingPage() {
     return () => clearTimeout(t)
   }, [])
 
+  useEffect(() => {
+    console.warn(
+      "[TRUSTIP PROTOTYPE] This is a visual prototype. No real blockchain/wallet activity occurs.",
+    )
+  }, [])
+
   return (
     <>
       <SmoothScroll>
@@ -37,13 +46,14 @@ export function TrustipLandingPage() {
         <ScrollProgress />
         <BackgroundSystem />
         <LandingNav />
+        <RouteThread />
         <PrototypeBadge />
 
         {/* Loading screen */}
         <AnimatePresence>
           {!loaded && (
             <motion.div
-              className="fixed inset-0 z-[10001] bg-[#020204] flex items-center justify-center"
+              className="fixed inset-0 z-[10001] bg-[#050505] flex items-center justify-center"
               initial={{ opacity: 1 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -55,10 +65,10 @@ export function TrustipLandingPage() {
                 transition={{ duration: 0.6, ease: EASE }}
                 className="flex flex-col items-center gap-3"
               >
-                <div className="font-display font-medium text-[clamp(36px,7vw,96px)] text-[#F7F8FA] leading-[0.92]">
-                  TRUSTIP<span className="text-[#16C784]">.</span>
+                <div className="font-display font-medium text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92]">
+                  TRUSTIP<span className="text-[#FF2D00]">.</span>
                 </div>
-                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#A6ADBB]">
+                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#B9B5AB]">
                   ● PROTOTYPE / DEMO
                 </div>
               </motion.div>
@@ -69,8 +79,10 @@ export function TrustipLandingPage() {
         <main className="relative z-10 pt-14 lg:pt-0">
           <HeroSection />
           <ProblemSection />
+          <SectionMarquee items={RISK_WORDS} reverse />
           <ProtectedCheckoutSection />
           <EscrowProofSection />
+          <SectionMarquee items={PROOF_MARQUEE_ITEMS} />
           <ManifestoSection />
           <SocialCommerceSection />
           <SellerTrustSection />
@@ -79,14 +91,6 @@ export function TrustipLandingPage() {
         </main>
       </SmoothScroll>
 
-      {/* Console warning */}
-      {typeof window !== "undefined" && (
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `console.warn("[TRUSTIP PROTOTYPE] This is a visual prototype. No real blockchain/wallet activity occurs.")`,
-          }}
-        />
-      )}
     </>
   )
 }
