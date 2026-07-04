@@ -118,6 +118,17 @@ export function getCheckoutTokenSecret(): string | undefined {
 }
 
 /**
+ * SERVER-ONLY HMAC secret for signing short-lived seller wallet-ownership
+ * challenge tokens (POST /api/seller/wallets/challenge → verify). Deliberately
+ * NOT a NEXT_PUBLIC var. Returns undefined when unset — challenge issuance and
+ * verification then fail closed and `verified_at` can never be set. Never
+ * logged or returned to clients.
+ */
+export function getWalletChallengeSecret(): string | undefined {
+  return envAny("TRUSTIP_WALLET_CHALLENGE_SECRET");
+}
+
+/**
  * Whether an env-secret operator signer is explicitly permitted on mainnet.
  * Defaults to false: on mainnet the env-key signer is refused unless an approved
  * signer strategy is deliberately enabled (e.g. after wiring KMS/multisig).

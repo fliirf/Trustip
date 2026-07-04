@@ -57,6 +57,8 @@ export interface PaymentActor {
   userId: string | null;
   sellerProfileId?: string | null;
   isAdmin?: boolean;
+  /** Auth email, when known — used only to seed the ensured users row. */
+  email?: string | null;
 }
 
 // --- Inputs -----------------------------------------------------------------

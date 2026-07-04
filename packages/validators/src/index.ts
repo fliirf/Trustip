@@ -142,3 +142,53 @@ export const issueCheckoutTokenSchema = z.object({
   networkPassphrase: networkPassphraseSchema,
 });
 export type IssueCheckoutTokenInput = z.infer<typeof issueCheckoutTokenSchema>;
+
+// ---------------------------------------------------------------------------
+// Seller onboarding (Phase 7B). SHAPE only — ownership, role, network policy,
+// and `verified_at` are enforced server-side. The client can NEVER submit
+// `verified_at`, `is_primary` truth, or any payment/escrow state.
+// ---------------------------------------------------------------------------
+
+/** Network name as stored in the DB enum. The server still rejects anything
+ * that is not its configured network (fail closed). */
+export const networkNameSchema = z.enum(["testnet", "mainnet"]);
+
+export const sellerProfileSchema = z.object({
+  storeName: z.string().trim().min(1).max(120),
+  category: z.string().trim().min(1).max(80).optional(),
+  socialUrl: z.string().trim().url().max(300).optional(),
+});
+export type SellerProfileInput = z.infer<typeof sellerProfileSchema>;
+
+export const registerSellerWalletSchema = z.object({
+  walletProvider: z.enum(["freighter", "xbull"]),
+  publicKey: stellarPublicKeySchema,
+  network: networkNameSchema,
+});
+export type RegisterSellerWalletInput = z.infer<
+  typeof registerSellerWalletSchema
+>;
+
+export const createWalletChallengeSchema = z.object({
+  publicKey: stellarPublicKeySchema,
+  network: networkNameSchema,
+});
+export type CreateWalletChallengeInput = z.infer<
+  typeof createWalletChallengeSchema
+>;
+
+export const verifyWalletChallengeSchema = z.object({
+  publicKey: stellarPublicKeySchema,
+  network: networkNameSchema,
+  signedXdr: signedXdrSchema,
+  /** Server-issued challenge token returned by /challenge (HMAC, short TTL). */
+  challengeToken: z.string().min(1).max(1024),
+});
+export type VerifyWalletChallengeInput = z.infer<
+  typeof verifyWalletChallengeSchema
+>;
+
+export const setPrimaryWalletSchema = z.object({
+  walletId: z.string().uuid(),
+});
+export type SetPrimaryWalletInput = z.infer<typeof setPrimaryWalletSchema>;

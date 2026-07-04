@@ -30,7 +30,10 @@ export type PaymentErrorCode =
   // --- Checkout token issuance (Phase 5.0) ---
   | "CheckoutNotFound"
   | "CheckoutNotAvailable"
-  | "CheckoutTokenUnavailable";
+  | "CheckoutTokenUnavailable"
+  // --- Seller onboarding (Phase 7B) ---
+  | "WalletNotFound"
+  | "WalletChallengeUnavailable";
 
 const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   InvalidInput: 400,
@@ -62,6 +65,9 @@ const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   CheckoutNotFound: 404,
   CheckoutNotAvailable: 409,
   CheckoutTokenUnavailable: 503,
+  // seller onboarding
+  WalletNotFound: 404,
+  WalletChallengeUnavailable: 503,
 };
 
 export class PaymentError extends Error {

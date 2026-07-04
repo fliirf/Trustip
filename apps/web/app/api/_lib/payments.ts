@@ -76,6 +76,7 @@ export async function getActor(request: Request): Promise<PaymentActor> {
     userId,
     isAdmin: user?.role === "admin",
     sellerProfileId: sellerProfile?.id ?? null,
+    email: data.user.email ?? null,
   };
 }
 
@@ -207,6 +208,20 @@ export function enforceOrderCreateRateLimit(
   request: Request,
 ): NextResponse | null {
   const result = orderCreateLimiter.check(`order-create:${clientIp(request)}`);
+  return result.allowed ? null : tooManyRequests(result.retryAfterMs);
+}
+
+// Seller onboarding routes (profile/wallets/challenge/verify/primary): one
+// modest shared per-IP budget — low-frequency, interactive traffic.
+const sellerLimiter: RateLimiter = createInMemoryRateLimiter({
+  limit: 30,
+  windowMs: 60_000,
+});
+
+/** Rate-limit the seller onboarding routes. Returns a 429 response when over
+ * budget, else null. */
+export function enforceSellerRateLimit(request: Request): NextResponse | null {
+  const result = sellerLimiter.check(`seller:${clientIp(request)}`);
   return result.allowed ? null : tooManyRequests(result.retryAfterMs);
 }
 

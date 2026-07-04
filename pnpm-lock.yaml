@@ -119,6 +119,9 @@ importers:
         specifier: workspace:*
         version: link:../validators
     devDependencies:
+      '@stellar/stellar-sdk':
+        specifier: ^16.0.1
+        version: 16.0.1
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
