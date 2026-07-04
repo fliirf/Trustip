@@ -732,6 +732,20 @@ export async function createOrderFromCheckout(
     throw new PaymentError("CheckoutNotAvailable", "checkout link has expired");
   }
 
+  // Resolve the seller's payout wallet up front (server network, verified,
+  // primary — fail closed). An order without seller_wallet_id can never pass
+  // escrow creation, so refuse to create one at all.
+  const sellerWalletId = await deps.store.resolveSellerWalletId({
+    sellerProfileId: link.sellerProfileId,
+    network: deps.config.networkName,
+  });
+  if (!sellerWalletId) {
+    throw new PaymentError(
+      "CheckoutNotAvailable",
+      "seller has no valid payout wallet configured for this checkout",
+    );
+  }
+
   // Server-derived money, computed in integer units (no float math).
   const totalUnits = usdcToUnits(link.priceUsdc) * BigInt(input.quantity);
   const totalUsdc = unitsToUsdc(totalUnits);
@@ -746,6 +760,7 @@ export async function createOrderFromCheckout(
       orderNo: generateOrderNo(),
       checkoutLinkId: link.id,
       sellerProfileId: link.sellerProfileId,
+      sellerWalletId,
       totalUsdc,
       totalIdrReference,
       item: {

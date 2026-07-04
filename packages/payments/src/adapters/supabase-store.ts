@@ -102,6 +102,22 @@ function toEscrowRecord(row: EscrowRow): EscrowRecord {
 }
 
 /**
+ * Pick the seller payout wallet from the seller's VERIFIED wallets on the
+ * target network (the query pre-filters user/network/verified). Deterministic
+ * and fail-closed: exactly one primary wins; with no primary, a single wallet
+ * wins; anything ambiguous (several primaries, or several non-primaries)
+ * returns null rather than guessing an on-chain payout recipient.
+ */
+export function pickSellerWalletId(
+  wallets: ReadonlyArray<{ id: string; is_primary: boolean }>,
+): string | null {
+  const primaries = wallets.filter((w) => w.is_primary);
+  if (primaries.length === 1) return primaries[0]!.id;
+  if (primaries.length === 0 && wallets.length === 1) return wallets[0]!.id;
+  return null;
+}
+
+/**
  * Supabase-backed PaymentStore. Uses the service-role client (server-only) so
  * it can write the money/escrow tables that clients cannot (RLS deny). All
  * writes are idempotent and status-guarded, with unique constraints on tx
@@ -239,11 +255,29 @@ export function createSupabasePaymentStore(
       };
     },
 
+    async resolveSellerWalletId({ sellerProfileId, network }) {
+      const { data: profile } = await client
+        .from("seller_profiles")
+        .select("user_id")
+        .eq("id", sellerProfileId)
+        .maybeSingle();
+      if (!profile) return null;
+
+      const { data: wallets } = await client
+        .from("user_wallets")
+        .select("id, is_primary")
+        .eq("user_id", profile.user_id)
+        .eq("network", network)
+        .not("verified_at", "is", null);
+      return pickSellerWalletId(wallets ?? []);
+    },
+
     async insertCheckoutOrder(input) {
       const orderRow: TablesInsert<"orders"> = {
         order_no: input.orderNo,
         checkout_link_id: input.checkoutLinkId,
         seller_profile_id: input.sellerProfileId,
+        seller_wallet_id: input.sellerWalletId,
         status: "awaiting_payment",
         total_usdc: moneyValue(input.totalUsdc),
         total_idr_reference:

@@ -1,5 +1,6 @@
 import type { EscrowGateway } from "@trustip/stellar";
 import { describe, expect, it } from "vitest";
+import { pickSellerWalletId } from "../src/adapters/supabase-store.js";
 import { PaymentError, type PaymentErrorCode } from "../src/errors.js";
 import type { CheckoutLinkForOrder, PaymentStore } from "../src/ports.js";
 import {
@@ -36,6 +37,8 @@ interface FakeInit {
   link?: Partial<CheckoutLinkForOrder> | null;
   /** How many insert attempts collide (return null) before succeeding. */
   collisions?: number;
+  /** Resolved seller payout wallet id; null = seller has no valid wallet. */
+  sellerWalletId?: string | null;
 }
 
 type InsertInput = Parameters<PaymentStore["insertCheckoutOrder"]>[0];
@@ -55,7 +58,10 @@ function makeStore(init: FakeInit = {}) {
           ...init.link,
         };
   const inserts: InsertInput[] = [];
+  const walletQueries: Array<{ sellerProfileId: string; network: string }> = [];
   let remainingCollisions = init.collisions ?? 0;
+  const sellerWalletId =
+    init.sellerWalletId === undefined ? "wallet-1" : init.sellerWalletId;
 
   const notImplemented = async (): Promise<never> => {
     throw new Error("not implemented");
@@ -74,6 +80,10 @@ function makeStore(init: FakeInit = {}) {
     async loadCheckoutLinkBySlug(slug) {
       return link && slug === "shop-slug" ? link : null;
     },
+    async resolveSellerWalletId(input) {
+      walletQueries.push(input);
+      return sellerWalletId;
+    },
     async insertCheckoutOrder(input) {
       inserts.push(input);
       if (remainingCollisions > 0) {
@@ -83,7 +93,7 @@ function makeStore(init: FakeInit = {}) {
       return { orderId: "order-1", orderNo: input.orderNo };
     },
   };
-  return { store, inserts };
+  return { store, inserts, walletQueries };
 }
 
 function deps(store: PaymentStore): PaymentDeps {
@@ -208,6 +218,65 @@ describe("createOrderFromCheckout", () => {
       () => createOrderFromCheckout(deps(store), INPUT),
       "Conflict",
     );
+  });
+
+  it("stores the resolved seller wallet id on the order", async () => {
+    const { store, inserts } = makeStore({ sellerWalletId: "wallet-42" });
+    await createOrderFromCheckout(deps(store), INPUT);
+    expect(inserts[0]!.sellerWalletId).toBe("wallet-42");
+  });
+
+  it("resolves the seller wallet from the LINK's seller on the SERVER network — never from client input", async () => {
+    const { store, inserts, walletQueries } = makeStore();
+    await createOrderFromCheckout(deps(store), INPUT);
+    // the input type carries no wallet field; resolution used only link + config
+    expect(walletQueries).toEqual([
+      { sellerProfileId: "seller-1", network: CONFIG.networkName },
+    ]);
+    expect(inserts[0]!.sellerWalletId).toBe("wallet-1");
+  });
+
+  it("rejects order creation when the seller has no valid payout wallet (no unpayable order row)", async () => {
+    const { store, inserts } = makeStore({ sellerWalletId: null });
+    await rejectsWith(
+      () => createOrderFromCheckout(deps(store), INPUT),
+      "CheckoutNotAvailable",
+    );
+    expect(inserts).toHaveLength(0);
+  });
+});
+
+describe("pickSellerWalletId", () => {
+  it("chooses the single primary wallet among several", () => {
+    expect(
+      pickSellerWalletId([
+        { id: "a", is_primary: false },
+        { id: "b", is_primary: true },
+        { id: "c", is_primary: false },
+      ]),
+    ).toBe("b");
+  });
+
+  it("chooses the only wallet when none is primary", () => {
+    expect(pickSellerWalletId([{ id: "a", is_primary: false }])).toBe("a");
+  });
+
+  it("fails closed on ambiguity or no candidates", () => {
+    // rows arrive pre-filtered to verified wallets on the target network, so
+    // an empty list means no verified/network-matching wallet exists
+    expect(pickSellerWalletId([])).toBeNull();
+    expect(
+      pickSellerWalletId([
+        { id: "a", is_primary: false },
+        { id: "b", is_primary: false },
+      ]),
+    ).toBeNull();
+    expect(
+      pickSellerWalletId([
+        { id: "a", is_primary: true },
+        { id: "b", is_primary: true },
+      ]),
+    ).toBeNull();
   });
 });
 

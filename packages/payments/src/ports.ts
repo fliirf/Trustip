@@ -111,6 +111,17 @@ export interface PaymentStore {
    * policy is the caller's (service). */
   loadCheckoutLinkBySlug(slug: string): Promise<CheckoutLinkForOrder | null>;
 
+  /** Resolve the seller's payout wallet (user_wallets id) for the given seller
+   * profile on the given network — SERVER-derived, never client input. Must
+   * return only a wallet that belongs to the profile's user, is verified, and
+   * matches the network; prefer the primary wallet and FAIL CLOSED (null) when
+   * none qualifies or the choice is ambiguous. The escrow create_order step
+   * later derives the on-chain seller from this wallet. */
+  resolveSellerWalletId(input: {
+    sellerProfileId: string;
+    network: NetworkName;
+  }): Promise<string | null>;
+
   /** Insert a new order (+ its single order_items row carrying buyer contact in
    * metadata) for a checkout link. All money values are SERVER-derived by the
    * service. Returns null when the generated order_no collides with an existing
@@ -119,6 +130,9 @@ export interface PaymentStore {
     orderNo: string;
     checkoutLinkId: string;
     sellerProfileId: string;
+    /** Seller payout wallet resolved via `resolveSellerWalletId` — the escrow
+     * step reads `orders.seller_wallet_id` to derive the on-chain seller. */
+    sellerWalletId: string;
     totalUsdc: string;
     totalIdrReference: string | null;
     item: {

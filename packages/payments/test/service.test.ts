@@ -146,6 +146,9 @@ function createFakeStore(init: FakeInit = {}) {
     async insertCheckoutOrder() {
       throw new Error("not used in these tests");
     },
+    async resolveSellerWalletId() {
+      throw new Error("not used in these tests");
+    },
     async preparePaymentRow(input) {
       if (
         state.payment &&
