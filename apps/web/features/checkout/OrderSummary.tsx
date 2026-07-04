@@ -22,42 +22,49 @@ export function OrderSummary({
   quantity: number;
 }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-5">
-      <div className="text-xs uppercase tracking-widest text-gray-400">
+    <aside className="h-fit border border-hairline bg-surface p-5">
+      <div className="micro-label flex items-center gap-2 text-ash">
+        <span aria-hidden className="text-blood">
+          ◈
+        </span>
         Ringkasan Pesanan
       </div>
-      <div className="mt-3 text-lg font-medium text-gray-100">{link.title}</div>
+      <div className="mt-4 text-lg font-semibold tracking-tight text-bone">
+        {link.title}
+      </div>
       {link.description && (
-        <p className="mt-1 text-sm text-gray-400">{link.description}</p>
+        <p className="mt-1.5 text-sm leading-relaxed text-mist/70">
+          {link.description}
+        </p>
       )}
-      <div className="mt-4 space-y-1.5 text-sm">
-        <div className="flex justify-between text-gray-400">
-          <span>Harga satuan</span>
-          <span className="text-gray-200">{link.priceUsdc} USDC</span>
+      <dl className="mt-5 space-y-0 text-sm">
+        <div className="flex justify-between border-t border-hairline py-2.5">
+          <dt className="text-ash">Harga satuan</dt>
+          <dd className="text-mist">{link.priceUsdc} USDC</dd>
         </div>
-        <div className="flex justify-between text-gray-400">
-          <span>Jumlah</span>
-          <span className="text-gray-200">{quantity}</span>
+        <div className="flex justify-between border-t border-hairline py-2.5">
+          <dt className="text-ash">Jumlah</dt>
+          <dd className="text-mist">{quantity}</dd>
         </div>
         {orderNo && (
-          <div className="flex justify-between text-gray-400">
-            <span>No. pesanan</span>
-            <span className="font-mono text-xs text-gray-200">{orderNo}</span>
+          <div className="flex items-baseline justify-between gap-3 border-t border-hairline py-2.5">
+            <dt className="text-ash">No. pesanan</dt>
+            <dd className="font-mono text-xs text-mist">{orderNo}</dd>
           </div>
         )}
-      </div>
+      </dl>
       {totalUsdc && (
-        <div className="mt-4 flex items-baseline justify-between border-t border-white/10 pt-4">
-          <span className="text-sm text-gray-400">Total</span>
-          <span className="text-xl font-semibold text-gray-50">
-            {totalUsdc} USDC
+        <div className="mt-1 flex items-baseline justify-between border-t border-bone/25 pt-4">
+          <span className="micro-label text-ash">Total</span>
+          <span className="text-2xl font-semibold tracking-tight text-bone">
+            {totalUsdc} <span className="text-sm text-mist">USDC</span>
           </span>
         </div>
       )}
-      <p className="mt-3 text-xs text-gray-500">
+      <p className="mt-5 text-xs leading-relaxed text-ash">
         Pembayaran menggunakan USDC di jaringan Stellar. Dana kamu ditahan aman
         sampai pesanan diterima.
       </p>
-    </div>
+    </aside>
   );
 }

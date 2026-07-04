@@ -1,7 +1,8 @@
 // Buyer checkout page (RSC shell). Reads PUBLIC checkout-link context with the
 // anon client — RLS only exposes ACTIVE links to anon, so unknown/inactive
 // slugs render the unavailable panel. Lightweight product route: no landing
-// animation system, no 3D, no smooth-scroll libraries.
+// animation system, no 3D, no smooth-scroll libraries — VOID identity is
+// carried by CSS alone.
 
 import { supabase } from "@trustip/database";
 import { BuyerCheckout } from "../../../features/checkout/BuyerCheckout";
@@ -19,14 +20,18 @@ function formatUsdc(value: number): string {
 
 function Unavailable() {
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-lg flex-col items-center justify-center px-6 text-center">
-      <h1 className="text-lg font-semibold text-gray-100">
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 text-center">
+      <div className="micro-label text-ash">
+        Trustip <span className="text-blood">·</span> Protected Checkout
+      </div>
+      <h1 className="mt-4 text-xl font-semibold tracking-tight text-bone">
         Link checkout tidak tersedia
       </h1>
-      <p className="mt-2 text-sm text-gray-400">
+      <p className="mt-3 max-w-[36ch] text-sm leading-relaxed text-mist/80">
         Link ini tidak ditemukan, sudah tidak aktif, atau sudah kedaluwarsa.
         Hubungi penjual untuk mendapatkan link terbaru.
       </p>
+      <div className="mt-8 h-px w-16 bg-hairline" />
     </main>
   );
 }
@@ -53,27 +58,33 @@ export default async function CheckoutPage({
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 md:py-14">
-      <header className="mb-8">
-        <div className="text-xs font-semibold uppercase tracking-widest text-sky-400">
-          Trustip · Protected Checkout
-        </div>
-        <h1 className="mt-2 text-2xl font-semibold text-gray-50">
-          {link.title}
-        </h1>
-        <p className="mt-1 text-sm text-gray-400">
-          Pembayaran kamu ditahan aman sampai pesanan diterima.
-        </p>
-      </header>
+    <>
+      <div className="grain-overlay" aria-hidden />
+      <main className="relative mx-auto max-w-3xl px-4 py-12 md:py-16">
+        <header className="mb-10">
+          <div className="micro-label flex items-center gap-2 text-ash">
+            <span aria-hidden className="text-blood">
+              ◈
+            </span>
+            Trustip · Protected Checkout
+          </div>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-bone md:text-4xl">
+            {link.title}
+          </h1>
+          <p className="mt-2 text-sm text-mist/80">
+            Pembayaran kamu ditahan aman sampai pesanan diterima.
+          </p>
+        </header>
 
-      <BuyerCheckout
-        link={{
-          slug: link.slug,
-          title: link.title,
-          description: link.description,
-          priceUsdc: formatUsdc(link.price_usdc),
-        }}
-      />
-    </main>
+        <BuyerCheckout
+          link={{
+            slug: link.slug,
+            title: link.title,
+            description: link.description,
+            priceUsdc: formatUsdc(link.price_usdc),
+          }}
+        />
+      </main>
+    </>
   );
 }

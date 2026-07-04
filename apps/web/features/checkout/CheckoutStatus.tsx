@@ -48,31 +48,30 @@ export function CheckoutStatus({
     phase !== "failed" &&
     error === null &&
     active >= 0;
+  const confirmed = phase === "confirmed";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <div className="flex items-center gap-2">
+        <span className="micro-label text-mist">03 · Pembayaran</span>
+        <span className="h-px flex-1 bg-hairline" aria-hidden />
+      </div>
+
       {/* Timeline */}
-      <ol className="flex items-center gap-2">
+      <ol className="flex items-start gap-2">
         {TIMELINE_STEPS.map((step, i) => {
-          const done = i < active || phase === "confirmed";
-          const current = i === active && phase !== "confirmed";
+          const done = i < active || confirmed;
+          const current = i === active && !confirmed;
           return (
-            <li
-              key={step.key}
-              className="flex flex-1 flex-col items-center gap-1.5"
-            >
+            <li key={step.key} className="flex flex-1 flex-col gap-2">
               <span
-                className={`h-2 w-2 rounded-full ${
-                  done
-                    ? "bg-emerald-400"
-                    : current
-                      ? "bg-sky-400 animate-pulse"
-                      : "bg-white/15"
+                className={`h-px w-full transition-colors duration-500 ${
+                  done ? "bg-bone/70" : current ? "bg-blood" : "bg-hairline"
                 }`}
               />
               <span
-                className={`text-center text-[10px] leading-tight ${
-                  done || current ? "text-gray-300" : "text-gray-600"
+                className={`micro-label leading-tight ${
+                  done ? "text-mist" : current ? "text-blood" : "text-bone/25"
                 }`}
               >
                 {step.label}
@@ -84,29 +83,34 @@ export function CheckoutStatus({
 
       {/* Status banner */}
       <div
-        className={`rounded-md border px-4 py-3 text-sm ${
-          phase === "confirmed"
-            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+        className={`border px-4 py-3.5 text-sm ${
+          confirmed
+            ? "border-bone/30 bg-surface text-bone"
             : error
-              ? "border-red-500/40 bg-red-500/10 text-red-300"
-              : "border-white/10 bg-white/[0.03] text-gray-300"
+              ? "border-blood/40 bg-surface text-blood"
+              : "border-hairline bg-surface text-mist"
         }`}
       >
-        <div className="font-medium">
+        <div className="flex items-center gap-2 font-medium">
+          {confirmed && (
+            <span aria-hidden className="text-blood">
+              ◈
+            </span>
+          )}
           {error ? errorLabel(error.code, error.message) : PHASE_LABEL[phase]}
         </div>
         {busy && (
-          <div className="mt-1 text-xs text-gray-500">
-            Jangan tutup halaman ini.
+          <div className="micro-label mt-2 text-ash">
+            Jangan tutup halaman ini
           </div>
         )}
-        {phase === "confirmed" && (
-          <div className="mt-1 text-xs text-emerald-400/80">
+        {confirmed && (
+          <div className="mt-2 text-xs leading-relaxed text-mist/80">
             Dana kamu ditahan aman sampai pesanan diterima.
           </div>
         )}
         {error?.retryAfterSeconds != null && (
-          <div className="mt-1 text-xs">
+          <div className="mt-2 text-xs text-mist/70">
             Coba lagi dalam ±{error.retryAfterSeconds} detik.
           </div>
         )}
@@ -114,7 +118,7 @@ export function CheckoutStatus({
           <button
             type="button"
             onClick={onRetry}
-            className="mt-3 rounded-md border border-white/20 px-4 py-1.5 text-xs font-medium text-gray-100 transition-colors hover:border-white/50"
+            className="micro-label mt-4 border border-hairline px-4 py-2 text-bone transition-colors duration-300 hover:border-blood active:scale-[0.99]"
           >
             Coba Lagi
           </button>
@@ -122,8 +126,10 @@ export function CheckoutStatus({
       </div>
 
       {txHash && (
-        <p className="break-all font-mono text-[10px] text-gray-600">
-          Bukti transaksi: {txHash}
+        <p className="break-all font-mono text-[10px] leading-relaxed text-ash">
+          <span className="micro-label text-ash">Bukti transaksi</span>
+          <br />
+          {txHash}
         </p>
       )}
     </div>

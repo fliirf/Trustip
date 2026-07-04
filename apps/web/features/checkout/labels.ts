@@ -11,7 +11,7 @@ export const PHASE_LABEL: Record<CheckoutPhase, string> = {
   connected: "Siap Membayar",
   "requesting-token": "Menyiapkan pembayaran…",
   "creating-escrow": "Menyiapkan pembayaran…",
-  preparing: "Siapkan Pembayaran…",
+  preparing: "Menyiapkan pembayaran…",
   "awaiting-signature": "Tanda Tangani di Wallet",
   submitting: "Mengirim transaksi…",
   confirming: "Pembayaran Diproses",
@@ -44,7 +44,7 @@ export function errorLabel(code: string, fallback: string): string {
     case "SubmitRejected":
       return "Transaksi ditolak jaringan. Periksa saldo USDC kamu, lalu coba lagi.";
     case "RpcFailure":
-      return "Jaringan sedang sibuk. Silakan coba lagi.";
+      return "Pembayaran belum bisa disiapkan. Periksa saldo USDC di wallet kamu, lalu coba lagi.";
     case "RateLimited":
       return "Terlalu banyak percobaan. Tunggu sebentar, lalu coba lagi.";
     case "CheckoutNotFound":
