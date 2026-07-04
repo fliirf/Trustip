@@ -40,6 +40,18 @@ body {
   text-transform: uppercase;
 }
 
+/* Gentle float for decorative marks (used with motion-safe: so reduced-motion
+   users get a static glyph). */
+@keyframes float-slow {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
 /* Static CSS-only grain, far lighter than the landing's overlay — payment
    pages stay calm. pointer-events: none keeps every control clickable. */
 .grain-overlay {
