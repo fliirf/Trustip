@@ -192,3 +192,28 @@ export const setPrimaryWalletSchema = z.object({
   walletId: z.string().uuid(),
 });
 export type SetPrimaryWalletInput = z.infer<typeof setPrimaryWalletSchema>;
+
+/** Decimal USDC amount string, up to 7 decimals. Positivity and canonical form
+ * are enforced server-side via integer-unit parsing. */
+export const usdcAmountSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{1,13}(\.\d{1,7})?$/, "invalid USDC amount");
+
+/** Seller checkout link creation (Phase 7C). SHAPE only — sellerProfileId and
+ * status are always server-derived; the client cannot set link/order/payment
+ * state. Custom slug is optional (server generates when omitted). */
+export const createSellerCheckoutLinkSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().min(1).max(500).optional(),
+  priceUsdc: usdcAmountSchema,
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9-]{3,60}$/, "slug may use a-z, 0-9 and dashes (3-60)")
+    .optional(),
+});
+export type CreateSellerCheckoutLinkInput = z.infer<
+  typeof createSellerCheckoutLinkSchema
+>;

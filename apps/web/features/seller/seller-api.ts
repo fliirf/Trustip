@@ -152,3 +152,62 @@ export function setPrimaryWallet(
     body: JSON.stringify(input),
   });
 }
+
+export interface SellerCheckoutLink {
+  id: string;
+  sellerProfileId: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  priceUsdc: string;
+  status: string;
+  createdAt: string;
+}
+
+export function listCheckoutLinks(
+  token: string,
+): Promise<{ links: SellerCheckoutLink[] }> {
+  return request<{ links: SellerCheckoutLink[] }>(
+    "/api/seller/checkout-links",
+    token,
+  );
+}
+
+export interface SellerOrderBuyer {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  city: string | null;
+  postalCode: string | null;
+  country: string | null;
+}
+
+export interface SellerOrder {
+  orderId: string;
+  orderNo: string;
+  status: string;
+  totalUsdc: string;
+  quantity: number | null;
+  createdAt: string;
+  link: { title: string; slug: string } | null;
+  buyer: SellerOrderBuyer | null;
+  payment: { status: string; txHash: string | null } | null;
+  escrow: { status: string; fundedTxHash: string | null } | null;
+}
+
+export function listSellerOrders(
+  token: string,
+): Promise<{ orders: SellerOrder[] }> {
+  return request<{ orders: SellerOrder[] }>("/api/seller/orders", token);
+}
+
+export function createCheckoutLink(
+  token: string,
+  input: { title: string; description?: string; priceUsdc: string },
+): Promise<SellerCheckoutLink> {
+  return request<SellerCheckoutLink>("/api/seller/checkout-links", token, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}

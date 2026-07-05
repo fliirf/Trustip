@@ -134,8 +134,14 @@ export function SellerDashboard() {
           <section className="mt-10 max-w-md border border-hairline bg-surface px-4 py-4">
             <div className="micro-label text-ash">Link Checkout</div>
             <p className="mt-2 text-sm text-mist/70">
-              Buat dan kelola link checkout kamu di tahap berikutnya.
+              Buat link checkout dan bagikan ke pembeli kamu.
             </p>
+            <Link
+              href="/seller/links"
+              className="micro-label mt-3 inline-block border border-hairline px-4 py-2 text-bone transition-colors duration-300 hover:border-blood"
+            >
+              Kelola Link
+            </Link>
           </section>
         </div>
 

@@ -33,7 +33,9 @@ export type PaymentErrorCode =
   | "CheckoutTokenUnavailable"
   // --- Seller onboarding (Phase 7B) ---
   | "WalletNotFound"
-  | "WalletChallengeUnavailable";
+  | "WalletChallengeUnavailable"
+  // --- Seller checkout links (Phase 7C) ---
+  | "SellerNotReady";
 
 const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   InvalidInput: 400,
@@ -68,6 +70,8 @@ const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   // seller onboarding
   WalletNotFound: 404,
   WalletChallengeUnavailable: 503,
+  // seller checkout links
+  SellerNotReady: 409,
 };
 
 export class PaymentError extends Error {

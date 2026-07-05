@@ -1,8 +1,13 @@
 import type { TrustipClient } from "@trustip/database";
-import type {
-  SellerProfileRecord,
-  SellerStore,
-  SellerWalletRecord,
+import { usdcAmountToString } from "../money.js";
+import {
+  toBuyerSummary,
+  type PublicOrderStatusRecord,
+  type SellerCheckoutLinkRecord,
+  type SellerOrderRecord,
+  type SellerProfileRecord,
+  type SellerStore,
+  type SellerWalletRecord,
 } from "../seller-onboarding.js";
 
 const UNIQUE_VIOLATION = "23505";
@@ -38,6 +43,33 @@ function toWalletRecord(row: WalletRow): SellerWalletRecord {
     network: row.network,
     isPrimary: row.is_primary,
     verifiedAt: row.verified_at,
+  };
+}
+
+const LINK_COLUMNS =
+  "id, seller_profile_id, slug, title, description, price_usdc, status, created_at";
+
+type LinkRow = {
+  id: string;
+  seller_profile_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  price_usdc: number;
+  status: string;
+  created_at: string;
+};
+
+function toLinkRecord(row: LinkRow): SellerCheckoutLinkRecord {
+  return {
+    id: row.id,
+    sellerProfileId: row.seller_profile_id,
+    slug: row.slug,
+    title: row.title,
+    description: row.description,
+    priceUsdc: usdcAmountToString(row.price_usdc),
+    status: row.status,
+    createdAt: row.created_at,
   };
 }
 
@@ -184,6 +216,156 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         throw error;
       }
       return { conflict: false };
+    },
+
+    async listCheckoutLinks(sellerProfileId) {
+      const { data } = await client
+        .from("checkout_links")
+        .select(LINK_COLUMNS)
+        .eq("seller_profile_id", sellerProfileId)
+        .order("created_at", { ascending: false });
+      return ((data ?? []) as LinkRow[]).map(toLinkRecord);
+    },
+
+    async insertCheckoutLink(input) {
+      const { data, error } = await client
+        .from("checkout_links")
+        .insert({
+          seller_profile_id: input.sellerProfileId,
+          slug: input.slug,
+          title: input.title,
+          description: input.description,
+          // Canonical decimal string into numeric — never Number() float math.
+          price_usdc: usdcAmountToString(input.priceUsdc) as unknown as number,
+          status: "active",
+        })
+        .select(LINK_COLUMNS)
+        .single();
+      if (error) {
+        // slug is the only unique constraint this insert can hit
+        if (error.code === UNIQUE_VIOLATION) return null;
+        throw error;
+      }
+      return toLinkRecord(data as LinkRow);
+    },
+
+    async listSellerOrders(sellerProfileId) {
+      // READ-ONLY, seller-scoped by the service-derived profile id. Selected
+      // columns are the safe seller-facing set only — no tokens, no secrets.
+      const { data, error } = await client
+        .from("orders")
+        .select(
+          `id, order_no, status, total_usdc, created_at,
+           checkout_links ( title, slug ),
+           order_items ( quantity, metadata ),
+           payments ( status, tx_hash ),
+           escrows ( status, funded_tx_hash )`,
+        )
+        .eq("seller_profile_id", sellerProfileId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+
+      // payments/escrows have a UNIQUE order_id, so PostgREST embeds them as
+      // object-or-null (one-to-one), while order_items embeds as an array.
+      type Row = {
+        id: string;
+        order_no: string;
+        status: string;
+        total_usdc: number;
+        created_at: string;
+        checkout_links: { title: string; slug: string } | null;
+        order_items: Array<{ quantity: number; metadata: unknown }> | null;
+        payments: { status: string; tx_hash: string | null } | null;
+        escrows: { status: string; funded_tx_hash: string | null } | null;
+      };
+      return ((data ?? []) as unknown as Row[]).map((row) => {
+        const item = row.order_items?.[0] ?? null;
+        const payment = row.payments;
+        const escrow = row.escrows;
+        const record: SellerOrderRecord = {
+          orderId: row.id,
+          orderNo: row.order_no,
+          status: row.status,
+          totalUsdc: usdcAmountToString(row.total_usdc),
+          quantity: item?.quantity ?? null,
+          createdAt: row.created_at,
+          link: row.checkout_links
+            ? { title: row.checkout_links.title, slug: row.checkout_links.slug }
+            : null,
+          buyer: item ? toBuyerSummary(item.metadata) : null,
+          payment: payment
+            ? { status: payment.status, txHash: payment.tx_hash }
+            : null,
+          escrow: escrow
+            ? { status: escrow.status, fundedTxHash: escrow.funded_tx_hash }
+            : null,
+        };
+        return record;
+      });
+    },
+
+    async getPublicOrderStatus({ slug, orderNo }) {
+      // Resolve by PUBLIC identifiers only, requiring the order to belong to
+      // that exact link (mirrors loadCheckoutOrderForIssuance).
+      const { data: link } = await client
+        .from("checkout_links")
+        .select("id, slug, title, description, seller_profiles ( store_name )")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!link) return null;
+
+      const { data: order } = await client
+        .from("orders")
+        .select(
+          `order_no, status, total_usdc, created_at, checkout_link_id,
+           order_items ( quantity, metadata ),
+           payments ( status, tx_hash ),
+           escrows ( status, funded_tx_hash )`,
+        )
+        .eq("order_no", orderNo)
+        .maybeSingle();
+      if (!order || order.checkout_link_id !== link.id) return null;
+
+      // payments/escrows embed as object-or-null (unique order_id).
+      type OrderRow = {
+        order_no: string;
+        status: string;
+        total_usdc: number;
+        created_at: string;
+        order_items: Array<{ quantity: number; metadata: unknown }> | null;
+        payments: { status: string; tx_hash: string | null } | null;
+        escrows: { status: string; funded_tx_hash: string | null } | null;
+      };
+      const row = order as unknown as OrderRow;
+      const profile = link.seller_profiles as unknown as {
+        store_name: string;
+      } | null;
+      const item = row.order_items?.[0] ?? null;
+      const record: PublicOrderStatusRecord = {
+        orderNo: row.order_no,
+        status: row.status,
+        totalUsdc: usdcAmountToString(row.total_usdc),
+        quantity: item?.quantity ?? null,
+        createdAt: row.created_at,
+        link: {
+          title: link.title,
+          description: link.description,
+          slug: link.slug,
+        },
+        storeName: profile?.store_name ?? null,
+        buyer: item ? toBuyerSummary(item.metadata) : null,
+        payment: row.payments
+          ? { status: row.payments.status, txHash: row.payments.tx_hash }
+          : null,
+        escrow: row.escrows
+          ? {
+              status: row.escrows.status,
+              fundedTxHash: row.escrows.funded_tx_hash,
+            }
+          : null,
+        shipment: null,
+      };
+      return record;
     },
   };
 }

@@ -58,7 +58,7 @@ export function SellerShell({
   email,
   children,
 }: {
-  active: "dashboard" | "onboarding" | "login";
+  active: "dashboard" | "onboarding" | "links" | "orders" | "login";
   onSignOut?: (() => void) | null;
   email?: string | null;
   children: ReactNode;
@@ -100,6 +100,22 @@ export function SellerShell({
               }`}
             >
               Persiapan
+            </Link>
+            <Link
+              href="/seller/links"
+              className={`micro-label transition-colors duration-300 hover:text-bone ${
+                active === "links" ? "text-bone" : "text-ash"
+              }`}
+            >
+              Link Checkout
+            </Link>
+            <Link
+              href="/seller/orders"
+              className={`micro-label transition-colors duration-300 hover:text-bone ${
+                active === "orders" ? "text-bone" : "text-ash"
+              }`}
+            >
+              Pesanan
             </Link>
             {onSignOut && (
               <button

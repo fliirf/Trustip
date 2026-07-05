@@ -205,6 +205,17 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             }
           />
         )}
+
+        {/* Read-only follow-up: link to the public status page once the
+            backend has confirmed the payment. Changes no flow state. */}
+        {flow.phase === "confirmed" && flow.order && (
+          <a
+            href={`/checkout/${link.slug}/status/${flow.order.orderNo}`}
+            className="block w-full bg-bone px-4 py-3 text-center text-sm font-semibold tracking-tight text-void transition-colors duration-300 hover:bg-blood active:scale-[0.99]"
+          >
+            Lihat Status Pesanan
+          </a>
+        )}
       </div>
 
       <OrderSummary

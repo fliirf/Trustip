@@ -2,7 +2,9 @@ import {
   buildWalletChallengeTx,
   verifyWalletChallengeTx,
 } from "@trustip/stellar";
+import { randomBytes } from "node:crypto";
 import { PaymentError } from "./errors.js";
+import { unitsToUsdc, usdcToUnits } from "./money.js";
 import type { NetworkName } from "./ports.js";
 import type { PaymentActor } from "./service.js";
 import {
@@ -28,6 +30,85 @@ export interface SellerProfileRecord {
   storeName: string;
   category: string | null;
   socialUrl: string | null;
+}
+
+/** Fulfillment-facing buyer contact summary (stored by checkout order-create
+ * in order_items.metadata precisely for this purpose). */
+export interface SellerOrderBuyerSummary {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  addressLine1: string | null;
+  city: string | null;
+  postalCode: string | null;
+  country: string | null;
+}
+
+/** Buyer-facing public order status (STATUS-1A). Safe fields only — no
+ * internal UUIDs, no tokens, no seller wallets, no other orders. */
+export interface PublicOrderStatusRecord {
+  orderNo: string;
+  status: string;
+  totalUsdc: string;
+  quantity: number | null;
+  createdAt: string;
+  link: { title: string; description: string | null; slug: string };
+  storeName: string | null;
+  buyer: SellerOrderBuyerSummary | null;
+  payment: { status: string; txHash: string | null } | null;
+  escrow: { status: string; fundedTxHash: string | null } | null;
+  /** Shipment tracking lands in Phase 8 — always null for now. */
+  shipment: null;
+}
+
+export interface SellerOrderRecord {
+  orderId: string;
+  orderNo: string;
+  status: string;
+  totalUsdc: string;
+  quantity: number | null;
+  createdAt: string;
+  link: { title: string; slug: string } | null;
+  buyer: SellerOrderBuyerSummary | null;
+  payment: { status: string; txHash: string | null } | null;
+  escrow: { status: string; fundedTxHash: string | null } | null;
+}
+
+/** Extract the fulfillment contact from order_items.metadata, tolerating any
+ * missing/partial/garbage shape (metadata is jsonb). Only the fields the
+ * seller needs to ship — never anything else from metadata. */
+export function toBuyerSummary(
+  metadata: unknown,
+): SellerOrderBuyerSummary | null {
+  if (typeof metadata !== "object" || metadata === null) return null;
+  const m = metadata as Record<string, unknown>;
+  const addr =
+    typeof m.shippingAddress === "object" && m.shippingAddress !== null
+      ? (m.shippingAddress as Record<string, unknown>)
+      : {};
+  const str = (v: unknown): string | null =>
+    typeof v === "string" && v.length > 0 ? v : null;
+  const summary: SellerOrderBuyerSummary = {
+    name: str(m.buyerName) ?? str(addr.name),
+    email: str(m.buyerEmail),
+    phone: str(addr.phone),
+    addressLine1: str(addr.addressLine1),
+    city: str(addr.city),
+    postalCode: str(addr.postalCode),
+    country: str(addr.country),
+  };
+  return Object.values(summary).every((v) => v === null) ? null : summary;
+}
+
+export interface SellerCheckoutLinkRecord {
+  id: string;
+  sellerProfileId: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  priceUsdc: string;
+  status: string;
+  createdAt: string;
 }
 
 export interface SellerWalletRecord {
@@ -85,6 +166,34 @@ export interface SellerStore {
   /** Promote a wallet to primary. Returns conflict=true when the partial
    * unique index rejects it (concurrent promotion) — caller maps to Conflict. */
   setPrimary(input: { walletId: string }): Promise<{ conflict: boolean }>;
+
+  /** Checkout links owned by a seller profile, newest first. */
+  listCheckoutLinks(
+    sellerProfileId: string,
+  ): Promise<SellerCheckoutLinkRecord[]>;
+  /** Insert an ACTIVE checkout link. Returns null on a slug collision (unique
+   * violation) so the caller can retry (generated) or reject (custom). */
+  insertCheckoutLink(input: {
+    sellerProfileId: string;
+    slug: string;
+    title: string;
+    description: string | null;
+    priceUsdc: string;
+  }): Promise<SellerCheckoutLinkRecord | null>;
+
+  /** READ-ONLY: orders belonging to a seller profile, newest first, with safe
+   * seller-facing joins only (link title/slug, payment/escrow status + tx
+   * hashes, item quantity + fulfillment contact). Never tokens/secrets. */
+  listSellerOrders(sellerProfileId: string): Promise<SellerOrderRecord[]>;
+
+  /** READ-ONLY PUBLIC: one order resolved strictly by (checkout slug,
+   * order_no) — the same lookup discipline as token issuance, so a raw UUID or
+   * an order_no from another link can never resolve. Returns null on any
+   * mismatch (caller maps to a generic 404, no oracle). */
+  getPublicOrderStatus(input: {
+    slug: string;
+    orderNo: string;
+  }): Promise<PublicOrderStatusRecord | null>;
 }
 
 export interface SellerDeps {
@@ -370,4 +479,125 @@ export async function setPrimarySellerWallet(
     );
   }
   return { ...wallet, isPrimary: true };
+}
+
+// --- Checkout links (Phase 7C) -----------------------------------------------
+
+// Lowercase Crockford base32 — URL-safe, unambiguous, matches checkoutSlugSchema.
+const SLUG_ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz";
+const SLUG_LENGTH = 12;
+const SLUG_ATTEMPTS = 5;
+
+/** Server-generated public slug (~60 bits). Slugs are public identifiers, not
+ * secrets — entropy here is only for collision avoidance. */
+export function generateCheckoutSlug(): string {
+  const bytes = randomBytes(SLUG_LENGTH);
+  let out = "";
+  for (let i = 0; i < SLUG_LENGTH; i++) {
+    out += SLUG_ALPHABET[bytes[i]! % 32];
+  }
+  return out;
+}
+
+/** Require the seller to be fully checkout-ready (profile + verified primary
+ * wallet on the configured network) — the exact condition order creation
+ * resolves. Fails closed so no link can exist that immediately 409s buyers. */
+async function requireCheckoutReadyProfile(
+  deps: SellerDeps,
+  actor: PaymentActor,
+): Promise<SellerProfileRecord> {
+  const status = await getSellerOnboarding(deps, actor);
+  if (!status.profile || !status.checkoutReady) {
+    throw new PaymentError(
+      "SellerNotReady",
+      "complete seller onboarding (profile + verified primary wallet) before creating checkout links",
+    );
+  }
+  return status.profile;
+}
+
+/** READ-ONLY PUBLIC order status (STATUS-1A). Lookup is authorized purely by
+ * possession of the high-entropy order_no scoped to its checkout slug; every
+ * miss is the same generic CheckoutNotFound (no existence oracle). Never
+ * mutates anything, never lists. */
+export async function getPublicOrderStatus(
+  deps: SellerDeps,
+  input: { slug: string; orderNo: string },
+): Promise<PublicOrderStatusRecord> {
+  const record = await deps.store.getPublicOrderStatus(input);
+  if (!record) {
+    throw new PaymentError("CheckoutNotFound", "order not found");
+  }
+  return record;
+}
+
+/** READ-ONLY seller orders (Phase 7D). No mutation of any lifecycle state —
+ * shipment/release/refund actions are later phases. Sellers without a profile
+ * get a safe empty list (no existence oracle, nothing to leak). */
+export async function listSellerOrders(
+  deps: SellerDeps,
+  actor: PaymentActor,
+): Promise<SellerOrderRecord[]> {
+  const userId = requireUserId(actor);
+  const profile = await deps.store.getSellerProfile(userId);
+  if (!profile) return [];
+  return deps.store.listSellerOrders(profile.id);
+}
+
+export async function listSellerCheckoutLinks(
+  deps: SellerDeps,
+  actor: PaymentActor,
+): Promise<SellerCheckoutLinkRecord[]> {
+  const userId = requireUserId(actor);
+  const profile = await deps.store.getSellerProfile(userId);
+  if (!profile) return [];
+  return deps.store.listCheckoutLinks(profile.id);
+}
+
+export interface CreateSellerCheckoutLinkInput {
+  title: string;
+  description?: string;
+  /** Unit price as a decimal USDC string (validated server-side). */
+  priceUsdc: string;
+  /** Optional custom slug (strictly validated); omitted = server-generated. */
+  slug?: string;
+}
+
+export async function createSellerCheckoutLink(
+  deps: SellerDeps,
+  actor: PaymentActor,
+  input: CreateSellerCheckoutLinkInput,
+): Promise<SellerCheckoutLinkRecord> {
+  const profile = await requireCheckoutReadyProfile(deps, actor);
+
+  // Money discipline: parse via integer units; reject zero/negative/malformed.
+  let units: bigint;
+  try {
+    units = usdcToUnits(input.priceUsdc);
+  } catch {
+    throw new PaymentError("InvalidInput", "invalid USDC price");
+  }
+  if (units <= 0n) {
+    throw new PaymentError("InvalidInput", "price must be greater than zero");
+  }
+  const priceUsdc = unitsToUsdc(units);
+
+  const customSlug = input.slug?.toLowerCase();
+  const attempts = customSlug ? 1 : SLUG_ATTEMPTS;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    const created = await deps.store.insertCheckoutLink({
+      sellerProfileId: profile.id,
+      slug: customSlug ?? generateCheckoutSlug(),
+      title: input.title,
+      description: input.description ?? null,
+      priceUsdc,
+    });
+    if (created) return created;
+  }
+  throw new PaymentError(
+    "Conflict",
+    customSlug
+      ? "that slug is already taken; choose another"
+      : "could not allocate a unique link slug; please retry",
+  );
 }
