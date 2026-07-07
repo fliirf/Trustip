@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import Lenis from "lenis";
 import { motionValue } from "framer-motion";
 
@@ -10,43 +10,66 @@ export const scrollVelocityY = motionValue(0);
 export const scrollProgressGlobal = motionValue(0);
 
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
-  const lenisRef = useRef<Lenis | null>(null);
-
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (prefersReduced) return;
+    const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
-    const lenis = new Lenis({
-      duration: 1.15,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-      touchMultiplier: 1.5,
-    });
-    lenisRef.current = lenis;
+    // Mobile / reduced motion: native scroll, but keep the shared progress
+    // value fed (RouteThread depends on it) via a cheap passive listener.
+    if (prefersReduced || coarsePointer) {
+      const onScroll = () => {
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        scrollProgressGlobal.set(maxScroll > 0 ? window.scrollY / maxScroll : 0);
+      };
+      onScroll();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      return () => window.removeEventListener("scroll", onScroll);
+    }
 
-    let rafId: number;
-    let lastScroll = 0;
-    let lastTime = performance.now();
+    // Desktop: initialize Lenis only once the main thread is idle so smooth
+    // scroll never competes with hydration/first interaction. Native scroll
+    // works until then.
+    let lenis: Lenis | null = null;
+    let rafId = 0;
 
-    const raf = (time: number) => {
-      lenis.raf(time);
-      const current = window.scrollY;
-      const dt = time - lastTime;
-      const delta = current - lastScroll;
-      const velocity = dt > 0 ? delta / dt : 0;
-      scrollVelocityY.set(velocity);
-      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-      scrollProgressGlobal.set(maxScroll > 0 ? current / maxScroll : 0);
-      lastScroll = current;
-      lastTime = time;
+    const start = () => {
+      lenis = new Lenis({
+        duration: 1.15,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        touchMultiplier: 1.5,
+      });
+
+      let lastScroll = 0;
+      let lastTime = performance.now();
+      const raf = (time: number) => {
+        lenis!.raf(time);
+        const current = window.scrollY;
+        const dt = time - lastTime;
+        const delta = current - lastScroll;
+        scrollVelocityY.set(dt > 0 ? delta / dt : 0);
+        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+        scrollProgressGlobal.set(maxScroll > 0 ? current / maxScroll : 0);
+        lastScroll = current;
+        lastTime = time;
+        rafId = requestAnimationFrame(raf);
+      };
       rafId = requestAnimationFrame(raf);
     };
-    rafId = requestAnimationFrame(raf);
+
+    const w = window as typeof window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (handle: number) => void;
+    };
+    const idleHandle = w.requestIdleCallback
+      ? w.requestIdleCallback(start, { timeout: 1500 })
+      : window.setTimeout(start, 300);
 
     return () => {
+      if (w.requestIdleCallback && w.cancelIdleCallback) w.cancelIdleCallback(idleHandle as number);
+      else clearTimeout(idleHandle as number);
       cancelAnimationFrame(rafId);
-      lenis.destroy();
-      lenisRef.current = null;
+      lenis?.destroy();
     };
   }, []);
 

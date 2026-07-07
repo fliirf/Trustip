@@ -144,10 +144,12 @@ ESCROW · RELEASE · PAYOUT (DEMO)
                     </text>
                     {/* Travelling dot — bright on the displayed route, faint idle flow on the rest */}
                     <motion.circle
+                      cx="300"
+                      cy="120"
                       r={isActive ? "3.5" : "2"}
                       fill="#FF2D00"
                       opacity={isActive ? 1 : 0.25}
-                      animate={{ cx: [300, 700], cy: [120, destY] }}
+                      animate={{ x: [0, 400], y: [0, destY - 120] }}
                       transition={{
                         duration: isActive ? 2.4 : 3.6,
                         repeat: Infinity,
@@ -173,7 +175,8 @@ ESCROW · RELEASE · PAYOUT (DEMO)
                 stroke="#FF2D00"
                 strokeWidth="0.6"
                 opacity="0.4"
-                animate={reduce ? undefined : { r: [12, 18, 12], opacity: [0.4, 0.08, 0.4] }}
+                style={{ transformOrigin: "300px 120px" }}
+                animate={reduce ? undefined : { scale: [1, 1.5, 1], opacity: [0.4, 0.08, 0.4] }}
                 transition={reduce ? undefined : { duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
               />
               <text x="300" y="98" textAnchor="middle" fill="#FF2D00" fontFamily="JetBrains Mono" fontSize="7" letterSpacing="0.14em">RELEASE</text>

@@ -85,8 +85,10 @@ export function SignalField({ className = "" }: SignalFieldProps) {
               reduce
                 ? undefined
                 : {
-                    cx: node.drift.map((d) => node.x + d),
-                    cy: node.drift.map((d) => node.y - d * 0.6),
+                    // Transform-based drift — animating cx/cy attrs makes framer
+                    // emit cx="undefined" on first render (SVG length parse errors).
+                    x: node.drift,
+                    y: node.drift.map((d) => -d * 0.6),
                     opacity: [0.65, 0.25, 0.65, 0.2, 0.65],
                   }
             }

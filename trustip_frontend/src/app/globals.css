@@ -348,6 +348,17 @@
     }
   }
 
+  /* Loading splash — CSS-only fade, independent of JS/hydration */
+  .splash-out {
+    animation: splash-out 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.9s forwards;
+  }
+  @keyframes splash-out {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
   /* Reduced motion */
   @media (prefers-reduced-motion: reduce) {
     *,

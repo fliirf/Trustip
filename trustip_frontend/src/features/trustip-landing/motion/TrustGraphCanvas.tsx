@@ -124,12 +124,13 @@ export function TrustGraphCanvas({ className = "", progress }: TrustGraphCanvasP
               stroke={node.color}
               strokeWidth="0.3"
               opacity="0.4"
+              style={{ transformOrigin: `${node.x}px ${node.y}px` }}
               animate={
                 reduce
                   ? undefined
                   : isHovered
-                    ? { r: [6, 9, 6], opacity: [0.6, 0.15, 0.6] }
-                    : { r: [6, 8, 6], opacity: [0.4, 0.1, 0.4] }
+                    ? { scale: [1, 1.5, 1], opacity: [0.6, 0.15, 0.6] }
+                    : { scale: [1, 1.33, 1], opacity: [0.4, 0.1, 0.4] }
               }
               transition={{ duration: isHovered ? 1.2 : 3, repeat: Infinity, ease: "easeInOut", delay: i * 0.4 }}
             />

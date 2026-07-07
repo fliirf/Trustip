@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { useEffect } from "react"
+import dynamic from "next/dynamic"
 import { SmoothScroll } from "@/components/void/smooth-scroll"
 import { Cursor } from "@/components/void/cursor"
 import { Grain } from "@/components/void/grain"
@@ -12,26 +12,35 @@ import { PrototypeBadge } from "./PrototypeBadge"
 import { SectionMarquee } from "./SectionMarquee"
 import { RISK_WORDS } from "../data/landing-content"
 import { LandingNav } from "./LandingNav"
+import { LazySection } from "./LazySection"
 import { HeroSection } from "../sections/HeroSection"
 import { ProblemSection } from "../sections/ProblemSection"
-import { ProtectedCheckoutSection } from "../sections/ProtectedCheckoutSection"
-import { EscrowProofSection } from "../sections/EscrowProofSection"
-import { ManifestoSection } from "../sections/ManifestoSection"
-import { SocialCommerceSection } from "../sections/SocialCommerceSection"
-import { SellerTrustSection } from "../sections/SellerTrustSection"
-import { PayoutRouteSection } from "../sections/PayoutRouteSection"
-import { FinalCTASection } from "../sections/FinalCTASection"
 
-const EASE = [0.16, 1, 0.3, 1] as const
+/* Below-the-fold cinematic sections — split out of the initial bundle and
+   mounted only as they approach the viewport (via LazySection). */
+const ProtectedCheckoutSection = dynamic(() =>
+  import("../sections/ProtectedCheckoutSection").then((m) => m.ProtectedCheckoutSection),
+)
+const EscrowProofSection = dynamic(() =>
+  import("../sections/EscrowProofSection").then((m) => m.EscrowProofSection),
+)
+const ManifestoSection = dynamic(() =>
+  import("../sections/ManifestoSection").then((m) => m.ManifestoSection),
+)
+const SocialCommerceSection = dynamic(() =>
+  import("../sections/SocialCommerceSection").then((m) => m.SocialCommerceSection),
+)
+const SellerTrustSection = dynamic(() =>
+  import("../sections/SellerTrustSection").then((m) => m.SellerTrustSection),
+)
+const PayoutRouteSection = dynamic(() =>
+  import("../sections/PayoutRouteSection").then((m) => m.PayoutRouteSection),
+)
+const FinalCTASection = dynamic(() =>
+  import("../sections/FinalCTASection").then((m) => m.FinalCTASection),
+)
 
 export function TrustipLandingPage() {
-  const [loaded, setLoaded] = useState(false)
-
-  useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 100)
-    return () => clearTimeout(t)
-  }, [])
-
   useEffect(() => {
     console.warn(
       "[TRUSTIP PROTOTYPE] This is a visual prototype. No real blockchain/wallet activity occurs.",
@@ -58,44 +67,30 @@ export function TrustipLandingPage() {
         <RouteThread />
         <PrototypeBadge />
 
-        {/* Loading screen */}
-        <AnimatePresence>
-          {!loaded && (
-            <motion.div
-              className="fixed inset-0 z-[10001] bg-[#050505] flex items-center justify-center"
-              initial={{ opacity: 1 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: EASE }}
-            >
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.6, ease: EASE }}
-                className="flex flex-col items-center gap-3"
-              >
-                <div className="font-display font-medium text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92]">
-                  TRUSTIP<span className="text-[#FF2D00]">.</span>
-                </div>
-                <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
-                  ● PROTOTYPE / DEMO
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Loading splash — pure CSS fade so it never blocks first paint on JS.
+            Server-rendered, fades out on its own even before hydration. */}
+        <div className="fixed inset-0 z-[10001] bg-[#050505] flex items-center justify-center pointer-events-none splash-out">
+          <div className="flex flex-col items-center gap-3">
+            <div className="font-display font-medium text-[clamp(36px,7vw,96px)] text-[#EDEAE3] leading-[0.92]">
+              TRUSTIP<span className="text-[#FF2D00]">.</span>
+            </div>
+            <div className="font-mono-jb text-[10px] uppercase tracking-[0.22em] text-[#C6C2B8]">
+              ● PROTOTYPE / DEMO
+            </div>
+          </div>
+        </div>
 
         <main className="relative z-10 pt-14 lg:pt-0">
           <HeroSection />
           <ProblemSection />
           <SectionMarquee items={RISK_WORDS} reverse />
-          <ProtectedCheckoutSection />
-          <EscrowProofSection />
-          <ManifestoSection />
-          <SocialCommerceSection />
-          <SellerTrustSection />
-          <PayoutRouteSection />
-          <FinalCTASection />
+          <LazySection><ProtectedCheckoutSection /></LazySection>
+          <LazySection><EscrowProofSection /></LazySection>
+          <LazySection><ManifestoSection /></LazySection>
+          <LazySection><SocialCommerceSection /></LazySection>
+          <LazySection><SellerTrustSection /></LazySection>
+          <LazySection><PayoutRouteSection /></LazySection>
+          <LazySection minHeightClass="min-h-[80dvh]"><FinalCTASection /></LazySection>
         </main>
       </SmoothScroll>
 

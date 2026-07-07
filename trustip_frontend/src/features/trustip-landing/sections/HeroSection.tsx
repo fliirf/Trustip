@@ -4,6 +4,7 @@ import { useRef } from "react"
 import dynamic from "next/dynamic"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { useCan3D } from "../three/useCan3D"
+import { useIdleReady } from "../three/useIdleReady"
 import { KineticWords } from "../motion/KineticWords"
 import { OrbitalCore } from "../motion/OrbitalCore"
 import { WalletCTAButton } from "../components/WalletCTAButton"
@@ -17,6 +18,7 @@ const HeroParticleField = dynamic(() => import("../three/HeroParticleField"), {
 
 export function HeroSection() {
   const can3D = useCan3D()
+  const idleReady = useIdleReady()
   const ref = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -48,8 +50,10 @@ export function HeroSection() {
       {/* Void background — plain near-black; the shell's grid/scanlines fill it */}
       <div className="absolute inset-0 z-0 bg-[#050505]" />
 
-      {/* Mouse-reactive particle field behind the wordmark (desktop, lazy) */}
-      {can3D && (
+      {/* Mouse-reactive particle field behind the wordmark (desktop, lazy).
+          Gated on idle so the heavy Three.js chunk never competes with the
+          hero text/wordmark for the first paint. */}
+      {can3D && idleReady && (
         <div className="absolute inset-0 z-0 pointer-events-none" aria-hidden>
           <HeroParticleField progress={scrollYProgress} />
         </div>
