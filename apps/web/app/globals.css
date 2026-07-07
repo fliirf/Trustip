@@ -85,6 +85,67 @@ body {
   }
 }
 
+/* ---- Landing (VOID) — CSS-only motion, no JS animation libs ---- */
+
+/* Landing-scoped font utilities; variables come from next/font on .landing-root. */
+.landing-root .font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+.landing-root .font-mono-jb,
+.landing-root .micro-label {
+  font-family: var(--font-mono-jb), ui-monospace, Menlo, Consolas, monospace;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  .marquee-track {
+    animation: marquee 30s linear infinite;
+  }
+
+  .orbit-spin {
+    transform-origin: 50px 50px;
+    animation: orbit-rotate linear infinite;
+  }
+  .spin-34 {
+    animation-duration: 34s;
+  }
+  .spin-52-rev {
+    animation-duration: 52s;
+    animation-direction: reverse;
+  }
+  .spin-90-rev {
+    animation-duration: 90s;
+    animation-direction: reverse;
+  }
+  .spin-140 {
+    animation-duration: 140s;
+  }
+  .spin-160 {
+    animation-duration: 160s;
+  }
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes orbit-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Static CSS-only grain, far lighter than the landing's overlay — payment
    pages stay calm. pointer-events: none keeps every control clickable. */
 .grain-overlay {
