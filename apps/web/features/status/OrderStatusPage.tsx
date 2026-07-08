@@ -7,10 +7,20 @@
 
 import { explorerTxUrl, networkName } from "@trustip/stellar";
 import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { ConfirmReceived } from "./ConfirmReceived";
+import {
+  awaitingShipment,
+  canConfirmReceived,
   ESCROW_STATUS_LABEL,
   isProtected,
+  isReleased,
   isTerminalBad,
   lifecycleRail,
   ORDER_STATUS_LABEL,
@@ -62,15 +72,29 @@ function SectionRule({ label }: { label: string }) {
 }
 
 /** The protected escrow core. Locked (funded) = solid blood heart + pulse
- * ring; waiting = dashed, dim; bad terminal = dim hairline only. */
-function ProtectedCore({ locked, bad }: { locked: boolean; bad: boolean }) {
+ * ring; waiting = dashed, dim; released (buyer confirmed) = settled solid
+ * bone-framed core, no pulse; bad terminal = dim hairline only. The full
+ * cinematic unlock treatment is RELEASE-4 — this keeps the completed state
+ * simply correct (never shown as "awaiting payment"). */
+function ProtectedCore({
+  locked,
+  bad,
+  released,
+}: {
+  locked: boolean;
+  bad: boolean;
+  released: boolean;
+}) {
   return (
     <div className="relative grid h-56 w-56 place-items-center">
-      {locked && (
+      {locked && !released && (
         <span
           aria-hidden
           className="absolute inset-6 border border-blood/40 motion-safe:animate-[pulse-ring_3.2s_ease-out_infinite]"
         />
+      )}
+      {released && (
+        <span aria-hidden className="absolute inset-8 border border-bone/30" />
       )}
       <svg
         aria-hidden
@@ -100,10 +124,10 @@ function ProtectedCore({ locked, bad }: { locked: boolean; bad: boolean }) {
           width="60"
           height="60"
           transform="rotate(45 100 100)"
-          fill={locked ? "rgba(255,45,0,0.12)" : "none"}
+          fill={locked || released ? "rgba(255,45,0,0.12)" : "none"}
           stroke="#FF2D00"
-          strokeOpacity={locked ? 0.9 : 0.35}
-          strokeDasharray={locked ? undefined : "5 5"}
+          strokeOpacity={locked || released ? 0.9 : 0.35}
+          strokeDasharray={locked || released ? undefined : "5 5"}
         />
         <text
           x="100"
@@ -111,7 +135,7 @@ function ProtectedCore({ locked, bad }: { locked: boolean; bad: boolean }) {
           textAnchor="middle"
           fontSize="22"
           fill="#FF2D00"
-          fillOpacity={locked ? 1 : 0.45}
+          fillOpacity={locked || released ? 1 : 0.45}
         >
           ◈
         </text>
@@ -252,6 +276,19 @@ export function OrderStatusPage({
 }) {
   const [order, setOrder] = useState<PublicOrderStatus | null>(null);
   const [failed, setFailed] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Held from the confirm response so the completed state can show release
+  // proof immediately, even before the public read replicates the tx hash.
+  const [releaseOverride, setReleaseOverride] = useState<string | null>(null);
+
+  const refetch = useCallback(() => {
+    fetchOrderStatus(slug, orderNo).then(
+      (res) => setOrder(res),
+      () => {
+        /* keep the last good render; a transient read error is not terminal */
+      },
+    );
+  }, [slug, orderNo]);
 
   useEffect(() => {
     let cancelled = false;
@@ -268,6 +305,15 @@ export function OrderStatusPage({
     };
   }, [slug, orderNo]);
 
+  const onConfirmCompleted = useCallback(
+    (releaseTxHash: string) => {
+      setReleaseOverride(releaseTxHash);
+      setConfirmOpen(false);
+      refetch();
+    },
+    [refetch],
+  );
+
   if (failed) return <Unavailable />;
   if (!order) {
     return (
@@ -279,13 +325,17 @@ export function OrderStatusPage({
 
   const locked = isProtected(order);
   const bad = isTerminalBad(order);
+  const released = isReleased(order);
   const rail = lifecycleRail(order);
   const txHash = order.payment?.txHash ?? order.escrow?.fundedTxHash ?? null;
+  const releaseTxHash = order.escrow?.releaseTxHash ?? releaseOverride;
   const headline = bad
     ? statusLabel(ORDER_STATUS_LABEL, order.status)
-    : locked
-      ? "Pesanan kamu sedang dilindungi"
-      : "Menunggu pembayaran kamu";
+    : released
+      ? "Pesanan selesai"
+      : locked
+        ? "Pesanan kamu sedang dilindungi"
+        : "Menunggu pembayaran kamu";
 
   return (
     <>
@@ -315,16 +365,18 @@ export function OrderStatusPage({
             </span>
             Trustip · Status Pesanan
           </div>
-          <ProtectedCore locked={locked} bad={bad} />
+          <ProtectedCore locked={locked} bad={bad} released={released} />
           <h1 className="max-w-[20ch] text-3xl font-semibold leading-tight tracking-tight text-bone md:text-4xl">
             {headline}
           </h1>
           <p className="mt-3 max-w-[44ch] text-sm leading-relaxed text-mist/80">
             {bad
               ? "Lihat detail di bawah untuk status terakhir pesanan ini."
-              : locked
-                ? "Dana kamu terkunci aman dan hanya diteruskan ke penjual setelah pesanan diterima."
-                : "Selesaikan pembayaran di halaman checkout untuk mengaktifkan perlindungan dana."}
+              : released
+                ? "Kamu sudah mengonfirmasi penerimaan. Dana diteruskan ke penjual — transaksi selesai."
+                : locked
+                  ? "Dana kamu terkunci aman dan hanya diteruskan ke penjual setelah pesanan diterima."
+                  : "Selesaikan pembayaran di halaman checkout untuk mengaktifkan perlindungan dana."}
           </p>
           <div className="micro-label mt-6 font-mono text-ash">
             {order.orderNo}
@@ -367,6 +419,67 @@ export function OrderStatusPage({
           </div>
         </Reveal>
 
+        {/* Buyer action — confirm receipt (release) / awaiting shipment /
+            completed. Rendered strictly from backend state; the release CTA
+            only appears when a confirm would actually be accepted. */}
+        {released ? (
+          <Reveal>
+            <div className="mt-10 border border-bone/30 bg-surface px-5 py-6">
+              <div className="micro-label flex items-center gap-2 text-bone">
+                <span aria-hidden className="text-blood">
+                  ◈
+                </span>
+                Pesanan Selesai
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-mist/80">
+                Kamu sudah mengonfirmasi penerimaan pesanan ini. Dana sudah
+                diteruskan ke penjual.
+              </p>
+              {releaseTxHash && (
+                <div className="mt-5 border-t border-hairline pt-3">
+                  <div className="micro-label text-ash">
+                    Bukti Penerusan Dana
+                  </div>
+                  <p className="mt-1 break-all font-mono text-[11px] leading-relaxed text-mist">
+                    {releaseTxHash}
+                  </p>
+                  <a
+                    href={explorerTxUrl(networkName(), releaseTxHash)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="micro-label mt-3 inline-block border border-hairline px-4 py-2 text-bone transition-colors duration-300 hover:border-blood"
+                  >
+                    Lihat di Explorer
+                  </a>
+                </div>
+              )}
+            </div>
+          </Reveal>
+        ) : canConfirmReceived(order) ? (
+          <Reveal>
+            <div className="mt-10">
+              <ConfirmReceived
+                slug={order.link.slug}
+                order={order}
+                open={confirmOpen}
+                onOpen={() => setConfirmOpen(true)}
+                onClose={() => setConfirmOpen(false)}
+                onCompleted={onConfirmCompleted}
+              />
+            </div>
+          </Reveal>
+        ) : awaitingShipment(order) ? (
+          <Reveal>
+            <div className="mt-10 border border-hairline bg-surface px-5 py-6">
+              <div className="micro-label text-ash">Menunggu Pengiriman</div>
+              <p className="mt-2 text-sm leading-relaxed text-mist/80">
+                Menunggu seller mengirim pesanan. Setelah barang dikirim dan
+                kamu terima, kamu bisa mengonfirmasi penerimaan di sini.
+              </p>
+            </div>
+          </Reveal>
+        ) : null}
+
         <div className="mt-14 space-y-14 pb-20">
           {/* 01 · STATUS PEMBAYARAN */}
           <Reveal>
@@ -403,9 +516,11 @@ export function OrderStatusPage({
                   {statusLabel(ESCROW_STATUS_LABEL, order.escrow?.status)}
                 </div>
                 <p className="mt-1 text-sm text-mist/70">
-                  {locked
-                    ? "Dana ditahan oleh kontrak escrow di jaringan Stellar — bukan oleh penjual — sampai pesanan kamu diterima."
-                    : "Perlindungan dana aktif setelah pembayaran kamu terkonfirmasi."}
+                  {released
+                    ? "Dana sudah diteruskan ke penjual setelah kamu mengonfirmasi penerimaan pesanan."
+                    : locked
+                      ? "Dana ditahan oleh kontrak escrow di jaringan Stellar — bukan oleh penjual — sampai pesanan kamu diterima."
+                      : "Perlindungan dana aktif setelah pembayaran kamu terkonfirmasi."}
                 </p>
               </div>
             </section>
@@ -497,7 +612,7 @@ export function OrderStatusPage({
             </section>
           </Reveal>
 
-          {!locked && !bad && (
+          {!locked && !bad && !released && (
             <Reveal>
               <div className="text-center">
                 <Link

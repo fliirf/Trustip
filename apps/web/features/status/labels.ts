@@ -59,6 +59,88 @@ export function isTerminalBad(order: PublicOrderStatus): boolean {
   return ["refunded", "cancelled", "failed"].includes(order.status);
 }
 
+/** True once the buyer-confirmed release has actually landed on-chain — the
+ * only state where the funds have moved to the seller. Backend truth only. */
+export function isReleased(order: PublicOrderStatus): boolean {
+  return order.escrow?.status === "released" || order.status === "completed";
+}
+
+/** Eligible to show the "Saya Sudah Terima Pesanan" CTA. Mirrors the backend
+ * release preconditions exactly so the button never appears when a confirm
+ * would be rejected: shipped, shipment shipped, escrow funded, payment
+ * confirmed, and not already released. */
+export function canConfirmReceived(order: PublicOrderStatus): boolean {
+  return (
+    order.status === "shipped" &&
+    order.shipment?.status === "shipped" &&
+    order.escrow?.status === "funded" &&
+    order.payment?.status === "confirmed" &&
+    !isReleased(order)
+  );
+}
+
+/** Protected + paid but the seller has not shipped yet — buyer waits. */
+export function awaitingShipment(order: PublicOrderStatus): boolean {
+  return (
+    isProtected(order) &&
+    !isReleased(order) &&
+    order.shipment?.status !== "shipped" &&
+    order.status !== "shipped"
+  );
+}
+
+/** Map confirm-received backend/wallet error codes to buyer-safe Indonesian
+ * copy. Never hides a safety failure — every rejection stays visible. */
+export function confirmErrorLabel(code: string, fallback: string): string {
+  switch (code) {
+    case "WrongBuyer":
+      return "Wallet ini bukan wallet pembayar pesanan ini.";
+    case "Forbidden":
+      return "Sesi konfirmasi kedaluwarsa. Coba lagi.";
+    case "WrongNetwork":
+      return "Jaringan wallet tidak sesuai. Pastikan wallet berada di jaringan Stellar yang benar.";
+    case "UserRejected":
+      return "Tanda tangan dibatalkan di wallet. Silakan coba lagi.";
+    case "SigningFailed":
+      return "Tanda tangan gagal di wallet. Silakan coba lagi.";
+    case "MissingWallet":
+    case "WalletNotConnected":
+      return "Wallet belum terpasang atau belum terhubung.";
+    case "Conflict":
+      return "Pesanan belum bisa dikonfirmasi. Muat ulang halaman lalu coba lagi.";
+    case "AmountMismatch":
+    case "ChainOrderMismatch":
+      return "Data pesanan tidak cocok. Hubungi penjual sebelum melanjutkan.";
+    case "RpcFailure":
+      return "Jaringan sedang sibuk. Coba lagi sebentar.";
+    case "SubmitRejected":
+      return "Konfirmasi belum berhasil diproses jaringan. Coba lagi sebentar.";
+    case "AdminSignerMissing":
+    case "AdminSignerNotAllowedOnMainnet":
+    case "WalletChallengeUnavailable":
+      return "Layanan konfirmasi belum siap. Coba lagi nanti.";
+    case "RateLimited":
+      return "Terlalu banyak percobaan. Tunggu sebentar, lalu coba lagi.";
+    case "CheckoutNotFound":
+      return "Pesanan tidak ditemukan.";
+    default:
+      return fallback || "Terjadi kesalahan. Silakan coba lagi.";
+  }
+}
+
+/** Confirm errors where retrying the same step is likely to succeed. */
+export function isConfirmRetryable(code: string): boolean {
+  return [
+    "RpcFailure",
+    "SubmitRejected",
+    "RateLimited",
+    "UserRejected",
+    "SigningFailed",
+    "Forbidden",
+    "InternalError",
+  ].includes(code);
+}
+
 export type RailStepState = "done" | "current" | "locked";
 
 export interface RailStep {
