@@ -8,6 +8,7 @@ import {
   type SellerProfileRecord,
   type SellerStore,
   type SellerWalletRecord,
+  type ShipmentSummary,
 } from "../seller-onboarding.js";
 
 const UNIQUE_VIOLATION = "23505";
@@ -43,6 +44,28 @@ function toWalletRecord(row: WalletRow): SellerWalletRecord {
     network: row.network,
     isPrimary: row.is_primary,
     verifiedAt: row.verified_at,
+  };
+}
+
+type ShipmentRow = {
+  status: string;
+  courier_name: string | null;
+  tracking_number: string | null;
+  shipped_at: string | null;
+};
+
+/** shipments.order_id is not unique, so PostgREST embeds an array; the app
+ * writes exactly one row per order (upsert) — take the newest defensively. */
+function toShipmentSummary(
+  rows: ShipmentRow[] | null | undefined,
+): ShipmentSummary | null {
+  const row = rows?.[rows.length - 1];
+  if (!row) return null;
+  return {
+    status: row.status,
+    courier: row.courier_name,
+    trackingNumber: row.tracking_number,
+    shippedAt: row.shipped_at,
   };
 }
 
@@ -259,7 +282,8 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
            checkout_links ( title, slug ),
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
-           escrows ( status, funded_tx_hash )`,
+           escrows ( status, funded_tx_hash ),
+           shipments ( status, courier_name, tracking_number, shipped_at )`,
         )
         .eq("seller_profile_id", sellerProfileId)
         .order("created_at", { ascending: false });
@@ -277,6 +301,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         order_items: Array<{ quantity: number; metadata: unknown }> | null;
         payments: { status: string; tx_hash: string | null } | null;
         escrows: { status: string; funded_tx_hash: string | null } | null;
+        shipments: ShipmentRow[] | null;
       };
       return ((data ?? []) as unknown as Row[]).map((row) => {
         const item = row.order_items?.[0] ?? null;
@@ -299,6 +324,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           escrow: escrow
             ? { status: escrow.status, fundedTxHash: escrow.funded_tx_hash }
             : null,
+          shipment: toShipmentSummary(row.shipments),
         };
         return record;
       });
@@ -320,7 +346,8 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           `order_no, status, total_usdc, created_at, checkout_link_id,
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
-           escrows ( status, funded_tx_hash )`,
+           escrows ( status, funded_tx_hash ),
+           shipments ( status, courier_name, tracking_number, shipped_at )`,
         )
         .eq("order_no", orderNo)
         .maybeSingle();
@@ -335,6 +362,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         order_items: Array<{ quantity: number; metadata: unknown }> | null;
         payments: { status: string; tx_hash: string | null } | null;
         escrows: { status: string; funded_tx_hash: string | null } | null;
+        shipments: ShipmentRow[] | null;
       };
       const row = order as unknown as OrderRow;
       const profile = link.seller_profiles as unknown as {
@@ -363,9 +391,109 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
               fundedTxHash: row.escrows.funded_tx_hash,
             }
           : null,
-        shipment: null,
+        shipment: toShipmentSummary(row.shipments),
       };
       return record;
+    },
+
+    async getSellerOrderForShipment({ sellerProfileId, orderNo }) {
+      // Ownership is part of the WHERE clause — a non-owner resolves to null
+      // exactly like a nonexistent order (no oracle).
+      const { data } = await client
+        .from("orders")
+        .select(`id, order_no, status, escrows ( status )`)
+        .eq("order_no", orderNo)
+        .eq("seller_profile_id", sellerProfileId)
+        .maybeSingle();
+      if (!data) return null;
+      const row = data as unknown as {
+        id: string;
+        order_no: string;
+        status: string;
+        escrows: { status: string } | null;
+      };
+      return {
+        orderId: row.id,
+        orderNo: row.order_no,
+        status: row.status,
+        escrowStatus: row.escrows?.status ?? null,
+      };
+    },
+
+    async applyShipmentUpdate(input) {
+      // 1) Guarded lifecycle gate: only fromStatus→toStatus, nothing else.
+      //    Touches orders.status ONLY — payment/escrow columns are never
+      //    written by this store method.
+      const { data: updated, error: orderError } = await client
+        .from("orders")
+        .update({ status: input.toStatus })
+        .eq("id", input.orderId)
+        .eq("status", input.fromStatus)
+        .select("id");
+      if (orderError) throw orderError;
+      if (!updated || updated.length === 0) {
+        return {
+          applied: false,
+          shipment: {
+            status: input.toStatus,
+            courier: input.courier,
+            trackingNumber: input.trackingNumber,
+            shippedAt: input.shippedAt,
+          },
+        };
+      }
+
+      // 2) Upsert the single shipment row for this order. Fields only move
+      //    forward: courier/tracking/note overwrite only when provided;
+      //    shipped_at is set once, server-side.
+      const { data: existing } = await client
+        .from("shipments")
+        .select("id, courier_name, tracking_number, shipped_at, seller_note")
+        .eq("order_id", input.orderId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const fields = {
+        status: input.toStatus,
+        courier_name: input.courier ?? existing?.courier_name ?? null,
+        tracking_number:
+          input.trackingNumber ?? existing?.tracking_number ?? null,
+        seller_note: input.note ?? existing?.seller_note ?? null,
+        shipped_at: existing?.shipped_at ?? input.shippedAt,
+      };
+      const write = existing
+        ? client.from("shipments").update(fields).eq("id", existing.id)
+        : client
+            .from("shipments")
+            .insert({ order_id: input.orderId, ...fields });
+      const { error: shipmentError } = await write;
+      if (shipmentError) throw shipmentError;
+
+      // 3) Audit event (best-effort ordering; orders.status is the truth).
+      const { error: eventError } = await client
+        .from("order_status_events")
+        .insert({
+          order_id: input.orderId,
+          status: input.toStatus,
+          actor_user_id: input.actorUserId,
+          actor_type: "seller",
+          metadata: {
+            courier: fields.courier_name,
+            trackingNumber: fields.tracking_number,
+          },
+        });
+      if (eventError) throw eventError;
+
+      return {
+        applied: true,
+        shipment: {
+          status: input.toStatus,
+          courier: fields.courier_name,
+          trackingNumber: fields.tracking_number,
+          shippedAt: fields.shipped_at,
+        },
+      };
     },
   };
 }

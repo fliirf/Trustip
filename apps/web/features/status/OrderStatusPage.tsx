@@ -15,6 +15,8 @@ import {
   lifecycleRail,
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  SHIPMENT_STATUS_LABEL,
+  shipmentProgress,
   statusLabel,
 } from "./labels";
 import {
@@ -114,6 +116,102 @@ function ProtectedCore({ locked, bad }: { locked: boolean; bad: boolean }) {
           ◈
         </text>
       </svg>
+    </div>
+  );
+}
+
+/** Shipment progress card — renders ONLY backend-recorded fulfillment. The
+ * three chips light strictly up to the recorded state; there is no delivered/
+ * completed/release visual anywhere here (later guarded phase). */
+function ShipmentSection({
+  order,
+  locked,
+}: {
+  order: PublicOrderStatus;
+  locked: boolean;
+}) {
+  const progress = shipmentProgress(order);
+
+  if (progress === 0) {
+    return (
+      <div className="border border-hairline bg-surface px-5 py-6 text-center">
+        <span aria-hidden className="text-lg text-bone/20">
+          ◈
+        </span>
+        <p className="mt-2 text-sm text-mist/70">
+          {locked
+            ? "Menunggu proses seller. Pelacakan pengiriman muncul di sini setelah penjual mulai memproses pesanan kamu."
+            : "Pelacakan pengiriman akan muncul di sini setelah penjual memproses pesanan kamu."}
+        </p>
+      </div>
+    );
+  }
+
+  const shipment = order.shipment;
+  const statusKey =
+    progress >= 3 ? "shipped" : progress === 2 ? "packed" : "processing";
+  const headline = statusLabel(SHIPMENT_STATUS_LABEL, statusKey);
+  const sub =
+    statusKey === "shipped"
+      ? "Pesanan sudah dikirim oleh penjual."
+      : statusKey === "packed"
+        ? "Pesanan sudah dikemas dan siap dikirim."
+        : "Pesanan sedang diproses seller.";
+
+  return (
+    <div className="border border-hairline bg-surface px-5 py-5">
+      <div className="text-lg font-semibold tracking-tight text-bone">
+        {headline}
+      </div>
+      <p className="mt-1 text-sm text-mist/70">{sub}</p>
+
+      {/* Fulfillment chips — light strictly up to the recorded state */}
+      <ol className="mt-4 flex flex-wrap items-center gap-2">
+        {(
+          [
+            ["Diproses", 1],
+            ["Dikemas", 2],
+            ["Dikirim", 3],
+          ] as const
+        ).map(([label, rank], i) => (
+          <li key={label} className="flex items-center gap-2">
+            <span
+              className={`micro-label border px-2 py-1 ${
+                progress === rank && rank === 3
+                  ? "border-blood/60 text-blood"
+                  : progress >= rank
+                    ? "border-hairline text-bone"
+                    : "border-hairline text-bone/25"
+              }`}
+            >
+              {label}
+            </span>
+            {i < 2 && <span aria-hidden className="h-px w-4 bg-hairline" />}
+          </li>
+        ))}
+      </ol>
+
+      {statusKey === "shipped" && shipment?.trackingNumber && (
+        <div className="mt-5 border-t border-hairline pt-3">
+          <div className="micro-label text-ash">Resi Pengiriman</div>
+          <p className="mt-1 text-sm text-mist">
+            {[shipment.courier, shipment.trackingNumber]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+          {shipment.shippedAt && (
+            <p className="mt-1 text-xs text-ash">
+              Dikirim {new Date(shipment.shippedAt).toLocaleString("id-ID")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {locked && (
+        <p className="micro-label mt-5 border border-hairline px-3 py-2 text-ash">
+          Dana tetap terkunci sampai fase penyelesaian berikutnya.
+        </p>
+      )}
     </div>
   );
 }
@@ -235,32 +333,38 @@ export function OrderStatusPage({
 
         {/* Lifecycle rail */}
         <Reveal>
-          <ol className="mt-10 flex items-start gap-2">
-            {rail.map((step) => (
-              <li key={step.key} className="flex flex-1 flex-col gap-2">
-                <span
-                  className={`h-px w-full transition-colors duration-500 ${
-                    step.state === "done"
-                      ? "bg-blood"
-                      : step.state === "current"
-                        ? "bg-bone/50"
-                        : "bg-hairline"
-                  }`}
-                />
-                <span
-                  className={`micro-label leading-tight ${
-                    step.state === "done"
-                      ? "text-mist"
-                      : step.state === "current"
-                        ? "text-bone"
-                        : "text-bone/25"
-                  }`}
+          {/* Rail scrolls inside itself on narrow phones — no page overflow */}
+          <div className="mt-10 overflow-x-auto">
+            <ol className="flex min-w-max items-start gap-2 md:min-w-0">
+              {rail.map((step) => (
+                <li
+                  key={step.key}
+                  className="flex min-w-20 flex-1 flex-col gap-2"
                 >
-                  {step.label}
-                </span>
-              </li>
-            ))}
-          </ol>
+                  <span
+                    className={`h-px w-full transition-colors duration-500 ${
+                      step.state === "done"
+                        ? "bg-blood"
+                        : step.state === "current"
+                          ? "bg-bone/50"
+                          : "bg-hairline"
+                    }`}
+                  />
+                  <span
+                    className={`micro-label leading-tight ${
+                      step.state === "done"
+                        ? "text-mist"
+                        : step.state === "current"
+                          ? "text-bone"
+                          : "text-bone/25"
+                    }`}
+                  >
+                    {step.label}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          </div>
         </Reveal>
 
         <div className="mt-14 space-y-14 pb-20">
@@ -356,19 +460,12 @@ export function OrderStatusPage({
             </section>
           </Reveal>
 
-          {/* 04 · PROGRESS PENGIRIMAN */}
+          {/* 04 · PROGRESS PENGIRIMAN — real shipment truth only (Phase 8A
+              data). No delivered/completed/release step exists here yet. */}
           <Reveal>
             <section className="space-y-4">
               <SectionRule label="04 · Progress Pengiriman" />
-              <div className="border border-hairline bg-surface px-5 py-6 text-center">
-                <span aria-hidden className="text-lg text-bone/20">
-                  ◈
-                </span>
-                <p className="mt-2 text-sm text-mist/70">
-                  Pelacakan pengiriman akan muncul di sini setelah penjual
-                  memproses pesanan kamu.
-                </p>
-              </div>
+              <ShipmentSection order={order} locked={locked} />
             </section>
           </Reveal>
 

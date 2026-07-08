@@ -3,6 +3,7 @@ import {
   verifyWalletChallengeTx,
 } from "@trustip/stellar";
 import { randomBytes } from "node:crypto";
+import type { ShipmentUpdateStatus } from "@trustip/validators";
 import { PaymentError } from "./errors.js";
 import { unitsToUsdc, usdcToUnits } from "./money.js";
 import type { NetworkName } from "./ports.js";
@@ -46,6 +47,25 @@ export interface SellerOrderBuyerSummary {
 
 /** Buyer-facing public order status (STATUS-1A). Safe fields only — no
  * internal UUIDs, no tokens, no seller wallets, no other orders. */
+/** The only order statuses a shipment update may move FROM. */
+export type ShipmentTransitionFrom = "escrow_locked" | "processing" | "packed";
+
+/** What the shipment guard needs to know about one seller-owned order. */
+export interface ShipmentOrderContext {
+  orderId: string;
+  orderNo: string;
+  status: string;
+  escrowStatus: string | null;
+}
+
+/** Read-only shipment view (Phase 8A). Safe fulfillment metadata only. */
+export interface ShipmentSummary {
+  status: string;
+  courier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+}
+
 export interface PublicOrderStatusRecord {
   orderNo: string;
   status: string;
@@ -57,8 +77,8 @@ export interface PublicOrderStatusRecord {
   buyer: SellerOrderBuyerSummary | null;
   payment: { status: string; txHash: string | null } | null;
   escrow: { status: string; fundedTxHash: string | null } | null;
-  /** Shipment tracking lands in Phase 8 — always null for now. */
-  shipment: null;
+  /** Real shipment progress only — null until the seller records it. */
+  shipment: ShipmentSummary | null;
 }
 
 export interface SellerOrderRecord {
@@ -72,6 +92,7 @@ export interface SellerOrderRecord {
   buyer: SellerOrderBuyerSummary | null;
   payment: { status: string; txHash: string | null } | null;
   escrow: { status: string; fundedTxHash: string | null } | null;
+  shipment: ShipmentSummary | null;
 }
 
 /** Extract the fulfillment contact from order_items.metadata, tolerating any
@@ -194,6 +215,30 @@ export interface SellerStore {
     slug: string;
     orderNo: string;
   }): Promise<PublicOrderStatusRecord | null>;
+
+  /** One order STRICTLY scoped to the seller profile, with just the state the
+   * shipment guard needs. Null for not-found AND not-owned (no oracle). */
+  getSellerOrderForShipment(input: {
+    sellerProfileId: string;
+    orderNo: string;
+  }): Promise<ShipmentOrderContext | null>;
+
+  /** Apply a guarded lifecycle write: orders.status moves fromStatus→toStatus
+   * with a CONDITIONAL update (applied=false when the row was no longer in
+   * fromStatus — concurrent writer wins), then upsert the shipment row and
+   * append an order_status_events audit row. Only shipment-safe columns are
+   * touched — payment/escrow state is structurally out of reach. */
+  applyShipmentUpdate(input: {
+    orderId: string;
+    fromStatus: ShipmentTransitionFrom;
+    toStatus: ShipmentUpdateStatus;
+    courier: string | null;
+    trackingNumber: string | null;
+    note: string | null;
+    /** Server-set only when toStatus === "shipped". */
+    shippedAt: string | null;
+    actorUserId: string;
+  }): Promise<{ applied: boolean; shipment: ShipmentSummary }>;
 }
 
 export interface SellerDeps {
@@ -600,4 +645,110 @@ export async function createSellerCheckoutLink(
       ? "that slug is already taken; choose another"
       : "could not allocate a unique link slug; please retry",
   );
+}
+
+// --- Shipment lifecycle (Phase 8A) --------------------------------------------
+
+/** Strict single-step forward transitions. Keys are the REQUIRED current
+ * orders.status for each seller-settable target. Everything else — backward
+ * moves, skips, terminal/refund states, pre-funding states — is rejected.
+ * delivered/completed/release are NOT here by design (later guarded phases). */
+export const SHIPMENT_TRANSITION_FROM: Record<
+  ShipmentUpdateStatus,
+  ShipmentTransitionFrom
+> = {
+  processing: "escrow_locked",
+  packed: "processing",
+  shipped: "packed",
+};
+
+export interface UpdateSellerShipmentInput {
+  orderNo: string;
+  status: ShipmentUpdateStatus;
+  courier?: string;
+  trackingNumber?: string;
+  note?: string;
+}
+
+export interface SellerShipmentResult {
+  orderNo: string;
+  orderStatus: string;
+  shipment: ShipmentSummary;
+  updatedAt: string;
+}
+
+/**
+ * Seller-controlled fulfillment write path — the ONLY lifecycle mutation a
+ * seller has. Scope: own orders only (profile derived from the authenticated
+ * user, never client input). Precondition: escrow funded. Legality: strict
+ * single-step forward transitions. This function cannot touch payment or
+ * escrow state at all — the store method only writes orders.status (guarded),
+ * the shipments row, and an audit event.
+ */
+export async function updateSellerShipment(
+  deps: SellerDeps,
+  actor: PaymentActor,
+  input: UpdateSellerShipmentInput,
+  now: number = Date.now(),
+): Promise<SellerShipmentResult> {
+  const userId = requireUserId(actor);
+  const profile = await deps.store.getSellerProfile(userId);
+  // No profile, not owned, or no such order — one generic 404, no oracle.
+  const order = profile
+    ? await deps.store.getSellerOrderForShipment({
+        sellerProfileId: profile.id,
+        orderNo: input.orderNo,
+      })
+    : null;
+  if (!order) {
+    throw new PaymentError("OrderNotFound", "order not found");
+  }
+
+  if (order.escrowStatus !== "funded") {
+    throw new PaymentError(
+      "Conflict",
+      "shipment updates are only allowed after the escrow is funded",
+    );
+  }
+  const requiredFrom = SHIPMENT_TRANSITION_FROM[input.status];
+  if (order.status !== requiredFrom) {
+    throw new PaymentError(
+      "Conflict",
+      `cannot move order from '${order.status}' to '${input.status}'`,
+    );
+  }
+
+  const courier = input.courier ?? null;
+  const trackingNumber = input.trackingNumber ?? null;
+  if (input.status === "shipped" && (!courier || !trackingNumber)) {
+    throw new PaymentError(
+      "InvalidInput",
+      "courier and trackingNumber are required to mark an order shipped",
+    );
+  }
+
+  const nowIso = new Date(now).toISOString();
+  const { applied, shipment } = await deps.store.applyShipmentUpdate({
+    orderId: order.orderId,
+    fromStatus: requiredFrom,
+    toStatus: input.status,
+    courier,
+    trackingNumber,
+    note: input.note ?? null,
+    shippedAt: input.status === "shipped" ? nowIso : null,
+    actorUserId: userId,
+  });
+  if (!applied) {
+    throw new PaymentError(
+      "Conflict",
+      "order status changed concurrently; reload and retry",
+    );
+  }
+
+  return {
+    orderNo: order.orderNo,
+    orderStatus: input.status,
+    shipment,
+    updatedAt: nowIso,
+  };
 }

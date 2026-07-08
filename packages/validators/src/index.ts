@@ -217,3 +217,44 @@ export const createSellerCheckoutLinkSchema = z.object({
 export type CreateSellerCheckoutLinkInput = z.infer<
   typeof createSellerCheckoutLinkSchema
 >;
+
+/** Seller shipment lifecycle statuses (Phase 8A). Strictly the seller-settable
+ * forward states — delivered/completed/release are later guarded phases. */
+export const SHIPMENT_UPDATE_STATUSES = [
+  "processing",
+  "packed",
+  "shipped",
+] as const;
+export type ShipmentUpdateStatus = (typeof SHIPMENT_UPDATE_STATUSES)[number];
+
+/** Seller shipment update (Phase 8A). SHAPE only — ownership, transition
+ * legality, and the escrow-funded precondition are enforced server-side.
+ * Unknown keys are stripped: a client can never smuggle paid/funded/released. */
+export const updateShipmentStatusSchema = z.object({
+  status: z.enum(SHIPMENT_UPDATE_STATUSES),
+  courier: z.string().trim().min(1).max(60).optional(),
+  trackingNumber: z.string().trim().min(3).max(80).optional(),
+  note: z.string().trim().min(1).max(500).optional(),
+});
+export type UpdateShipmentStatusInput = z.infer<
+  typeof updateShipmentStatusSchema
+>;
+
+/** Buyer confirm-received challenge issuance (RELEASE-1). SHAPE only — the
+ * buyer wallet is server-derived from the funded escrow, never client input. */
+export const confirmReceivedChallengeSchema = z.object({
+  networkPassphrase: networkPassphraseSchema,
+});
+export type ConfirmReceivedChallengeInput = z.infer<
+  typeof confirmReceivedChallengeSchema
+>;
+
+/** Buyer confirm-received + release (RELEASE-1). SHAPE only — every release
+ * precondition (buyer signature, statuses, on-chain state) is enforced
+ * server-side; the client can never name an amount, wallet, or status. */
+export const confirmReceivedSchema = z.object({
+  signedChallengeXdr: signedXdrSchema,
+  challengeToken: z.string().min(1).max(512),
+  networkPassphrase: networkPassphraseSchema,
+});
+export type ConfirmReceivedInput = z.infer<typeof confirmReceivedSchema>;

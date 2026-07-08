@@ -67,27 +67,56 @@ export interface RailStep {
   state: RailStepState;
 }
 
-const SHIPPING_DONE = ["shipped", "delivered", "completed"];
-const DELIVERED_DONE = ["delivered", "completed"];
-const POST_PROTECTION = [
-  "escrow_locked",
+export const SHIPMENT_STATUS_LABEL: Record<string, string> = {
+  processing: "Pesanan Diproses",
+  packed: "Pesanan Dikemas",
+  shipped: "Pesanan Dikirim",
+};
+
+const PROCESSING_DONE = [
   "processing",
   "packed",
-  ...SHIPPING_DONE,
+  "shipped",
+  "delivered",
+  "completed",
+];
+const SHIPPING_DONE = ["shipped", "delivered", "completed"];
+const POST_PROTECTION = [
+  "escrow_locked",
+  ...PROCESSING_DONE,
   "payout_pending",
   "payout_completed",
 ];
 
+/** Fulfillment progress index from backend truth (order status OR the real
+ * shipment record — whichever is further, both are backend-recorded). */
+export function shipmentProgress(order: PublicOrderStatus): number {
+  const rank = (s: string | undefined | null): number =>
+    s ? ["processing", "packed", "shipped"].indexOf(s) + 1 : 0;
+  return Math.max(
+    rank(order.shipment?.status),
+    SHIPPING_DONE.includes(order.status)
+      ? 3
+      : order.status === "packed"
+        ? 2
+        : order.status === "processing"
+          ? 1
+          : 0,
+  );
+}
+
 /** Derive the 5-step lifecycle rail from BACKEND state only. Future steps are
- * "locked" (never shown as progress the backend has not recorded). */
+ * "locked" (never shown as progress the backend has not recorded). Delivery/
+ * completion/release steps deliberately do not exist yet (later guarded phase). */
 export function lifecycleRail(order: PublicOrderStatus): RailStep[] {
   const paid =
     order.payment?.status === "confirmed" ||
     POST_PROTECTION.includes(order.status);
   const protectedNow =
     isProtected(order) || POST_PROTECTION.includes(order.status);
-  const shipped = SHIPPING_DONE.includes(order.status);
-  const delivered = DELIVERED_DONE.includes(order.status);
+  const progress = shipmentProgress(order);
+  const processing = progress >= 1;
+  const shipped = progress >= 3;
 
   const step = (
     key: string,
@@ -104,7 +133,7 @@ export function lifecycleRail(order: PublicOrderStatus): RailStep[] {
     { key: "created", label: "Pesanan Dibuat", state: "done" },
     step("paid", "Pembayaran", paid, true),
     step("protected", "Dana Dilindungi", protectedNow, paid),
-    step("shipped", "Dikirim", shipped, protectedNow),
-    step("delivered", "Pesanan Diterima", delivered, shipped),
+    step("processing", "Diproses Seller", processing, protectedNow),
+    step("shipped", "Dikirim", shipped, processing),
   ];
 }

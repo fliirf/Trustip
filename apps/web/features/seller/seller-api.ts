@@ -183,6 +183,13 @@ export interface SellerOrderBuyer {
   country: string | null;
 }
 
+export interface SellerShipment {
+  status: string;
+  courier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+}
+
 export interface SellerOrder {
   orderId: string;
   orderNo: string;
@@ -194,12 +201,38 @@ export interface SellerOrder {
   buyer: SellerOrderBuyer | null;
   payment: { status: string; txHash: string | null } | null;
   escrow: { status: string; fundedTxHash: string | null } | null;
+  shipment: SellerShipment | null;
 }
 
 export function listSellerOrders(
   token: string,
 ): Promise<{ orders: SellerOrder[] }> {
   return request<{ orders: SellerOrder[] }>("/api/seller/orders", token);
+}
+
+/** Seller shipment lifecycle write (Phase 8B). The status union is the ONLY
+ * thing this client can send — no paid/funded/released/completed exists here.
+ * All transition legality is enforced by the backend. */
+export function updateShipment(
+  token: string,
+  orderNo: string,
+  input: {
+    status: "processing" | "packed" | "shipped";
+    courier?: string;
+    trackingNumber?: string;
+    note?: string;
+  },
+): Promise<{
+  orderNo: string;
+  orderStatus: string;
+  shipment: SellerShipment;
+  updatedAt: string;
+}> {
+  return request(
+    `/api/seller/orders/${encodeURIComponent(orderNo)}/shipment`,
+    token,
+    { method: "POST", body: JSON.stringify(input) },
+  );
 }
 
 export function createCheckoutLink(

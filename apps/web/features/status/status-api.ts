@@ -35,7 +35,14 @@ export interface PublicOrderStatus {
   buyer: OrderStatusBuyer | null;
   payment: { status: string; txHash: string | null } | null;
   escrow: { status: string; fundedTxHash: string | null } | null;
-  shipment: null;
+  /** Real shipment progress recorded by the seller (Phase 8A) — null until
+   * fulfillment starts. Read-only; never implies delivery or release. */
+  shipment: {
+    status: string;
+    courier: string | null;
+    trackingNumber: string | null;
+    shippedAt: string | null;
+  } | null;
 }
 
 export async function fetchOrderStatus(

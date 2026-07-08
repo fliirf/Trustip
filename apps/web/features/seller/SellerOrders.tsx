@@ -1,8 +1,8 @@
 "use client";
 
-// Seller orders — READ-ONLY. Every status shown is backend truth; there are
-// deliberately NO lifecycle actions here (shipment/release/refund are later
-// phases). Selecting an order expands a protection-detail panel.
+// Seller orders. Statuses are backend truth. The ONLY lifecycle action is the
+// Phase 8A/8B shipment path (ShipmentControls) — release/refund/completed
+// remain later guarded phases with no controls here.
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
@@ -10,9 +10,11 @@ import {
   ESCROW_STATUS_LABEL,
   ORDER_STATUS_LABEL,
   PAYMENT_STATUS_LABEL,
+  SHIPMENT_STATUS_LABEL,
   sellerErrorLabel,
   statusLabel,
 } from "./labels";
+import { ShipmentControls } from "./ShipmentControls";
 import {
   listSellerOrders,
   SellerApiError,
@@ -55,7 +57,15 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OrderDetail({ order }: { order: SellerOrder }) {
+function OrderDetail({
+  order,
+  token,
+  onUpdated,
+}: {
+  order: SellerOrder;
+  token: string;
+  onUpdated: () => Promise<void>;
+}) {
   const b = order.buyer;
   return (
     <div className="border-t border-blood/30 bg-void/40 px-4 pb-4">
@@ -78,6 +88,12 @@ function OrderDetail({ order }: { order: SellerOrder }) {
           label="Dana pembeli"
           value={statusLabel(ESCROW_STATUS_LABEL, order.escrow?.status)}
         />
+        {order.shipment && (
+          <DetailRow
+            label="Pengiriman"
+            value={statusLabel(SHIPMENT_STATUS_LABEL, order.shipment.status)}
+          />
+        )}
       </dl>
       {(order.payment?.txHash || order.escrow?.fundedTxHash) && (
         <p className="mt-3 break-all font-mono text-[10px] leading-relaxed text-ash">
@@ -106,9 +122,7 @@ function OrderDetail({ order }: { order: SellerOrder }) {
         </>
       )}
 
-      <p className="micro-label mt-5 border border-hairline px-3 py-2 text-ash">
-        Pengiriman akan tersedia di fase berikutnya
-      </p>
+      <ShipmentControls order={order} token={token} onUpdated={onUpdated} />
     </div>
   );
 }
@@ -271,7 +285,13 @@ export function SellerOrders() {
                         </span>
                       </div>
                     </button>
-                    {open && <OrderDetail order={order} />}
+                    {open && token && (
+                      <OrderDetail
+                        order={order}
+                        token={token}
+                        onUpdated={refresh}
+                      />
+                    )}
                     {open && order.link && (
                       <div className="border-t border-hairline px-4 py-3">
                         <a

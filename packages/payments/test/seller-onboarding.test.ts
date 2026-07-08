@@ -174,6 +174,22 @@ function makeStore(init: { slugCollisions?: number } = {}) {
       links.push(record);
       return record;
     },
+    // Shipment lifecycle is covered in shipment.test.ts with its own fake;
+    // these exist only to satisfy the SellerStore interface here.
+    async getSellerOrderForShipment() {
+      return null;
+    },
+    async applyShipmentUpdate(input) {
+      return {
+        applied: true,
+        shipment: {
+          status: input.toStatus,
+          courier: input.courier,
+          trackingNumber: input.trackingNumber,
+          shippedAt: input.shippedAt,
+        },
+      };
+    },
   };
   return { store, users, profiles, wallets, links, addOrder, publicStatuses };
 }
@@ -632,6 +648,7 @@ describe("listSellerOrders (read-only)", () => {
     buyer: null,
     payment: { status: "confirmed", txHash: "abc123" },
     escrow: { status: "funded", fundedTxHash: "abc123" },
+    shipment: null,
   };
 
   it("returns a safe empty list for a user without a seller profile", async () => {
@@ -680,6 +697,7 @@ describe("listSellerOrders (read-only)", () => {
       "buyer",
       "payment",
       "escrow",
+      "shipment",
     ]);
   });
 

@@ -50,6 +50,13 @@ export const ESCROW_STATUS_LABEL: Record<string, string> = {
   paused: "Ditahan Sementara",
 };
 
+export const SHIPMENT_STATUS_LABEL: Record<string, string> = {
+  processing: "Pesanan Diproses",
+  packed: "Dikemas",
+  shipped: "Dikirim",
+  delivered: "Pesanan Diterima",
+};
+
 export function statusLabel(
   map: Record<string, string>,
   status: string | undefined | null,
