@@ -282,6 +282,11 @@ function createFakeGateway(
       status: "PENDING",
       sourceAccount: OPERATOR,
     })),
+    releaseOrder: vi.fn(async (): Promise<CreateOrderGatewayResult> => ({
+      hash: CREATE_HASH,
+      status: "PENDING",
+      sourceAccount: OPERATOR,
+    })),
     ...overrides,
   };
 }

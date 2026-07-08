@@ -24,6 +24,9 @@ export interface GatewayOrderView {
   amount: bigint;
   buyer: string;
   seller: string;
+  /** Frozen on-chain release destination (set at create_order). Optional so
+   * existing fakes/tests stay valid; the live gateway always provides it. */
+  payoutRecipient?: string;
 }
 
 /** Result of statically inspecting a wallet-signed fund transaction (offline). */
@@ -109,6 +112,12 @@ export interface EscrowGateway {
   createOrder(
     input: CreateOrderGatewayInput,
   ): Promise<CreateOrderGatewayResult>;
+  /** Build+sign(admin/operator)+submit a `release_to_recipient` tx. Same
+   * fail-closed operator policy as `createOrder` (mainnet refused unless the
+   * signer strategy is explicitly allowed). */
+  releaseOrder(input: {
+    contractOrderIdHex: string;
+  }): Promise<CreateOrderGatewayResult>;
   /** Build the buyer's unsigned, simulation-prepared `fund_order` XDR. */
   buildFundOrderXdr(input: FundOrderXdrInput): Promise<string>;
   /** Statically inspect a signed fund tx (no network I/O). */
@@ -243,6 +252,31 @@ class SorobanEscrowGateway implements EscrowGateway {
       amount: view.amount,
       buyer: view.buyer,
       seller: view.seller,
+      payoutRecipient: view.payoutRecipient,
+    };
+  }
+
+  async releaseOrder(input: {
+    contractOrderIdHex: string;
+  }): Promise<CreateOrderGatewayResult> {
+    const operator = this.operator(); // throws OperatorSignerError if unavailable
+    const tx = await this.client.buildReleaseToRecipient(
+      operator.publicKey,
+      hexToBytes(input.contractOrderIdHex),
+    );
+    const signedXdr = await operator.signXdr(
+      tx.toXDR(),
+      this.networkPassphrase,
+    );
+    const res = await this.client.submit(signedXdr);
+    const errorResult = res.errorResult
+      ? JSON.stringify(res.errorResult)
+      : undefined;
+    return {
+      hash: res.hash,
+      status: res.status as SubmitStatus,
+      errorResult,
+      sourceAccount: operator.publicKey,
     };
   }
 

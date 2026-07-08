@@ -235,3 +235,22 @@ export function enforceCheckoutIssueRateLimit(
   );
   return result.allowed ? null : tooManyRequests(result.retryAfterMs);
 }
+
+// Buyer confirm-received / release (RELEASE-1): each confirm can trigger an
+// operator-signed on-chain release, so it gets the tightest budget; the
+// challenge route doubles as the order_no probe surface, so it stays tight too.
+const confirmReceivedLimiter: RateLimiter = createInMemoryRateLimiter({
+  limit: 10,
+  windowMs: 60_000,
+});
+
+/** Rate-limit confirm-received challenge + confirm routes. Returns a 429
+ * response when over budget, else null. */
+export function enforceConfirmReceivedRateLimit(
+  request: Request,
+): NextResponse | null {
+  const result = confirmReceivedLimiter.check(
+    `confirm-received:${clientIp(request)}`,
+  );
+  return result.allowed ? null : tooManyRequests(result.retryAfterMs);
+}

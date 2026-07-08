@@ -1497,6 +1497,18 @@ export type Database = {
         }
         Returns: boolean
       }
+      confirm_released_payment: {
+        Args: {
+          p_amount_usdc: number
+          p_escrow_id: string
+          p_ledger: number
+          p_network: Database["public"]["Enums"]["network"]
+          p_order_id: string
+          p_to_public_key: string
+          p_tx_hash: string
+        }
+        Returns: boolean
+      }
       is_admin: { Args: never; Returns: boolean }
       is_order_buyer: { Args: { p_order: string }; Returns: boolean }
       is_order_party: { Args: { p_order: string }; Returns: boolean }
