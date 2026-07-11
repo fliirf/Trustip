@@ -1,4 +1,5 @@
 import type { Json, TablesInsert, TrustipClient } from "@trustip/database";
+import { unwrap } from "../errors.js";
 import { usdcAmountToString } from "../money.js";
 import type {
   CheckoutLinkForOrder,
@@ -127,7 +128,7 @@ export function createSupabasePaymentStore(
   client: TrustipClient,
 ): PaymentStore {
   async function buildContext(order: OrderRow): Promise<PaymentContext> {
-    const [{ data: payment }, { data: escrow }] = await Promise.all([
+    const [paymentResult, escrowResult] = await Promise.all([
       client
         .from("payments")
         .select(
@@ -143,6 +144,8 @@ export function createSupabasePaymentStore(
         .eq("order_id", order.id)
         .maybeSingle(),
     ]);
+    const payment = unwrap(paymentResult);
+    const escrow = unwrap(escrowResult);
 
     const buyerWalletPublicKey = await walletPublicKey(order.buyer_wallet_id);
     const sellerWalletPublicKey = await walletPublicKey(order.seller_wallet_id);
@@ -160,41 +163,49 @@ export function createSupabasePaymentStore(
     walletId: string | null,
   ): Promise<string | null> {
     if (!walletId) return null;
-    const { data } = await client
-      .from("user_wallets")
-      .select("public_key")
-      .eq("id", walletId)
-      .maybeSingle();
+    const data = unwrap(
+      await client
+        .from("user_wallets")
+        .select("public_key")
+        .eq("id", walletId)
+        .maybeSingle(),
+    );
     return data?.public_key ?? null;
   }
 
   return {
     async loadByOrderId(orderId) {
-      const { data: order } = await client
-        .from("orders")
-        .select(
-          "id, status, total_usdc, buyer_user_id, seller_profile_id, buyer_wallet_id, seller_wallet_id",
-        )
-        .eq("id", orderId)
-        .maybeSingle();
+      const order = unwrap(
+        await client
+          .from("orders")
+          .select(
+            "id, status, total_usdc, buyer_user_id, seller_profile_id, buyer_wallet_id, seller_wallet_id",
+          )
+          .eq("id", orderId)
+          .maybeSingle(),
+      );
       if (!order) return null;
       return buildContext(order as OrderRow);
     },
 
     async loadByPaymentId(paymentId) {
-      const { data: payment } = await client
-        .from("payments")
-        .select("order_id")
-        .eq("id", paymentId)
-        .maybeSingle();
+      const payment = unwrap(
+        await client
+          .from("payments")
+          .select("order_id")
+          .eq("id", paymentId)
+          .maybeSingle(),
+      );
       if (!payment) return null;
-      const { data: order } = await client
-        .from("orders")
-        .select(
-          "id, status, total_usdc, buyer_user_id, seller_profile_id, buyer_wallet_id, seller_wallet_id",
-        )
-        .eq("id", payment.order_id)
-        .maybeSingle();
+      const order = unwrap(
+        await client
+          .from("orders")
+          .select(
+            "id, status, total_usdc, buyer_user_id, seller_profile_id, buyer_wallet_id, seller_wallet_id",
+          )
+          .eq("id", payment.order_id)
+          .maybeSingle(),
+      );
       if (!order) return null;
       return buildContext(order as OrderRow);
     },
@@ -207,18 +218,22 @@ export function createSupabasePaymentStore(
       // PUBLIC order_no, and require the order to actually belong to that link.
       // A raw order UUID can never satisfy this (no UUID is accepted), and an
       // order_no from a different link is rejected by the linkage check.
-      const { data: link } = await client
-        .from("checkout_links")
-        .select("id, status, expires_at")
-        .eq("slug", slug)
-        .maybeSingle();
+      const link = unwrap(
+        await client
+          .from("checkout_links")
+          .select("id, status, expires_at")
+          .eq("slug", slug)
+          .maybeSingle(),
+      );
       if (!link) return null;
 
-      const { data: order } = await client
-        .from("orders")
-        .select("id, order_no, status, total_usdc, checkout_link_id")
-        .eq("order_no", orderNo)
-        .maybeSingle();
+      const order = unwrap(
+        await client
+          .from("orders")
+          .select("id, order_no, status, total_usdc, checkout_link_id")
+          .eq("order_no", orderNo)
+          .maybeSingle(),
+      );
       if (!order || order.checkout_link_id !== link.id) return null;
 
       return {
@@ -232,13 +247,15 @@ export function createSupabasePaymentStore(
     },
 
     async loadCheckoutLinkBySlug(slug): Promise<CheckoutLinkForOrder | null> {
-      const { data: link } = await client
-        .from("checkout_links")
-        .select(
-          "id, seller_profile_id, title, price_usdc, price_idr_reference, status, expires_at",
-        )
-        .eq("slug", slug)
-        .maybeSingle();
+      const link = unwrap(
+        await client
+          .from("checkout_links")
+          .select(
+            "id, seller_profile_id, title, price_usdc, price_idr_reference, status, expires_at",
+          )
+          .eq("slug", slug)
+          .maybeSingle(),
+      );
       if (!link) return null;
       return {
         id: link.id,
@@ -256,19 +273,23 @@ export function createSupabasePaymentStore(
     },
 
     async resolveSellerWalletId({ sellerProfileId, network }) {
-      const { data: profile } = await client
-        .from("seller_profiles")
-        .select("user_id")
-        .eq("id", sellerProfileId)
-        .maybeSingle();
+      const profile = unwrap(
+        await client
+          .from("seller_profiles")
+          .select("user_id")
+          .eq("id", sellerProfileId)
+          .maybeSingle(),
+      );
       if (!profile) return null;
 
-      const { data: wallets } = await client
-        .from("user_wallets")
-        .select("id, is_primary")
-        .eq("user_id", profile.user_id)
-        .eq("network", network)
-        .not("verified_at", "is", null);
+      const wallets = unwrap(
+        await client
+          .from("user_wallets")
+          .select("id, is_primary")
+          .eq("user_id", profile.user_id)
+          .eq("network", network)
+          .not("verified_at", "is", null),
+      );
       return pickSellerWalletId(wallets ?? []);
     },
 
@@ -394,13 +415,18 @@ export function createSupabasePaymentStore(
     },
 
     async findPaymentByTxHash(txHash) {
-      const { data } = await client
-        .from("payments")
-        .select(
-          "id, order_id, status, amount_usdc, network, payer_public_key, tx_hash, ledger, confirmed_at",
-        )
-        .eq("tx_hash", txHash)
-        .maybeSingle();
+      // This is the DuplicateTx guard. A swallowed store error here reads as
+      // "no payment with that hash" and waves a replay through to the unique
+      // constraint; fail loudly instead.
+      const data = unwrap(
+        await client
+          .from("payments")
+          .select(
+            "id, order_id, status, amount_usdc, network, payer_public_key, tx_hash, ledger, confirmed_at",
+          )
+          .eq("tx_hash", txHash)
+          .maybeSingle(),
+      );
       return data ? toPaymentRecord(data as PaymentRow) : null;
     },
 

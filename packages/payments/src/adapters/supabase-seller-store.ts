@@ -1,4 +1,5 @@
 import type { TrustipClient } from "@trustip/database";
+import { unwrap } from "../errors.js";
 import { usdcAmountToString } from "../money.js";
 import {
   toBuyerSummary,
@@ -114,11 +115,9 @@ function toProfileRecord(row: ProfileRow): SellerProfileRecord {
 export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
   return {
     async ensureUserRow({ userId, email }) {
-      const { data: existing } = await client
-        .from("users")
-        .select("id")
-        .eq("id", userId)
-        .maybeSingle();
+      const existing = unwrap(
+        await client.from("users").select("id").eq("id", userId).maybeSingle(),
+      );
       if (existing) return;
       const { error } = await client
         .from("users")
@@ -129,11 +128,13 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
     },
 
     async getSellerProfile(userId) {
-      const { data } = await client
-        .from("seller_profiles")
-        .select(PROFILE_COLUMNS)
-        .eq("user_id", userId)
-        .maybeSingle();
+      const data = unwrap(
+        await client
+          .from("seller_profiles")
+          .select(PROFILE_COLUMNS)
+          .eq("user_id", userId)
+          .maybeSingle(),
+      );
       return data ? toProfileRecord(data as ProfileRow) : null;
     },
 
@@ -156,32 +157,38 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
     },
 
     async listWallets(userId) {
-      const { data } = await client
-        .from("user_wallets")
-        .select(WALLET_COLUMNS)
-        .eq("user_id", userId)
-        .order("created_at", { ascending: true });
+      const data = unwrap(
+        await client
+          .from("user_wallets")
+          .select(WALLET_COLUMNS)
+          .eq("user_id", userId)
+          .order("created_at", { ascending: true }),
+      );
       return ((data ?? []) as WalletRow[]).map(toWalletRecord);
     },
 
     async findWallet({ userId, publicKey, network }) {
-      const { data } = await client
-        .from("user_wallets")
-        .select(WALLET_COLUMNS)
-        .eq("user_id", userId)
-        .eq("public_key", publicKey)
-        .eq("network", network)
-        .maybeSingle();
+      const data = unwrap(
+        await client
+          .from("user_wallets")
+          .select(WALLET_COLUMNS)
+          .eq("user_id", userId)
+          .eq("public_key", publicKey)
+          .eq("network", network)
+          .maybeSingle(),
+      );
       return data ? toWalletRecord(data as WalletRow) : null;
     },
 
     async findWalletById({ userId, walletId }) {
-      const { data } = await client
-        .from("user_wallets")
-        .select(WALLET_COLUMNS)
-        .eq("id", walletId)
-        .eq("user_id", userId)
-        .maybeSingle();
+      const data = unwrap(
+        await client
+          .from("user_wallets")
+          .select(WALLET_COLUMNS)
+          .eq("id", walletId)
+          .eq("user_id", userId)
+          .maybeSingle(),
+      );
       return data ? toWalletRecord(data as WalletRow) : null;
     },
 
@@ -242,11 +249,13 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
     },
 
     async listCheckoutLinks(sellerProfileId) {
-      const { data } = await client
-        .from("checkout_links")
-        .select(LINK_COLUMNS)
-        .eq("seller_profile_id", sellerProfileId)
-        .order("created_at", { ascending: false });
+      const data = unwrap(
+        await client
+          .from("checkout_links")
+          .select(LINK_COLUMNS)
+          .eq("seller_profile_id", sellerProfileId)
+          .order("created_at", { ascending: false }),
+      );
       return ((data ?? []) as LinkRow[]).map(toLinkRecord);
     },
 
@@ -278,11 +287,11 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
       const { data, error } = await client
         .from("orders")
         .select(
-          `id, order_no, status, total_usdc, created_at,
+          `id, order_no, status, total_usdc, created_at, completed_at,
            checkout_links ( title, slug ),
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
-           escrows ( status, funded_tx_hash ),
+           escrows ( status, funded_tx_hash, release_tx_hash ),
            shipments ( status, courier_name, tracking_number, shipped_at )`,
         )
         .eq("seller_profile_id", sellerProfileId)
@@ -297,10 +306,15 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         status: string;
         total_usdc: number;
         created_at: string;
+        completed_at: string | null;
         checkout_links: { title: string; slug: string } | null;
         order_items: Array<{ quantity: number; metadata: unknown }> | null;
         payments: { status: string; tx_hash: string | null } | null;
-        escrows: { status: string; funded_tx_hash: string | null } | null;
+        escrows: {
+          status: string;
+          funded_tx_hash: string | null;
+          release_tx_hash: string | null;
+        } | null;
         shipments: ShipmentRow[] | null;
       };
       return ((data ?? []) as unknown as Row[]).map((row) => {
@@ -314,6 +328,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           totalUsdc: usdcAmountToString(row.total_usdc),
           quantity: item?.quantity ?? null,
           createdAt: row.created_at,
+          completedAt: row.completed_at,
           link: row.checkout_links
             ? { title: row.checkout_links.title, slug: row.checkout_links.slug }
             : null,
@@ -322,7 +337,11 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
             ? { status: payment.status, txHash: payment.tx_hash }
             : null,
           escrow: escrow
-            ? { status: escrow.status, fundedTxHash: escrow.funded_tx_hash }
+            ? {
+                status: escrow.status,
+                fundedTxHash: escrow.funded_tx_hash,
+                releaseTxHash: escrow.release_tx_hash,
+              }
             : null,
           shipment: toShipmentSummary(row.shipments),
         };
@@ -333,24 +352,28 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
     async getPublicOrderStatus({ slug, orderNo }) {
       // Resolve by PUBLIC identifiers only, requiring the order to belong to
       // that exact link (mirrors loadCheckoutOrderForIssuance).
-      const { data: link } = await client
-        .from("checkout_links")
-        .select("id, slug, title, description, seller_profiles ( store_name )")
-        .eq("slug", slug)
-        .maybeSingle();
+      const link = unwrap(
+        await client
+          .from("checkout_links")
+          .select("id, slug, title, description, seller_profiles ( store_name )")
+          .eq("slug", slug)
+          .maybeSingle(),
+      );
       if (!link) return null;
 
-      const { data: order } = await client
-        .from("orders")
-        .select(
-          `order_no, status, total_usdc, created_at, checkout_link_id,
+      const order = unwrap(
+        await client
+          .from("orders")
+          .select(
+            `order_no, status, total_usdc, created_at, completed_at, checkout_link_id,
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
-           escrows ( status, funded_tx_hash ),
+           escrows ( status, funded_tx_hash, release_tx_hash ),
            shipments ( status, courier_name, tracking_number, shipped_at )`,
-        )
-        .eq("order_no", orderNo)
-        .maybeSingle();
+          )
+          .eq("order_no", orderNo)
+          .maybeSingle(),
+      );
       if (!order || order.checkout_link_id !== link.id) return null;
 
       // payments/escrows embed as object-or-null (unique order_id).
@@ -359,9 +382,14 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         status: string;
         total_usdc: number;
         created_at: string;
+        completed_at: string | null;
         order_items: Array<{ quantity: number; metadata: unknown }> | null;
         payments: { status: string; tx_hash: string | null } | null;
-        escrows: { status: string; funded_tx_hash: string | null } | null;
+        escrows: {
+          status: string;
+          funded_tx_hash: string | null;
+          release_tx_hash: string | null;
+        } | null;
         shipments: ShipmentRow[] | null;
       };
       const row = order as unknown as OrderRow;
@@ -375,6 +403,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         totalUsdc: usdcAmountToString(row.total_usdc),
         quantity: item?.quantity ?? null,
         createdAt: row.created_at,
+        completedAt: row.completed_at,
         link: {
           title: link.title,
           description: link.description,
@@ -389,6 +418,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           ? {
               status: row.escrows.status,
               fundedTxHash: row.escrows.funded_tx_hash,
+              releaseTxHash: row.escrows.release_tx_hash,
             }
           : null,
         shipment: toShipmentSummary(row.shipments),
@@ -399,12 +429,14 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
     async getSellerOrderForShipment({ sellerProfileId, orderNo }) {
       // Ownership is part of the WHERE clause — a non-owner resolves to null
       // exactly like a nonexistent order (no oracle).
-      const { data } = await client
-        .from("orders")
-        .select(`id, order_no, status, escrows ( status )`)
-        .eq("order_no", orderNo)
-        .eq("seller_profile_id", sellerProfileId)
-        .maybeSingle();
+      const data = unwrap(
+        await client
+          .from("orders")
+          .select(`id, order_no, status, escrows ( status )`)
+          .eq("order_no", orderNo)
+          .eq("seller_profile_id", sellerProfileId)
+          .maybeSingle(),
+      );
       if (!data) return null;
       const row = data as unknown as {
         id: string;
@@ -446,13 +478,15 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
       // 2) Upsert the single shipment row for this order. Fields only move
       //    forward: courier/tracking/note overwrite only when provided;
       //    shipped_at is set once, server-side.
-      const { data: existing } = await client
-        .from("shipments")
-        .select("id, courier_name, tracking_number, shipped_at, seller_note")
-        .eq("order_id", input.orderId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const existing = unwrap(
+        await client
+          .from("shipments")
+          .select("id, courier_name, tracking_number, shipped_at, seller_note")
+          .eq("order_id", input.orderId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      );
 
       const fields = {
         status: input.toStatus,

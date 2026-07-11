@@ -6,7 +6,11 @@ import "server-only";
 import { getWalletChallengeSecret } from "@trustip/config";
 import { getServiceClient } from "@trustip/database";
 import { createSupabaseSellerStore, type SellerDeps } from "@trustip/payments";
-import { currentNetwork, networkName } from "@trustip/stellar";
+import {
+  checkUsdcReceiveReadiness,
+  currentNetwork,
+  networkName,
+} from "@trustip/stellar";
 
 export function getSellerDeps(): SellerDeps {
   return {
@@ -15,6 +19,9 @@ export function getSellerDeps(): SellerDeps {
       networkName: networkName(),
       networkPassphrase: currentNetwork.networkPassphrase,
       walletChallengeSecret: getWalletChallengeSecret(),
+    },
+    payoutReadiness: {
+      check: (publicKey) => checkUsdcReceiveReadiness(publicKey),
     },
   };
 }

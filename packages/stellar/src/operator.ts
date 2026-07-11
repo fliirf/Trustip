@@ -119,3 +119,31 @@ export function createEnvOperatorSigner(): OperatorSigner {
     allowMainnet: isMainnetOperatorAllowed(),
   });
 }
+
+/**
+ * Signer strategy (Phase 19, Part 8). The `OperatorSigner` interface above is
+ * the seam a KMS / HSM / multisig / Vault signer plugs into — each would be a
+ * new class implementing `signXdr` (async, so a remote signer fits) selected
+ * here by `TRUSTIP_SIGNER_STRATEGY`. Today only "env" is wired; the others fail
+ * closed with a clear message rather than silently falling back to the env key.
+ * We deliberately do NOT implement KMS/HSM here (per the phase brief) — this is
+ * the dispatch point, not the implementation.
+ */
+export type SignerStrategy = "env" | "kms" | "hsm" | "multisig" | "vault";
+
+export function createOperatorSigner(
+  strategy: SignerStrategy = (process.env.TRUSTIP_SIGNER_STRATEGY as SignerStrategy) ||
+    "env",
+): OperatorSigner {
+  switch (strategy) {
+    case "env":
+      return createEnvOperatorSigner();
+    default:
+      // Reuse AdminSignerMissing: from the caller's view no usable signer is
+      // configured for the requested strategy.
+      throw new OperatorSignerError(
+        "AdminSignerMissing",
+        `operator signer strategy "${strategy}" is not implemented; wire it before enabling`,
+      );
+  }
+}

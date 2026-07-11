@@ -8,7 +8,7 @@ import {
 } from "@stellar/stellar-sdk";
 import { currentNetwork, getEscrowContractId } from "@trustip/config";
 import { createEscrowClient } from "./network.js";
-import { createEnvOperatorSigner, type OperatorSigner } from "./operator.js";
+import { createOperatorSigner, type OperatorSigner } from "./operator.js";
 import type { EscrowStatusName } from "./scval.js";
 
 // ---------------------------------------------------------------------------
@@ -239,7 +239,9 @@ class SorobanEscrowGateway implements EscrowGateway {
   private operatorSigner?: OperatorSigner;
 
   private operator(): OperatorSigner {
-    return (this.operatorSigner ??= createEnvOperatorSigner());
+    // Strategy-dispatched (Part 8): defaults to the env signer unless
+    // TRUSTIP_SIGNER_STRATEGY selects a (future) KMS/HSM/multisig/vault signer.
+    return (this.operatorSigner ??= createOperatorSigner());
   }
 
   async readOrder(

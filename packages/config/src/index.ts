@@ -3,6 +3,12 @@ export const STELLAR_NETWORK =
   process.env.STELLAR_NETWORK ||
   "testnet";
 
+// Production-hardening utilities (Phase 19). Edge-safe, no Node builtins.
+export * from "./logger.js";
+export * from "./request-context.js";
+export * from "./rate-limit-store.js";
+export * from "./validate.js";
+
 /**
  * Read a required environment variable. Throws if it is missing so that
  * misconfiguration fails loudly instead of silently falling back to a wrong

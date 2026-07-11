@@ -2,6 +2,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
 
 export * from "./types";
+export * from "./audit.js";
+export * from "./indexer.js";
+export * from "./reconcile.js";
 
 const supabaseUrl =
   process.env.NEXT_PUBLIC_SUPABASE_URL || "http://127.0.0.1:54321";

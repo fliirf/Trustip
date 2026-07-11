@@ -113,6 +113,12 @@ function makeFixture(init: {
       networkName: "testnet",
       networkPassphrase: "Test SDF Network ; September 2015",
     },
+    // Unused by the shipment path; present to satisfy SellerDeps.
+    payoutReadiness: {
+      async check() {
+        return { accountExists: true, usdcTrustline: true };
+      },
+    },
   };
   return { deps, writes };
 }

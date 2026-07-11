@@ -3,16 +3,22 @@
 // imported from a Client Component. (Kept to the Next route layer — the
 // @trustip/payments package itself stays framework-agnostic for workers/tests.)
 import "server-only";
-import { getCheckoutTokenSecret, getEscrowContractId } from "@trustip/config";
+import {
+  clientIp as trustedClientIp,
+  getCheckoutTokenSecret,
+  getEscrowContractId,
+} from "@trustip/config";
 import { getServiceClient, supabase } from "@trustip/database";
 import {
   createInMemoryRateLimiter,
   createSupabasePaymentStore,
+  isStoreError,
   type PaymentActor,
   type PaymentConfig,
   type PaymentDeps,
   PaymentError,
   type RateLimiter,
+  toStoreError,
 } from "@trustip/payments";
 import {
   createEscrowGateway,
@@ -101,12 +107,17 @@ export async function parseJsonBody<T>(
   return result.data;
 }
 
-/** Map any thrown value to a safe JSON response (no secrets, typed code). */
+/** Map any thrown value to a safe JSON response (no secrets, typed code).
+ *
+ * A raw PostgREST error is classified rather than flattened into a 500: a
+ * dependency that never answered is a retryable 503, not a bug. Only `code` and
+ * a generic `message` cross the wire — the raw cause stays server-side. */
 export function errorResponse(e: unknown): NextResponse {
-  if (e instanceof PaymentError) {
+  const err = e instanceof PaymentError || isStoreError(e) ? toStoreError(e) : null;
+  if (err) {
     return NextResponse.json(
-      { error: { code: e.code, message: e.message } },
-      { status: e.httpStatus },
+      { error: { code: err.code, message: err.message } },
+      { status: err.httpStatus },
     );
   }
   // Unknown/unexpected: do not leak internals.
@@ -154,10 +165,11 @@ const orderCreateLimiter: RateLimiter = createInMemoryRateLimiter({
   windowMs: 60_000,
 });
 
+// Trusted client-IP extraction (Phase 19): counts in from the right of
+// X-Forwarded-For by the configured proxy-hop count so a client-spoofed
+// leftmost entry can no longer forge a distinct rate-limit key.
 function clientIp(request: Request): string {
-  const fwd = request.headers.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
-  return request.headers.get("x-real-ip")?.trim() || "unknown";
+  return trustedClientIp(request.headers);
 }
 
 function tooManyRequests(retryAfterMs: number): NextResponse {

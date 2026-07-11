@@ -21,6 +21,7 @@ import {
   verifySellerWallet,
   type PublicOrderStatusRecord,
   type SellerCheckoutLinkRecord,
+  type PayoutWalletReadinessPort,
   type SellerDeps,
   type SellerOrderRecord,
   type SellerProfileRecord,
@@ -194,7 +195,18 @@ function makeStore(init: { slugCollisions?: number } = {}) {
   return { store, users, profiles, wallets, links, addOrder, publicStatuses };
 }
 
-function deps(store: SellerStore, secret: string | null = SECRET): SellerDeps {
+/** Default payout-readiness fake: wallet exists AND holds a USDC trustline. */
+const READY_PAYOUT: PayoutWalletReadinessPort = {
+  async check() {
+    return { accountExists: true, usdcTrustline: true };
+  },
+};
+
+function deps(
+  store: SellerStore,
+  secret: string | null = SECRET,
+  payoutReadiness: PayoutWalletReadinessPort = READY_PAYOUT,
+): SellerDeps {
   return {
     store,
     config: {
@@ -203,6 +215,7 @@ function deps(store: SellerStore, secret: string | null = SECRET): SellerDeps {
       // null = "no secret configured" (fail-closed path)
       walletChallengeSecret: secret ?? undefined,
     },
+    payoutReadiness,
   };
 }
 
@@ -621,6 +634,96 @@ describe("seller checkout links", () => {
     }
   });
 
+  // --- PAYOUT-GUARD-1: seller payout wallet must be able to receive USDC ---
+
+  /** A payout-readiness fake that records which key it was asked about. */
+  function payoutProbe(
+    result: { accountExists: boolean; usdcTrustline: boolean } | "throws",
+  ) {
+    const seen: string[] = [];
+    const port: PayoutWalletReadinessPort = {
+      async check(publicKey) {
+        seen.push(publicKey);
+        if (result === "throws") throw new Error("horizon down");
+        return result;
+      },
+    };
+    return { port, seen };
+  }
+
+  it("passes when the primary payout wallet has a USDC trustline", async () => {
+    const { store, links, wallets } = makeStore();
+    await onboard(deps(store));
+    const { port, seen } = payoutProbe({
+      accountExists: true,
+      usdcTrustline: true,
+    });
+    const link = await createSellerCheckoutLink(
+      deps(store, SECRET, port),
+      actor,
+      LINK_INPUT,
+    );
+    expect(link.status).toBe("active");
+    expect(links).toHaveLength(1);
+    // probed exactly the verified primary payout wallet, not client input
+    const primary = wallets.find((w) => w.isPrimary)!;
+    expect(seen).toEqual([primary.publicKey]);
+  });
+
+  it("blocks link creation when the payout wallet has no USDC trustline", async () => {
+    const { store, links } = makeStore();
+    await onboard(deps(store));
+    const { port } = payoutProbe({ accountExists: true, usdcTrustline: false });
+    await rejectsWith(
+      () =>
+        createSellerCheckoutLink(deps(store, SECRET, port), actor, LINK_INPUT),
+      "SellerPayoutWalletNotReady",
+    );
+    // fail-closed: no link row was written
+    expect(links).toHaveLength(0);
+  });
+
+  it("blocks link creation when the payout account does not exist on-chain", async () => {
+    const { store, links } = makeStore();
+    await onboard(deps(store));
+    const { port } = payoutProbe({
+      accountExists: false,
+      usdcTrustline: false,
+    });
+    await rejectsWith(
+      () =>
+        createSellerCheckoutLink(deps(store, SECRET, port), actor, LINK_INPUT),
+      "SellerPayoutWalletNotReady",
+    );
+    expect(links).toHaveLength(0);
+  });
+
+  it("treats a verified-but-trustline-less wallet as NOT payout-ready", async () => {
+    // Ownership is proven (verified + primary), but the wallet still cannot
+    // receive USDC — verification alone must not unlock link creation.
+    const { store, wallets } = makeStore();
+    await onboard(deps(store));
+    expect(wallets.find((w) => w.isPrimary)!.verifiedAt).not.toBeNull();
+    const { port } = payoutProbe({ accountExists: true, usdcTrustline: false });
+    await rejectsWith(
+      () =>
+        createSellerCheckoutLink(deps(store, SECRET, port), actor, LINK_INPUT),
+      "SellerPayoutWalletNotReady",
+    );
+  });
+
+  it("surfaces a transient readiness-probe failure as RpcFailure (never a leak)", async () => {
+    const { store, links } = makeStore();
+    await onboard(deps(store));
+    const { port } = payoutProbe("throws");
+    await rejectsWith(
+      () =>
+        createSellerCheckoutLink(deps(store, SECRET, port), actor, LINK_INPUT),
+      "RpcFailure",
+    );
+    expect(links).toHaveLength(0);
+  });
+
   it("lists only the seller's own links (empty without a profile)", async () => {
     const { store } = makeStore();
     const d = deps(store);
@@ -644,11 +747,33 @@ describe("listSellerOrders (read-only)", () => {
     totalUsdc: "7.5",
     quantity: 2,
     createdAt: "2026-07-04T00:00:00Z",
+    completedAt: null,
     link: { title: "Hoodie VOID", slug: "hoodie-void" },
     buyer: null,
     payment: { status: "confirmed", txHash: "abc123" },
-    escrow: { status: "funded", fundedTxHash: "abc123" },
+    escrow: { status: "funded", fundedTxHash: "abc123", releaseTxHash: null },
     shipment: null,
+  };
+
+  /** A completed order — buyer-confirmed release already landed. */
+  const COMPLETED_ORDER: SellerOrderRecord = {
+    ...ORDER,
+    orderId: "order-completed",
+    orderNo: "TRP-TESTCOMPLETED001",
+    status: "completed",
+    completedAt: "2026-07-08T12:16:50.848Z",
+    payment: { status: "confirmed", txHash: "abc123" },
+    escrow: {
+      status: "released",
+      fundedTxHash: "abc123",
+      releaseTxHash: "def456",
+    },
+    shipment: {
+      status: "delivered",
+      courier: "JNE REG",
+      trackingNumber: "REL2-QA-0001",
+      shippedAt: "2026-07-08T00:00:00Z",
+    },
   };
 
   it("returns a safe empty list for a user without a seller profile", async () => {
@@ -693,6 +818,7 @@ describe("listSellerOrders (read-only)", () => {
       "totalUsdc",
       "quantity",
       "createdAt",
+      "completedAt",
       "link",
       "buyer",
       "payment",
@@ -708,6 +834,59 @@ describe("listSellerOrders (read-only)", () => {
       "Forbidden",
     );
   });
+
+  // --- RELEASE-3: completed/released order visibility -----------------------
+
+  it("shows a completed order's release proof (completedAt + releaseTxHash) to its own seller", async () => {
+    const { store, addOrder, profiles } = makeStore();
+    const d = deps(store);
+    await saveSellerProfile(d, actor, { storeName: "Toko A" });
+    addOrder(profiles.get(USER)!.id, COMPLETED_ORDER);
+    const [order] = await listSellerOrders(d, actor);
+    expect(order!.status).toBe("completed");
+    expect(order!.completedAt).toBe(COMPLETED_ORDER.completedAt);
+    expect(order!.escrow).toEqual({
+      status: "released",
+      fundedTxHash: "abc123",
+      releaseTxHash: "def456",
+    });
+  });
+
+  it("never leaks another seller's completed order", async () => {
+    const { store, addOrder, profiles } = makeStore();
+    const d = deps(store);
+    await saveSellerProfile(d, actor, { storeName: "Toko A" });
+    const other = { userId: "00000000-0000-4000-8000-00000000cccc" };
+    await saveSellerProfile(d, other, { storeName: "Toko B" });
+    addOrder(profiles.get(other.userId)!.id, COMPLETED_ORDER);
+
+    const mine = await listSellerOrders(d, actor);
+    expect(mine).toEqual([]);
+    const theirs = await listSellerOrders(d, other);
+    expect(theirs).toHaveLength(1);
+    expect(theirs[0]!.orderNo).toBe(COMPLETED_ORDER.orderNo);
+  });
+
+  it("leaves payment data unchanged by completion (still confirmed, same tx hash)", async () => {
+    const { store, addOrder, profiles } = makeStore();
+    const d = deps(store);
+    await saveSellerProfile(d, actor, { storeName: "Toko A" });
+    addOrder(profiles.get(USER)!.id, COMPLETED_ORDER);
+    const [order] = await listSellerOrders(d, actor);
+    expect(order!.payment).toEqual({ status: "confirmed", txHash: "abc123" });
+  });
+
+  it("read path adds no mutation surface: SellerStore has no release/complete write method", () => {
+    // Structural guarantee: listSellerOrders is satisfied by a store object
+    // whose only order-facing methods are read (listSellerOrders,
+    // getPublicOrderStatus) plus the pre-existing shipment write — completion
+    // is set exclusively by the RELEASE-1 backend RPC, never from this path.
+    const { store } = makeStore();
+    const storeMethodNames = Object.keys(store);
+    expect(storeMethodNames).not.toContain("releaseOrder");
+    expect(storeMethodNames).not.toContain("completeOrder");
+    expect(storeMethodNames).not.toContain("markCompleted");
+  });
 });
 
 describe("getPublicOrderStatus", () => {
@@ -717,12 +896,25 @@ describe("getPublicOrderStatus", () => {
     totalUsdc: "7.5",
     quantity: 2,
     createdAt: "2026-07-04T00:00:00Z",
+    completedAt: null,
     link: { title: "Hoodie VOID", description: null, slug: "hoodie-void" },
     storeName: "Toko Uji",
     buyer: null,
     payment: { status: "confirmed", txHash: "abc" },
-    escrow: { status: "funded", fundedTxHash: "abc" },
+    escrow: { status: "funded", fundedTxHash: "abc", releaseTxHash: null },
     shipment: null,
+  };
+
+  const COMPLETED_STATUS: PublicOrderStatusRecord = {
+    ...STATUS,
+    orderNo: "TRP-PUBLIC0000000002",
+    status: "completed",
+    completedAt: "2026-07-06T09:30:00Z",
+    escrow: {
+      status: "released",
+      fundedTxHash: "abc",
+      releaseTxHash: "reltxhash",
+    },
   };
 
   it("returns the record for a matching (slug, orderNo) pair", async () => {
@@ -740,6 +932,7 @@ describe("getPublicOrderStatus", () => {
       "totalUsdc",
       "quantity",
       "createdAt",
+      "completedAt",
       "link",
       "storeName",
       "buyer",
@@ -747,6 +940,29 @@ describe("getPublicOrderStatus", () => {
       "escrow",
       "shipment",
     ]);
+  });
+
+  it("carries completedAt + releaseTxHash once the order has completed", async () => {
+    const { store, publicStatuses } = makeStore();
+    publicStatuses.set("hoodie-void:TRP-PUBLIC0000000002", COMPLETED_STATUS);
+    const res = await getPublicOrderStatus(deps(store), {
+      slug: "hoodie-void",
+      orderNo: "TRP-PUBLIC0000000002",
+    });
+    expect(res?.completedAt).toBe("2026-07-06T09:30:00Z");
+    expect(res?.escrow?.releaseTxHash).toBe("reltxhash");
+    expect(res?.escrow?.status).toBe("released");
+  });
+
+  it("leaves completedAt + releaseTxHash null while protected (not completed)", async () => {
+    const { store, publicStatuses } = makeStore();
+    publicStatuses.set("hoodie-void:TRP-PUBLIC0000000001", STATUS);
+    const res = await getPublicOrderStatus(deps(store), {
+      slug: "hoodie-void",
+      orderNo: "TRP-PUBLIC0000000001",
+    });
+    expect(res?.completedAt).toBeNull();
+    expect(res?.escrow?.releaseTxHash).toBeNull();
   });
 
   it("rejects a mismatched slug or orderNo with one generic 404", async () => {

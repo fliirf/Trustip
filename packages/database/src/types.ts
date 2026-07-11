@@ -485,6 +485,30 @@ export type Database = {
           },
         ]
       }
+      indexer_checkpoints: {
+        Row: {
+          worker: string
+          network: Database["public"]["Enums"]["network"]
+          last_ledger: number
+          cursor: string | null
+          updated_at: string
+        }
+        Insert: {
+          worker: string
+          network: Database["public"]["Enums"]["network"]
+          last_ledger?: number
+          cursor?: string | null
+          updated_at?: string
+        }
+        Update: {
+          worker?: string
+          network?: Database["public"]["Enums"]["network"]
+          last_ledger?: number
+          cursor?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string

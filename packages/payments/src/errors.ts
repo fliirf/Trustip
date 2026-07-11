@@ -35,7 +35,12 @@ export type PaymentErrorCode =
   | "WalletNotFound"
   | "WalletChallengeUnavailable"
   // --- Seller checkout links (Phase 7C) ---
-  | "SellerNotReady";
+  | "SellerNotReady"
+  // --- Seller payout wallet readiness (PAYOUT-GUARD-1) ---
+  | "SellerPayoutWalletNotReady"
+  // --- Dependency / unexpected failures (Phase 10B) ---
+  | "ServiceUnavailable"
+  | "InternalError";
 
 const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   InvalidInput: 400,
@@ -72,6 +77,11 @@ const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   WalletChallengeUnavailable: 503,
   // seller checkout links
   SellerNotReady: 409,
+  // seller payout wallet readiness
+  SellerPayoutWalletNotReady: 409,
+  // dependency / unexpected failures
+  ServiceUnavailable: 503,
+  InternalError: 500,
 };
 
 export class PaymentError extends Error {
@@ -94,4 +104,64 @@ export function toPaymentError(raw: unknown): PaymentError {
   if (raw instanceof PaymentError) return raw;
   const message = raw instanceof Error ? raw.message : String(raw);
   return new PaymentError("RpcFailure", message, raw);
+}
+
+/** A PostgREST/Supabase error: a plain object with a message, never an Error
+ * instance. That distinction is what lets `errorResponse` tell a store failure
+ * apart from an ordinary bug in our own code. */
+export interface StoreError {
+  message?: string;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+}
+
+export function isStoreError(raw: unknown): raw is StoreError {
+  return (
+    typeof raw === "object" &&
+    raw !== null &&
+    !(raw instanceof Error) &&
+    typeof (raw as { message?: unknown }).message === "string"
+  );
+}
+
+/**
+ * Classify a Supabase/PostgREST error into a typed PaymentError.
+ *
+ * A SQLSTATE/PGRST `code` means the database ANSWERED and rejected the query —
+ * our bug, and retrying will not help: InternalError (500). No `code` means the
+ * request never reached the database (transport failure, or a 5xx from the API
+ * gateway) — the dependency is down and a retry may well succeed:
+ * ServiceUnavailable (503).
+ *
+ * Verified against supabase-js 2.108: a stopped PostgREST container surfaces as
+ * `{ message: "An invalid response was received from the upstream server" }`
+ * with no `code`, while a bad query surfaces as `{ code: "42703", ... }`.
+ *
+ * The raw error is kept as `cause` for server logs and is never serialized to
+ * the client — messages here are deliberately generic.
+ */
+export function toStoreError(raw: unknown): PaymentError {
+  if (raw instanceof PaymentError) return raw;
+  const code = isStoreError(raw) ? raw.code : undefined;
+  return code
+    ? new PaymentError("InternalError", "internal server error", raw)
+    : new PaymentError(
+        "ServiceUnavailable",
+        "service temporarily unavailable, please retry",
+        raw,
+      );
+}
+
+/**
+ * Unwrap a Supabase result, turning a dropped `error` into a typed failure.
+ *
+ * Destructuring only `data` makes an outage indistinguishable from an empty
+ * table: the read yields null, the caller reports "not found", and a buyer who
+ * has already paid is told their order does not exist. Every read goes through
+ * here so that can never happen again.
+ */
+export function unwrap<T>(result: { data: T; error: unknown }): T {
+  if (result.error) throw toStoreError(result.error);
+  return result.data;
 }

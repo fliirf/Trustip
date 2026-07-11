@@ -72,11 +72,20 @@ export interface PublicOrderStatusRecord {
   totalUsdc: string;
   quantity: number | null;
   createdAt: string;
+  /** Set only once the order has actually completed (buyer-confirmed release);
+   * null otherwise — never inferred ahead of backend truth. */
+  completedAt: string | null;
   link: { title: string; description: string | null; slug: string };
   storeName: string | null;
   buyer: SellerOrderBuyerSummary | null;
   payment: { status: string; txHash: string | null } | null;
-  escrow: { status: string; fundedTxHash: string | null } | null;
+  /** Read-only escrow projection. `releaseTxHash` is null until the escrow is
+   * actually released on-chain (buyer-confirmed release) — safe proof only. */
+  escrow: {
+    status: string;
+    fundedTxHash: string | null;
+    releaseTxHash: string | null;
+  } | null;
   /** Real shipment progress only — null until the seller records it. */
   shipment: ShipmentSummary | null;
 }
@@ -88,10 +97,18 @@ export interface SellerOrderRecord {
   totalUsdc: string;
   quantity: number | null;
   createdAt: string;
+  /** Set only once the order has actually completed (buyer-confirmed release). */
+  completedAt: string | null;
   link: { title: string; slug: string } | null;
   buyer: SellerOrderBuyerSummary | null;
   payment: { status: string; txHash: string | null } | null;
-  escrow: { status: string; fundedTxHash: string | null } | null;
+  /** `releaseTxHash` is null until the escrow is actually released on-chain —
+   * safe proof only, never shown as complete before the backend confirms it. */
+  escrow: {
+    status: string;
+    fundedTxHash: string | null;
+    releaseTxHash: string | null;
+  } | null;
   shipment: ShipmentSummary | null;
 }
 
@@ -241,6 +258,18 @@ export interface SellerStore {
   }): Promise<{ applied: boolean; shipment: ShipmentSummary }>;
 }
 
+/** Whether a seller payout wallet can receive the configured USDC asset. */
+export interface SellerPayoutReadiness {
+  accountExists: boolean;
+  usdcTrustline: boolean;
+}
+
+/** Chain readiness probe for a seller payout wallet — injected adapter (Horizon)
+ * so the onboarding service stays chain-agnostic and tests can fake it. */
+export interface PayoutWalletReadinessPort {
+  check(publicKey: string): Promise<SellerPayoutReadiness>;
+}
+
 export interface SellerDeps {
   store: SellerStore;
   config: {
@@ -249,6 +278,8 @@ export interface SellerDeps {
     /** Server-only HMAC secret for wallet challenges; unset = fail closed. */
     walletChallengeSecret?: string;
   };
+  /** Probes whether the seller payout wallet can receive USDC on-chain. */
+  payoutReadiness: PayoutWalletReadinessPort;
 }
 
 function requireUserId(actor: PaymentActor): string {
@@ -556,6 +587,43 @@ async function requireCheckoutReadyProfile(
     throw new PaymentError(
       "SellerNotReady",
       "complete seller onboarding (profile + verified primary wallet) before creating checkout links",
+    );
+  }
+
+  // The verified primary payout wallet on the configured network. checkoutReady
+  // guarantees one exists; find it to probe on-chain USDC readiness.
+  const wallet = status.wallets.find(
+    (w) =>
+      w.network === deps.config.networkName &&
+      w.isPrimary &&
+      w.verifiedAt !== null,
+  );
+  if (!wallet) {
+    throw new PaymentError(
+      "SellerNotReady",
+      "complete seller onboarding (profile + verified primary wallet) before creating checkout links",
+    );
+  }
+
+  // A verified wallet only proves ownership — it does NOT mean the wallet can
+  // RECEIVE USDC. Block links whose payout wallet can't receive the asset, so
+  // no order can ever fund against an undeliverable payout (release would then
+  // fail closed on-chain). Chain-probe failures never leak and never create a
+  // possibly-undeliverable link — the seller is asked to retry.
+  let readiness: SellerPayoutReadiness;
+  try {
+    readiness = await deps.payoutReadiness.check(wallet.publicKey);
+  } catch (cause) {
+    throw new PaymentError(
+      "RpcFailure",
+      "could not verify payout wallet readiness; please retry",
+      cause,
+    );
+  }
+  if (!readiness.accountExists || !readiness.usdcTrustline) {
+    throw new PaymentError(
+      "SellerPayoutWalletNotReady",
+      "seller payout wallet cannot receive USDC on this network; add a USDC trustline and retry",
     );
   }
   return status.profile;
