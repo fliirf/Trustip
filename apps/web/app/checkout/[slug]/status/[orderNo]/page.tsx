@@ -1,6 +1,10 @@
 import { OrderStatusPage } from "../../../../../features/status/OrderStatusPage";
 
-export const metadata = { title: "Status Pesanan — Trustip" };
+// noindex: slug + order number is the whole access credential for this page.
+export const metadata = {
+  title: "Status Pesanan · Trustip",
+  robots: { index: false, follow: false },
+};
 
 export default async function StatusPage({
   params,

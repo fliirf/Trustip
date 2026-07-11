@@ -8,9 +8,592 @@
   --color-surface: #0a0a0a;
   --color-bone: #edeae3;
   --color-mist: #c6c2b8;
-  --color-ash: #6b6b66;
+  /* Lifted from #6b6b66: ash is the label colour on both void (#050505) and
+     surface (#0a0a0a), and at #6b6b66 it read at ~3.9:1 — under WCAG AA for the
+     10px micro-labels it mostly sets. #7a7a73 clears 4.5:1 on both grounds with
+     the same warm-grey hue. */
+  --color-ash: #7a7a73;
   --color-blood: #ff2d00;
   --color-hairline: rgba(237, 234, 227, 0.14);
+}
+
+/* ============================================================================
+   TRUSTIP MATERIAL SYSTEM
+   ============================================================================
+   Five materials. Every recurring object on the page belongs to exactly one,
+   and each responds to light differently:
+
+     TITANIUM  anisotropic. Catches light on one edge, dark across the belly.
+     CERAMIC   matte. A body tint and nothing else — no specular term at all.
+     GLASS     diffuses. A sheen near the source, no reflection of it.
+     PAPER     absorbs. Fibre and one fold seam; light does not come back out.
+     ENERGY    emissive. It is the source, so it has no highlight of its own.
+
+   The single physical premise the whole system rests on: light comes from
+   above. A cut into a surface is therefore a dark upper wall with a lit lower
+   lip, one pixel each, never more. That is what an engraved line is, and it is
+   why nothing below is a `border`.
+
+   Deliberately unscoped (not under `.landing-root`): checkout, seller, status
+   and the escrow dialogs draw from this same set. It is the design system, not
+   landing decoration.
+   ============================================================================ */
+:root {
+  --mat-groove: rgba(0, 0, 0, 0.55);
+  --mat-lip: rgba(237, 234, 227, 0.1);
+  --mat-lip-strong: rgba(237, 234, 227, 0.16);
+
+  /* Ceramic has no token: it is only ever a surface, and it is authored as the
+     `#mat-ceramic` gradient inside the Core's SVG. A flat CSS value cannot carry
+     the offset falloff that makes it read as matte rather than as a tint. */
+
+  --mat-glass-top: rgba(237, 234, 227, 0.026);
+  --mat-glass-bottom: rgba(237, 234, 227, 0.006);
+
+  --mat-paper-fibre: rgba(237, 234, 227, 0.014);
+  --mat-paper-weft: rgba(237, 234, 227, 0.008);
+  --mat-paper-fold: rgba(237, 234, 227, 0.05);
+}
+
+/* ---- Engraved lines. A rule cut into the surface, not drawn on top of it.
+   Two inset pixels, dark then lit, in the direction light would fall. Costs no
+   DOM node and no layout box, which is why these replace `border-*-hairline`
+   rather than restyling it. ---- */
+.engraved-b {
+  box-shadow:
+    inset 0 -1px 0 var(--mat-lip),
+    inset 0 -2px 0 var(--mat-groove);
+}
+.engraved-t {
+  box-shadow:
+    inset 0 1px 0 var(--mat-groove),
+    inset 0 2px 0 var(--mat-lip);
+}
+.engraved-l {
+  box-shadow:
+    inset 1px 0 0 var(--mat-groove),
+    inset 2px 0 0 var(--mat-lip);
+}
+
+/* ---- Machined key. The secondary control surface: a milled aluminium cap with
+   a lit top lip and a shadowed bottom one. Pressing it swaps the two, which is
+   the whole of the press animation — the cap does not move, the light does.
+   Keeps its `border` so the blood hover state still has an edge to colour. ---- */
+/* The `:not()` chain is load-bearing, not taste: these rules are unlayered,
+   Tailwind's utilities live in `@layer utilities`, and unlayered CSS outranks
+   any layer at any specificity. An unconditional `border-color` here would
+   silently swallow `hover:border-blood` on every ghost CTA and
+   `focus:border-blood` on every milled input. */
+.mat-key:not(:hover):not(:focus) {
+  border-color: rgba(237, 234, 227, 0.1);
+}
+.mat-key {
+  box-shadow:
+    inset 0 1px 0 var(--mat-lip),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+}
+.mat-key:active {
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 var(--mat-lip);
+}
+
+/* ---- Illuminated control surface. The primary action is the only lit object
+   in the interface, so it is the only one with a highlight strong enough to
+   name: a bright top lip, a shaded bottom one, and a body that falls off the
+   way a physical cap does. ---- */
+.mat-illuminated {
+  background-image: linear-gradient(180deg, #f5f2ec 0%, #e3e0d8 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+}
+.mat-illuminated:hover {
+  background-image: linear-gradient(180deg, #ff3a12 0%, #e02600 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.34);
+}
+.mat-illuminated:active {
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.3),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+}
+
+/* ---- Emissive mark. A node that is powered. Not a neon glow: a 1px hot rim
+   plus a bloom tight enough that it never leaves the object's own footprint. */
+.mat-emissive {
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 0, 0.18),
+    0 0 8px -2px rgba(255, 45, 0, 0.55);
+}
+
+/* ---- Archival paper. An engineering sheet: laid fibre at a 3px pitch, a
+   cross weft at 4px, and one crease where the sheet was folded once and now
+   catches a line of light. Masked on the diagonal so it dissolves into the
+   void instead of terminating on a rectangle — paper, not a card. ---- */
+.mat-paper {
+  position: relative;
+  isolation: isolate;
+}
+.mat-paper::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(90deg, transparent 30%, var(--mat-paper-fold) 34%, transparent 38%),
+    repeating-linear-gradient(90deg, var(--mat-paper-fibre) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, var(--mat-paper-weft) 0 1px, transparent 1px 4px);
+  -webkit-mask-image: linear-gradient(100deg, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 82%);
+  mask-image: linear-gradient(100deg, #000 0%, rgba(0, 0, 0, 0.35) 55%, transparent 82%);
+}
+
+/* ---- Glass terminal. A monitor, restrained: a diffuse sheen where the light
+   enters at the top-left, a 3px scanline pitch below the threshold of being
+   read as stripes, one lit top edge. No blur, no backdrop-filter, no frame. The
+   right edge is masked away so the surface reads as a pane the code is printed
+   on rather than a panel the code sits inside. ---- */
+.mat-glass {
+  position: relative;
+  isolation: isolate;
+}
+.mat-glass::before {
+  content: "";
+  position: absolute;
+  inset: -1.5rem 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(120% 90% at 12% 0%, rgba(237, 234, 227, 0.03), transparent 62%),
+    repeating-linear-gradient(0deg, rgba(237, 234, 227, 0.011) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--mat-glass-top), var(--mat-glass-bottom));
+  box-shadow: inset 0 1px 0 rgba(237, 234, 227, 0.055);
+  -webkit-mask-image: linear-gradient(95deg, #000 0%, #000 58%, transparent 96%);
+  mask-image: linear-gradient(95deg, #000 0%, #000 58%, transparent 96%);
+}
+
+/* ============================================================================
+   TRUSTIP OS — the constants every surface obeys
+   ============================================================================
+   The grammars below say what a surface looks like. This block says how the
+   whole system behaves, and it exists because an audit found the drift:
+
+     three disabled opacities (0.35 / 0.40 / 0.50)
+     two press models (transform scale, and material lip-swap)
+     two transition durations (300ms, 500ms) with no rule for which
+     four separate `inputCls` string constants, none identical
+     six controls that killed the focus outline and replaced it with nothing
+     buttons still carrying the user agent's default arrow cursor
+
+   Nothing here is a new effect. It is the same motion, spelled once.
+   ============================================================================ */
+:root {
+  /* One easing. Everything in the OS that moves, moves like this. */
+  --os-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Three durations, and only three. Each answers a different question:
+       hover   the pointer is here
+       state   a value on screen changed
+       settle  the backend confirmed something */
+  --os-hover: 200ms;
+  --os-state: 320ms;
+  --os-settle: 520ms;
+
+  --os-disabled: 0.4;
+}
+
+/* Every pressable object in the OS. One cursor, one press depth, one disabled
+   opacity, one transition list. Applied to buttons, links-as-buttons and the
+   material controls alike, so a key on the desk and a key on the terminal press
+   with identical timing even though they light differently. */
+.os-press {
+  cursor: pointer;
+  transition:
+    box-shadow var(--os-hover) var(--os-ease),
+    color var(--os-state) var(--os-ease),
+    border-color var(--os-state) var(--os-ease),
+    background-color var(--os-state) var(--os-ease),
+    background-image var(--os-state) var(--os-ease),
+    opacity var(--os-state) var(--os-ease),
+    transform var(--os-hover) var(--os-ease);
+}
+.os-press:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.99);
+}
+.os-press:disabled,
+.os-press[aria-disabled="true"] {
+  opacity: var(--os-disabled);
+  pointer-events: none;
+  cursor: default;
+}
+/* Keyboard focus for every pressable object that has no material of its own to
+   carry it: nav links, illuminated keys, milled keys, underlined actions. The
+   material controls (terminal-control, desk-field, desk-stamp) define their own
+   focus rims LATER in this file, and being later, they win — this is only the
+   floor, so no key in the OS is ever focused invisibly. */
+.os-press:focus-visible {
+  outline: 2px solid rgba(255, 45, 0, 0.75);
+  outline-offset: 3px;
+}
+/* Things that change but cannot be pressed: a stamp relabelling itself, a link
+   coming out of its resting opacity. Same easing as `.os-press`, same "a value
+   changed" duration — the difference is only that there is no press to depth. */
+.os-transition {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: var(--os-state);
+  transition-timing-function: var(--os-ease);
+}
+
+/* Reserved for the one thing that is slower on purpose: a channel lighting up
+   because the backend confirmed a stage. It should read as arrival, not as
+   response to the pointer. */
+.os-settle {
+  transition-property: background-color, box-shadow;
+  transition-duration: var(--os-settle);
+  transition-timing-function: var(--os-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The press is a state, not a journey: it still happens, it just does not
+     travel. */
+  .os-press,
+  .os-transition,
+  .os-settle {
+    transition-duration: 1ms;
+  }
+}
+
+/* ---- Type roles. Four sizes, one weight and one wrap mode each.
+   `text-wrap: balance` on titles and `pretty` on prose is the entire fix for
+   the widow and orphan lines the audit found: the browser does it per line box,
+   costs nothing, and degrades to normal wrapping where unsupported. ---- */
+.os-title {
+  font-size: clamp(22px, 2.1vw, 30px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  text-wrap: balance;
+}
+/* A value read off an instrument, never a sentence. */
+.os-reading {
+  font-size: 20px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+.os-body {
+  font-size: 14px;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+.os-note {
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+/* Laser-etched serials: tx hashes, contract ids, order numbers. Machine output,
+   so it never balances or prettifies — it wraps exactly where it runs out of
+   room. Was authored at 10px on checkout and 11px on status/seller. */
+.os-serial {
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.02em;
+  word-break: break-all;
+}
+
+/* ============================================================================
+   PRODUCT SURFACE GRAMMARS
+   ============================================================================
+   Three grammars, one family. A screenshot with its title cropped off should
+   still say which surface it is, and the difference must never come from hue:
+   all three are VOID, all three use the same five materials. What changes is
+   how the materials are ASSEMBLED.
+
+     TERMINAL          buyer checkout   glass under illumination, panelled
+     MISSION CONTROL   order status     energy + telemetry, mostly empty
+     OPERATIONS DESK   seller           paper + engraving, dense, no boxes
+
+   The old grammar was a single primitive (`border border-hairline bg-surface`)
+   used for every object on every surface. That box is why the three pages were
+   indistinguishable, so no rule below reintroduces it.
+   ============================================================================ */
+
+/* ---- TERMINAL. A payment machine: glass panels seated in a chassis, with an
+   illuminated rim where the light gets under the glass. ---- */
+.terminal-panel {
+  position: relative;
+  isolation: isolate;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(237, 234, 227, 0.01) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, var(--mat-glass-top), var(--mat-glass-bottom));
+  box-shadow:
+    inset 0 1px 0 rgba(237, 234, 227, 0.07),
+    inset 0 0 0 1px rgba(237, 234, 227, 0.05);
+}
+
+/* A machine control, not a web button: a glass key that lights from within when
+   armed and swaps its lips when pressed. */
+.terminal-control {
+  background-image: linear-gradient(180deg, rgba(237, 234, 227, 0.03), rgba(237, 234, 227, 0.008));
+  box-shadow:
+    inset 0 1px 0 rgba(237, 234, 227, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(237, 234, 227, 0.05);
+}
+.terminal-control:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(237, 234, 227, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 1px rgba(255, 45, 0, 0.35);
+}
+.terminal-control:active:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 -1px 0 rgba(237, 234, 227, 0.1),
+    inset 0 0 0 1px rgba(255, 45, 0, 0.35);
+}
+/* Keyboard focus. The controls suppress the UA outline (they are glass, and a
+   browser ring floats off them), so the rim has to carry focus itself: a 2px
+   lit edge, brighter than hover, present on inputs and keys alike. Without this
+   the checkout form is unusable by keyboard. */
+.terminal-control:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(237, 234, 227, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+    inset 0 0 0 2px rgba(255, 45, 0, 0.75);
+}
+
+/* The progression channel, milled into the chassis, and the stages riding in
+   it. A reached stage lights the channel wall beside it.
+
+   Only from `md` up: below that the rail lays out horizontally, and a groove
+   down its right edge would be a channel running across the direction of
+   travel. On a phone the lit stage label carries the state on its own. */
+@media (min-width: 768px) {
+  .terminal-rail {
+    box-shadow:
+      inset -1px 0 0 var(--mat-groove),
+      inset -2px 0 0 var(--mat-lip);
+  }
+  .terminal-stage[data-on="true"]::before {
+    content: "";
+    position: absolute;
+    inset: 0 -1px 0 auto;
+    width: 2px;
+    background: #ff2d00;
+    box-shadow: 0 0 10px -2px rgba(255, 45, 0, 0.9);
+  }
+}
+
+/* The amount. The largest object on the terminal, so its digits must not
+   shuffle width as the quantity changes. */
+.terminal-readout {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- MISSION CONTROL. An observation surface. One spine runs the whole page;
+   every section hangs off it. Powered nodes emit, dormant ones are milled. ---- */
+.control-spine {
+  width: 2px;
+  background-image: linear-gradient(90deg, var(--mat-groove) 0 1px, var(--mat-lip-strong) 1px 2px);
+}
+.control-node {
+  box-shadow: inset 0 0 0 1px rgba(237, 234, 227, 0.16);
+}
+.control-node[data-live="true"] {
+  background: #ff2d00;
+  box-shadow:
+    0 0 0 1px rgba(255, 45, 0, 0.18),
+    0 0 8px -2px rgba(255, 45, 0, 0.55);
+}
+
+/* ---- OPERATIONS DESK. A workbench. Rows are ruled, not boxed; the detail
+   sheet is archival paper pulled out from under the row it belongs to. ---- */
+.desk-row {
+  box-shadow:
+    inset 0 -1px 0 var(--mat-lip),
+    inset 0 -2px 0 var(--mat-groove);
+  /* The lit wash belongs to the row, so its timing does too — it was declared
+     as a `transition-colors duration-300` utility on the <li> that happened to
+     wrap it, and only on one of the three call sites. */
+  transition: background-image var(--os-state) var(--os-ease);
+}
+.desk-row:hover,
+.desk-row[data-open="true"] {
+  background-image: linear-gradient(90deg, rgba(237, 234, 227, 0.022), transparent 62%);
+}
+
+/* Archival paper again, but creased nearer the left edge than the landing's
+   sheet: this one is a work order clipped to a board, not a document. */
+.desk-sheet {
+  position: relative;
+  isolation: isolate;
+}
+.desk-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    /* The crease. A wide, shallow ramp: a sheet folded once and flattened, not a
+       strip of light laid on top of it. Narrow it and it reads as a seam. */
+    linear-gradient(90deg, transparent 16%, rgba(237, 234, 227, 0.026) 30%, transparent 46%),
+    repeating-linear-gradient(90deg, var(--mat-paper-fibre) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, var(--mat-paper-weft) 0 1px, transparent 1px 4px);
+  -webkit-mask-image: linear-gradient(105deg, #000 0%, rgba(0, 0, 0, 0.4) 62%, transparent 92%);
+  mask-image: linear-gradient(105deg, #000 0%, rgba(0, 0, 0, 0.4) 62%, transparent 92%);
+}
+
+/* A field on the desk: a well engraved into the sheet. The groove is on top
+   (light falls into it) and the lit lip below, which is the inverse of a raised
+   key — a well you write into cannot look like a button you press. */
+.desk-field {
+  background: transparent;
+  box-shadow:
+    inset 0 1px 0 var(--mat-groove),
+    inset 0 -1px 0 var(--mat-lip),
+    inset 0 0 0 1px rgba(237, 234, 227, 0.08);
+  transition: box-shadow var(--os-hover) var(--os-ease);
+}
+.desk-field:hover:not(:disabled):not([readonly]) {
+  box-shadow:
+    inset 0 1px 0 var(--mat-groove),
+    inset 0 -1px 0 var(--mat-lip),
+    inset 0 0 0 1px rgba(237, 234, 227, 0.16);
+}
+.desk-field:focus {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 var(--mat-groove),
+    inset 0 0 0 2px rgba(255, 45, 0, 0.7);
+}
+.desk-field:disabled,
+.desk-field[readonly] {
+  opacity: var(--os-disabled);
+}
+/* A field the backend rejected. The rim, not a red ring bolted on top. */
+.desk-field[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px rgba(255, 45, 0, 0.55);
+}
+
+/* An inspection stamp: a mark a human pressed into the sheet. */
+.desk-stamp {
+  box-shadow:
+    inset 0 0 0 1px rgba(237, 234, 227, 0.14),
+    inset 0 1px 0 rgba(237, 234, 227, 0.06);
+}
+.desk-stamp:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(255, 45, 0, 0.75);
+}
+
+/* ---- DIALOGS. The scrim belongs to the OS; the panel belongs to the surface.
+   Exactly one dialog exists in the app today (the buyer's release confirmation
+   on the status page), so exactly one panel composition is defined. A terminal
+   dialog and an operations dialog get written when a terminal or an operations
+   flow actually needs one — an unused `.dialog-terminal` would be a guess about
+   a composition nobody has had to design yet.
+
+   The mission panel is not a floating card. It docks: a bottom sheet on a
+   phone, a console window against the right edge on a desktop, with the same
+   spine down its left that the status page runs down its whole length. The
+   reader never leaves mission control to answer a question. ---- */
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(5, 5, 5, 0.82);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dialog-scrim {
+    background: #050505;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+.dialog-mission {
+  position: relative;
+  background: #0a0a0a;
+  box-shadow: inset 0 1px 0 rgba(237, 234, 227, 0.06);
+}
+/* The spine, entering the dialog. Same 2px groove as the page behind it. */
+.dialog-mission::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background-image: linear-gradient(90deg, var(--mat-groove) 0 1px, var(--mat-lip-strong) 1px 2px);
+}
+
+/* ---- Loading, per surface. No spinners anywhere: each surface names the
+   machine that is working, and shows that machine working. All three are
+   transform/opacity only and vanish entirely under reduced motion, which then
+   sees a static label plus a static rule. ---- */
+@media (prefers-reduced-motion: no-preference) {
+  /* Checkout: a charge bar filling the channel. Payment initialization. */
+  .boot-bar {
+    transform-origin: left center;
+    animation: boot-bar 1.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  /* Status: a scan line walking down the telemetry rail. */
+  .scan-line {
+    animation: scan-line 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+  /* Seller: queue rows resolving one after another, staggered inline. */
+  .queue-row {
+    animation: queue-row 1.8s ease-in-out infinite;
+  }
+  /* Radar sweep, for the status page's Escrow Core framing. */
+  .radar-sweep {
+    transform-box: view-box;
+    transform-origin: 100px 100px;
+    animation: orbit-rotate 7s linear infinite;
+  }
+}
+@keyframes boot-bar {
+  0% {
+    transform: scaleX(0);
+    opacity: 1;
+  }
+  72% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 0;
+  }
+}
+@keyframes scan-line {
+  0% {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(var(--scan-travel, 40px));
+    opacity: 0;
+  }
+}
+@keyframes queue-row {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 body {
@@ -60,12 +643,14 @@ body {
   transform: none;
 }
 @media (prefers-reduced-motion: no-preference) {
+  /* Same easing as everything else that moves in the OS; it was the one
+     entrance still on the browser's default `ease`. */
   .reveal {
     opacity: 0;
     transform: translateY(16px);
     transition:
-      opacity 0.7s ease,
-      transform 0.7s ease;
+      opacity 0.7s var(--os-ease),
+      transform 0.7s var(--os-ease);
   }
   .reveal.reveal-visible {
     opacity: 1;
@@ -85,7 +670,10 @@ body {
   }
 }
 
-/* ---- Landing (VOID) — CSS-only motion, no JS animation libs ---- */
+/* ---- Landing (VOID) ---- Everything below is scoped under `.landing-root`, so
+   checkout / status / seller routes never inherit it. GSAP owns only the two
+   scrubbed scroll scenes (hero pin, settlement pin); every other landing
+   animation is CSS. ---- */
 
 /* Landing-scoped font utilities; variables come from next/font on .landing-root. */
 .landing-root .font-display {
@@ -94,6 +682,373 @@ body {
 .landing-root .font-mono-jb,
 .landing-root .micro-label {
   font-family: var(--font-mono-jb), ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ---- Ambient depth — two fixed, pointer-events-none layers behind the content.
+   The radial wash gives the page a light source; the protocol grid gives it a
+   coordinate system. Both are decoration for the "this is instrumentation, not
+   marketing" read. The grid drifts one cell every 90s, transform-only, desktop
+   + motion-safe only (mobile keeps a static grid — one fewer composited layer
+   ticking on a phone GPU). ---- */
+.landing-ambient {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(1100px 620px at 50% -12%, rgba(255, 45, 0, 0.055), transparent 70%),
+    radial-gradient(900px 900px at 50% 42%, rgba(237, 234, 227, 0.028), transparent 72%),
+    radial-gradient(1400px 900px at 50% 105%, rgba(0, 0, 0, 0.6), transparent 60%);
+}
+
+.landing-grid {
+  position: fixed;
+  /* Generous bleed: the rig rotates this layer as the page descends, and a
+     tighter inset would swing its corners into frame. */
+  inset: -32%;
+  z-index: 0;
+  pointer-events: none;
+  /* Laser projection, not a border grid: each line is a crisp 1px filament with
+     a 3px halo bled around it, because light landing on a surface scatters and a
+     border does not. Four static gradients, one paint, no filter. */
+  background-image:
+    linear-gradient(rgba(237, 234, 227, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(237, 234, 227, 0.05) 1px, transparent 1px),
+    linear-gradient(rgba(237, 234, 227, 0.013) 3px, transparent 3px),
+    linear-gradient(90deg, rgba(237, 234, 227, 0.013) 3px, transparent 3px);
+  background-size: 96px 96px;
+  background-position:
+    0 0,
+    0 0,
+    0 -1px,
+    -1px 0;
+  -webkit-mask-image: radial-gradient(closest-side at 50% 38%, #000 20%, transparent 100%);
+  mask-image: radial-gradient(closest-side at 50% 38%, #000 20%, transparent 100%);
+}
+
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
+  .landing-grid {
+    animation: grid-drift 90s linear infinite;
+  }
+}
+/* Drifts on the standalone `translate` property, never `transform`: a CSS
+   animation outranks inline styles, so a `transform` keyframe here would silently
+   swallow the rig's scroll-driven rotation of this same layer. */
+@keyframes grid-drift {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: -96px -96px;
+  }
+}
+
+/* ---- The lighting system. Three fixed gradients, one per mood. The chapters do
+   not change their backgrounds; the light in the room changes, and only these
+   layers' opacity is ever animated. Cross-fading static gradients is a
+   compositor job; tweening a gradient's colour would repaint the whole viewport
+   on every scrub frame. Authored at the hero's framing, so reduced motion and
+   no-JS get the cold open and nothing else. ---- */
+.landing-light {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+.light-cold {
+  opacity: 0.28;
+  background: radial-gradient(closest-side at 50% 40%, rgba(122, 156, 196, 0.5), transparent 72%);
+}
+.light-blood {
+  background: radial-gradient(closest-side at 50% 48%, rgba(255, 45, 0, 0.45), transparent 66%);
+}
+.light-technical {
+  background: radial-gradient(closest-side at 32% 55%, rgba(88, 128, 200, 0.4), transparent 70%);
+}
+
+/* ---- Volumetric dust. Two fields at different depths, so the world has a
+   near and a far. Each drifts on the standalone `rotate` property (an ambient
+   turn nobody should consciously notice) while the rig parallaxes the wrapper's
+   `transform`. Two properties, two owners, no collision. ---- */
+.landing-dust {
+  position: fixed;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+}
+.landing-dust-far {
+  opacity: 0.5;
+}
+/* The near field sits IN FRONT of the Core (z-0) but behind the content (z-10),
+   so the reader is looking at the Core through the room's air. */
+.landing-dust-near {
+  z-index: 1;
+  opacity: 0.75;
+}
+@media (prefers-reduced-motion: no-preference) and (min-width: 768px) {
+  .landing-dust-far .dust-spin {
+    animation: dust-spin 420s linear infinite;
+  }
+  .landing-dust-near .dust-spin {
+    animation: dust-spin 300s linear infinite reverse;
+  }
+}
+@keyframes dust-spin {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* ---- Telemetry. Environmental storytelling, not an interface: it is never
+   meant to be read, only to imply that something is running.
+
+   It runs as vertical rails hard against the viewport edges. There is no "outer
+   gutter" to sit in: the content container is `max-w-[1400px]`, so below 1400px
+   the copy reaches the padding edge and any horizontal rail lands on top of it —
+   the hero eyebrow, the Proof and Platform marginalia, the closing wordmark. Set
+   on its side against the very edge, the rail is ~18px wide and clears the
+   content's 40px padding at every width it is shown at. ---- */
+.landing-telemetry {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.32;
+}
+.telemetry-rail {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  writing-mode: vertical-rl;
+  white-space: nowrap;
+  font-family: var(--font-mono-jb), ui-monospace, Menlo, Consolas, monospace;
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  line-height: 2;
+  color: #6b6b66;
+  text-transform: uppercase;
+}
+.telemetry-rail-right {
+  right: 0.875rem;
+}
+/* Flipped, so the left rail reads bottom-to-top and the two edges mirror. */
+.telemetry-rail-left {
+  left: 0.875rem;
+  rotate: 180deg;
+}
+.telemetry-pulse {
+  width: 4px;
+  height: 4px;
+  background: #ff2d00;
+  opacity: 0.35;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .telemetry-pulse {
+    animation: telemetry-pulse 3.4s ease-in-out infinite;
+  }
+}
+@keyframes telemetry-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---- The Escrow Core, as a single fixed object. It is mounted exactly once, at
+   the page root, and never unmounts: the camera (CameraRig) moves it, scales it
+   and dims it as the reader descends, but the Core itself is continuous from the
+   hero to the closing frame. The wrapper carries the boot animation and the
+   fixed viewport frame; the inner element is the only thing GSAP writes to, so a
+   CSS animation's `fill: both` can never pin an opacity the rig is driving. ---- */
+.camera-core {
+  --core-size: min(92vw, 980px);
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+/* Centred with negative margins, not `place-items` and not the `translate`
+   property. The Core's box is taller than the viewport, and grid alignment
+   clamps an overflowing item to the start edge instead of centring it; while
+   `translate` is off-limits because GSAP normalises that property to `none` the
+   moment it takes over this element's transform. */
+.camera-core-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--core-size);
+  height: var(--core-size);
+  margin-top: calc(var(--core-size) / -2);
+  margin-left: calc(var(--core-size) / -2);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* No camera. The Core rests at a quiet ambient size so it never fights text. */
+  .camera-core-inner {
+    opacity: 0.2;
+    scale: 0.5;
+  }
+}
+
+/* The hairline spine: one object that runs from the Proof rail, through the
+   Platform code block's left rule, and terminates above the closing CTA. It
+   draws itself as the reader descends. Authored at full height, so reduced
+   motion and no-JS see a complete rule.
+
+   Materially it is a groove milled into the page: one dark pixel of cut wall,
+   one lit pixel of lower lip. The reader is following a machined edge down the
+   document, not a 1px border. */
+.landing-spine {
+  transform-origin: top center;
+  width: 2px;
+  background-image: linear-gradient(90deg, var(--mat-groove) 0 1px, var(--mat-lip-strong) 1px 2px);
+}
+
+/* ---- Section entrances. One IntersectionObserver (`Reveal`) flips `.rv-in` on
+   a wrapper; children opt into an entrance with `data-rv` and stagger with an
+   inline transition-delay. No per-element JS, no GSAP, no layout properties.
+   Under reduced motion none of these rules exist, so content renders in its
+   final state. ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .landing-root [data-rv] {
+    transition-duration: 0.85s;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .landing-root [data-rv="rise"] {
+    opacity: 0;
+    transform: translateY(22px);
+    transition-property: opacity, transform;
+  }
+  /* Blur-in: used where a transform would drag a card across the hairline grid
+     seam behind it. Reads as "resolving into focus" rather than "sliding". */
+  .landing-root [data-rv="blur"] {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(8px);
+    transition-property: opacity, filter, transform;
+  }
+  .landing-root [data-rv="draw-x"] {
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition-property: transform;
+  }
+  .landing-root [data-rv="draw-y"] {
+    transform: scaleY(0);
+    transform-origin: top center;
+    transition-property: transform;
+  }
+  .landing-root .rv-in [data-rv] {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  /* Word-mask reveal for display headings: each word rises out from behind its
+     own bottom edge. The padding/negative-margin pair keeps descenders from
+     being clipped by the mask at leading-[0.95]. */
+  .landing-root .rv-word-in {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(110%);
+    transition:
+      transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .landing-root .rv-in .rv-word-in {
+    opacity: 1;
+    transform: none;
+  }
+}
+.landing-root .rv-word {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+}
+
+/* ---- Chapter 02, the fragment field. The fragments are only absolutely placed
+   from `md` up; on a phone they simply wrap as a word cloud in normal flow, and
+   the resolving sentence follows underneath. GSAP writes transform + opacity on
+   these, so their placement stays in `left` / `top` where it cannot collide. ---- */
+@media (min-width: 768px) {
+  .landing-root .scatter-word {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    white-space: nowrap;
+  }
+  .landing-root .conflict-resolve {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* Centring lives in `transform`; GSAP only ever writes `opacity` here. */
+    transform: translate(-50%, -50%);
+    width: min(90%, 56rem);
+    margin: 0;
+    text-align: center;
+  }
+}
+
+/* ---- CTAs. Primary is an illuminated control surface (see `.mat-illuminated`):
+   its press is a swap of the top and bottom lips, so the light moves and the cap
+   does not. The bloom behind it is energy escaping the edge of a lit object, not
+   a drop shadow — held to a 12px radius and inside the cap's own footprint, so
+   it never reads as a floating neon halo. Secondary gets an editorial underline
+   that draws in from the left. All hover/active, so nothing costs a frame at
+   rest. ---- */
+.landing-root .cta-primary {
+  position: relative;
+  isolation: isolate;
+}
+.landing-root .cta-primary::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  background: #ff2d00;
+  filter: blur(12px);
+  opacity: 0;
+}
+.landing-root .cta-primary:hover::after {
+  opacity: 0.26;
+}
+.landing-root .cta-ghost {
+  position: relative;
+}
+.landing-root .cta-ghost::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  background: #ff2d00;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+.landing-root .cta-ghost:hover::after {
+  transform: scaleX(1);
+}
+/* Hover states reach their end state regardless; only the travel between states
+   is a motion preference, so reduced motion snaps. No press-scale: a `transform`
+   rule on the button would override Tailwind's `transition-colors` shorthand,
+   and the CTAs carry no pointer physics — see the note on gimmicks in the phase
+   brief. */
+@media (prefers-reduced-motion: no-preference) {
+  .landing-root .cta-primary::after {
+    transition: opacity 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .landing-root .cta-ghost::after {
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -143,6 +1098,431 @@ body {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* ---- Hero boot sequence — one-time on load, CSS-only so it runs even without
+   JS. Used by the landing hero AND the status-page hero (`.boot-line` is the
+   generic "rise in, staggered by inline animationDelay" primitive). Items are
+   hidden only under a motion preference; reduced-motion shows everything
+   instantly. Transform / opacity / filter only, so CLS stays 0 (the wordmark
+   reserves its box; chars only blur + rise into it). ---- */
+.boot-char {
+  display: inline-block;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .boot-label {
+    animation: boot-fade 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .boot-meta,
+  .boot-line {
+    animation: boot-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .boot-char {
+    animation: boot-char 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes boot-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes boot-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes boot-char {
+  from {
+    opacity: 0;
+    transform: translateY(0.42em);
+    filter: blur(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+/* ---- Escrow core artifact (OrbitalCore) — idle "lock" breath, one ambient
+   particle, and a periodic transaction signal that travels to the core and
+   fires a reaction ring. All motion-safe; fully static under reduced motion. ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .core-breath {
+    transform-origin: 50px 50px;
+    animation: core-breath 6s ease-in-out infinite;
+  }
+  .spin-22 {
+    animation-duration: 22s;
+  }
+  .spin-70-rev {
+    animation-duration: 70s;
+    animation-direction: reverse;
+  }
+  .spin-220 {
+    animation-duration: 220s;
+  }
+  .tx-signal {
+    animation: tx-signal 9s ease-in infinite;
+  }
+  .core-react {
+    transform-origin: 50px 50px;
+    transform-box: view-box;
+    animation: core-react 9s ease-out infinite;
+  }
+  /* Idle energy pulse — the protocol is powered even when nothing is settling.
+     Deliberately out of phase with tx-signal (7s vs 9s) so the core never falls
+     into a metronome rhythm. */
+  .core-pulse {
+    transform-origin: 50px 50px;
+    transform-box: view-box;
+    animation: core-pulse 7s ease-out infinite;
+  }
+  /* Boot: the core powers on after the wordmark has resolved, so the sequence
+     reads text-first, then instrument. */
+  .core-boot {
+    animation: core-boot 1.8s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both;
+  }
+}
+/* Uses the standalone `scale` property, not `transform: scale()`: the core is
+   centred with Tailwind's `-translate-x-1/2 -translate-y-1/2`, and a transform
+   keyframe would overwrite that translate and fling the core off-centre. */
+@keyframes core-boot {
+  from {
+    opacity: 0;
+    scale: 0.9;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes core-pulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  12% {
+    opacity: 0.28;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(3.4);
+  }
+}
+@keyframes core-breath {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.035);
+    opacity: 0.82;
+  }
+}
+@keyframes tx-signal {
+  0%,
+  60% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  63% {
+    opacity: 1;
+  }
+  82%,
+  100% {
+    transform: translateX(-33px);
+    opacity: 0;
+  }
+}
+@keyframes core-react {
+  0%,
+  78% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  84% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.7);
+  }
+}
+
+/* ---- EscrowCore + buyer trust surfaces (checkout / status) ----
+   CSS-only motion: these are payment routes, so no GSAP and no smooth-scroll
+   run here. Every rule is transform/opacity only and lives inside the
+   motion-safe query, so reduced-motion users get the identical static artifact
+   (no `both` fill left mid-animation) and CLS stays 0. */
+@media (prefers-reduced-motion: no-preference) {
+  /* Artifact entrance — scale + fade, never layout. */
+  .escrow-enter {
+    animation: escrow-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Ambient orbit while funds are held. Reuses the landing's orbit-rotate. */
+  .escrow-orbit {
+    transform-box: view-box;
+    transform-origin: 100px 100px;
+    animation: orbit-rotate 28s linear infinite;
+  }
+  .escrow-orbit-rev {
+    animation-duration: 44s;
+    animation-direction: reverse;
+  }
+
+  /* Held-funds heartbeat — restrained, slow, never a throb. */
+  .escrow-heartbeat {
+    transform-box: view-box;
+    transform-origin: 100px 100px;
+    animation: escrow-heartbeat 3.2s ease-in-out infinite;
+  }
+
+  /* Seller -> buyer journey particles. Shipped state only. */
+  .escrow-journey {
+    animation: escrow-journey 6s ease-in-out infinite;
+  }
+  .escrow-journey-2 {
+    animation-delay: 2s;
+  }
+  .escrow-journey-3 {
+    animation-delay: 4s;
+  }
+
+  /* Lifecycle rail: completed connectors draw themselves left-to-right. Only
+     applied to steps the backend has already recorded as done. */
+  .rail-draw {
+    transform-origin: left center;
+    animation: rail-draw 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  /* Current step breathes faintly. Not a glow — an opacity hold. */
+  .rail-active {
+    animation: rail-active 2.6s ease-in-out infinite;
+  }
+
+  /* Masked section reveal — content rises out from behind its own edge. */
+  .reveal-mask {
+    overflow: hidden;
+  }
+  .reveal-mask .reveal-mask-inner {
+    opacity: 0;
+    transform: translateY(28px) scale(0.995);
+    transition:
+      opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .reveal-mask.reveal-visible .reveal-mask-inner {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes escrow-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes escrow-heartbeat {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes escrow-journey {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(108px);
+    opacity: 0;
+  }
+}
+@keyframes rail-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+@keyframes rail-active {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ---- Seller protocol dashboard (/seller/orders) ----
+   Operational motion, not cinematic: no GSAP, no smooth-scroll, no parallax.
+   Every rule is transform/opacity/grid-template-rows only.
+
+   The expand/collapse uses the `0fr -> 1fr` grid-row technique so real height
+   animates without JS measurement. The collapsed geometry (0fr + overflow
+   hidden) lives OUTSIDE the motion query so reduced-motion users still get a
+   working collapse — they just get it instantly. */
+.protocol-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.protocol-body > .protocol-body-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.protocol-body[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+/* A collapsed card keeps its body mounted so height can transition, which means
+   an invisible EscrowCore would otherwise keep its orbit and heartbeat loops
+   ticking. Pause every ambient loop inside a closed card: N collapsed orders
+   must cost zero frames. */
+.protocol-body:not([data-open="true"]) * {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .protocol-body {
+    transition:
+      grid-template-rows 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.35s ease;
+  }
+
+  /* Timeline connectors draw downward, but ONLY for steps the backend has
+     already recorded as done, and only once the card is actually open. Scoping
+     to [data-open] means the draw replays on each expand instead of silently
+     finishing while the card is collapsed. Locked (future) steps never draw. */
+  .protocol-body[data-open="true"] .node-draw {
+    transform-origin: top center;
+    animation: node-draw 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* The one step the order is currently sitting on. An opacity hold, not a
+     glow — it marks position, it does not celebrate. */
+  .protocol-body[data-open="true"] .node-active {
+    animation: rail-active 2.6s ease-in-out infinite;
+  }
+
+  /* Settlement view: a slow resolve. Deliberately no scale, no celebration. */
+  .settle-in {
+    animation: settle-in 1.1s ease both;
+  }
+
+  /* Fires when a shipment chip becomes the current state — after the backend
+     confirmed the transition, never before (the element is keyed on the
+     backend status, so it only remounts on real state change). */
+  .state-settle {
+    animation: state-settle 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@keyframes node-draw {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes settle-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes state-settle {
+  from {
+    opacity: 0.35;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================================================
+   PRINT — the protocol receipt.
+   ============================================================================
+   The status page already carries every fact a receipt needs (order, escrow,
+   network, settlement, transaction, timeline, explorer), so the receipt is not
+   a second surface: it is this page, printed. Ink on paper, no instrument
+   lighting, no motion, controls gone, and every proof link spells out its URL
+   so the sheet stays verifiable offline. */
+@media print {
+  * {
+    background: transparent !important;
+    color: #000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  /* Instrument dressing that means nothing in ink: grain, edge telemetry, the
+     spine, node lamps, and the artifact itself (its strokes are tuned for the
+     void and would print as ghosts). */
+  .grain-overlay,
+  .landing-telemetry,
+  .control-spine,
+  .control-node,
+  .escrow-enter,
+  .dialog-scrim,
+  button {
+    display: none !important;
+  }
+  /* Entrances must not leave content half-revealed on the sheet. */
+  .reveal,
+  .reveal-mask-inner,
+  .boot-line,
+  .boot-label,
+  .boot-meta {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  /* Engraved rules become printable hairlines. */
+  .engraved-b,
+  .desk-row {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.35) !important;
+  }
+  /* A proof link is only proof if the URL survives the paper. */
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 9px;
+    word-break: break-all;
   }
 }
 

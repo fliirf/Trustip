@@ -197,10 +197,18 @@ export interface SellerOrder {
   totalUsdc: string;
   quantity: number | null;
   createdAt: string;
+  /** Set only once the order has actually completed (buyer-confirmed release). */
+  completedAt: string | null;
   link: { title: string; slug: string } | null;
   buyer: SellerOrderBuyer | null;
   payment: { status: string; txHash: string | null } | null;
-  escrow: { status: string; fundedTxHash: string | null } | null;
+  /** `releaseTxHash` is null until the escrow is actually released on-chain —
+   * never rendered as proof before then. */
+  escrow: {
+    status: string;
+    fundedTxHash: string | null;
+    releaseTxHash: string | null;
+  } | null;
   shipment: SellerShipment | null;
 }
 

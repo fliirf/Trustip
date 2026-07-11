@@ -20,7 +20,7 @@ export const ORDER_STATUS_LABEL: Record<string, string> = {
   packed: "Dikemas",
   shipped: "Dikirim",
   delivered: "Pesanan Diterima",
-  completed: "Selesai",
+  completed: "Pesanan Selesai",
   payout_pending: "Menunggu Pencairan",
   payout_completed: "Pencairan Selesai",
   refund_requested: "Refund Diajukan",
@@ -86,6 +86,8 @@ export function sellerErrorLabel(code: string, fallback: string): string {
       return "Verifikasi wallet belum dikonfigurasi di server ini.";
     case "SellerNotReady":
       return "Selesaikan persiapan toko dulu (profil + wallet utama terverifikasi).";
+    case "SellerPayoutWalletNotReady":
+      return "Wallet seller belum siap menerima USDC. Tambahkan trustline USDC testnet lalu coba lagi.";
     case "Conflict":
       return fallback.includes("verified")
         ? "Wallet harus diverifikasi dulu sebelum jadi wallet utama."

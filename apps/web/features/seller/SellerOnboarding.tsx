@@ -4,6 +4,11 @@
 // Every status shown comes from the backend (GET /api/seller/profile is
 // re-fetched after each mutation). The client never sets verified_at or
 // primary itself — it only requests, signs, and submits.
+//
+// PHASE 14 — OPERATIONS DESK grammar. Four numbered stations on the board:
+// engraved fields, milled keys, wallets as ruled manifest rows with a stamped
+// verdict. No bordered panels, no section rules with a trailing hairline, no
+// check glyphs — the word is the verdict.
 
 import {
   currentNetwork,
@@ -17,6 +22,7 @@ import {
 } from "@trustip/stellar";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import {
   getOnboarding,
   registerWallet,
@@ -31,14 +37,14 @@ import { sellerErrorLabel, STEP_LABELS } from "./labels";
 import { SellerShell } from "./SellerShell";
 import { useSellerSession } from "./useSellerSession";
 
-const inputCls =
-  "w-full border border-hairline bg-surface px-3 py-2.5 text-sm text-bone placeholder:text-ash transition-colors duration-300 focus:border-blood/70 focus:outline-none";
+const fieldCls =
+  "desk-field w-full px-3 py-2.5 text-sm text-bone placeholder:text-ash";
 
-const ctaCls =
-  "bg-bone px-5 py-2.5 text-sm font-semibold tracking-tight text-void transition-colors duration-300 hover:bg-blood active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40";
+const stampCls =
+  "desk-stamp os-press micro-label px-4 py-2 text-bone hover:text-blood";
 
-const ghostCls =
-  "micro-label border border-hairline px-4 py-2 text-bone transition-colors duration-300 hover:border-blood active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40";
+const keyCls =
+  "mat-illuminated os-press px-5 py-2.5 text-sm font-semibold tracking-tight text-void hover:text-bone";
 
 function describeError(e: unknown): string {
   if (e instanceof SellerApiError) return sellerErrorLabel(e.code, e.message);
@@ -46,13 +52,29 @@ function describeError(e: unknown): string {
   return sellerErrorLabel("InternalError", "");
 }
 
-function SectionRule({ label }: { label: string }) {
+/** A numbered station on the board. The label alone marks it; the old trailing
+ *  hairline rule was the buyer status page's grammar, borrowed. */
+function Station({
+  n,
+  label,
+  children,
+}: {
+  n: string;
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="flex items-center gap-2">
-      <span className="micro-label text-mist">{label}</span>
-      <span className="h-px flex-1 bg-hairline" aria-hidden />
-    </div>
+    <section>
+      <div className="micro-label text-ash tabular-nums">
+        {n} · {label}
+      </div>
+      <div className="mt-6">{children}</div>
+    </section>
   );
+}
+
+function shortKey(k: string): string {
+  return `${k.slice(0, 8)}…${k.slice(-6)}`;
 }
 
 export function SellerOnboarding() {
@@ -124,7 +146,9 @@ export function SellerOnboarding() {
   if (session.loading) {
     return (
       <SellerShell active="onboarding">
-        <p className="micro-label text-ash">Memuat sesi…</p>
+        <div className="max-w-md">
+          <ProtocolState surface="seller" label="Memverifikasi sesi" />
+        </div>
       </SellerShell>
     );
   }
@@ -132,15 +156,12 @@ export function SellerOnboarding() {
   if (!session.session) {
     return (
       <SellerShell active="onboarding">
-        <div className="max-w-md border border-hairline bg-surface p-6">
-          <div className="micro-label text-ash">Perlu Masuk</div>
-          <p className="mt-3 text-sm text-mist/80">
-            Masuk dulu untuk menyiapkan toko dan wallet kamu.
-          </p>
-          <Link href="/seller/login" className={`mt-5 inline-block ${ctaCls}`}>
-            Masuk Seller
-          </Link>
-        </div>
+        <EmptyState
+          surface="seller"
+          title="Perlu Masuk"
+          detail="Masuk dulu untuk menyiapkan toko dan wallet kamu."
+          action={{ label: "Masuk Seller", href: "/seller/login" }}
+        />
       </SellerShell>
     );
   }
@@ -170,34 +191,41 @@ export function SellerOnboarding() {
       onSignOut={() => void session.signOut()}
       email={session.email}
     >
-      <div className="mb-3 flex items-center gap-2">
-        <span aria-hidden className="text-blood">
-          ◈
-        </span>
-        <h1 className="text-2xl font-semibold tracking-tight text-bone">
-          Persiapan Toko
-        </h1>
+      <div className="engraved-b flex flex-wrap items-end justify-between gap-4 pb-5">
+        <div>
+          <h1 className="os-title text-bone">Persiapan Toko</h1>
+          <p className="os-body mt-3 max-w-[52ch] text-mist/80">
+            Selesaikan langkah berikut supaya link checkout kamu bisa menerima
+            pembayaran yang dilindungi.
+          </p>
+        </div>
+        <div className="micro-label text-ash tabular-nums">
+          {Object.values(done).filter(Boolean).length} / {STEP_LABELS.length} langkah
+        </div>
       </div>
-      <p className="mb-8 max-w-[52ch] text-sm leading-relaxed text-mist/80">
-        Selesaikan langkah berikut supaya link checkout kamu bisa menerima
-        pembayaran yang dilindungi.
-      </p>
 
-      {/* Status rail */}
-      <ol className="mb-10 flex items-start gap-2">
-        {STEP_LABELS.map((step) => {
+      {/* Progress rail — horizontal, the desk's axis. Same marks the order
+          sheet's lifecycle uses. */}
+      <ol className="mt-10 -mx-1 flex min-w-max items-start gap-0 overflow-x-auto px-1 pb-1 md:min-w-0">
+        {STEP_LABELS.map((step, i) => {
           const isDone = done[step.key];
+          const last = i === STEP_LABELS.length - 1;
           return (
-            <li key={step.key} className="flex flex-1 flex-col gap-2">
+            <li key={step.key} className="flex min-w-[88px] flex-1 flex-col gap-2.5">
+              <div className="flex items-center">
+                <span
+                  aria-hidden
+                  className={`size-[7px] shrink-0 rotate-45 ${isDone ? "bg-blood" : "bg-bone/20"}`}
+                />
+                {!last && (
+                  <span
+                    aria-hidden
+                    className={`h-px flex-1 ${isDone ? "bg-blood/60" : "bg-hairline"}`}
+                  />
+                )}
+              </div>
               <span
-                className={`h-px w-full transition-colors duration-500 ${
-                  isDone ? "bg-blood" : "bg-hairline"
-                }`}
-              />
-              <span
-                className={`micro-label leading-tight ${
-                  isDone ? "text-mist" : "text-bone/25"
-                }`}
+                className={`pr-3 text-[12px] leading-tight ${isDone ? "text-mist" : "text-bone/25"}`}
               >
                 {step.label}
               </span>
@@ -207,32 +235,26 @@ export function SellerOnboarding() {
       </ol>
 
       {loadError && (
-        <p className="mb-6 border border-blood/30 px-3 py-2 text-sm text-blood">
-          {loadError}
-        </p>
+        <div className="mt-8 max-w-3xl">
+          <ErrorState surface="seller" detail={loadError} />
+        </div>
       )}
 
       {status?.checkoutReady && (
-        <div className="mb-10 border border-bone/30 bg-surface px-4 py-3.5 text-sm text-bone">
-          <span aria-hidden className="mr-2 text-blood">
-            ◈
+        <div className="desk-row mt-10 flex flex-wrap items-center justify-between gap-4 py-4">
+          <span className="os-body text-bone">
+            Toko kamu siap menerima pembayaran terlindungi.
           </span>
-          Toko kamu siap menerima pembayaran terlindungi.
-          <Link
-            href="/seller"
-            className="micro-label ml-3 text-mist underline-offset-4 hover:underline"
-          >
+          <Link href="/seller" className={stampCls}>
             Ke Ringkasan
           </Link>
         </div>
       )}
 
-      <div className="space-y-12 pb-16">
-        {/* 01 · PROFIL TOKO */}
-        <section className="space-y-5">
-          <SectionRule label="01 · Profil Toko" />
+      <div className="space-y-16 pt-14 pb-16">
+        <Station n="01" label="Profil Toko">
           <form
-            className="max-w-md space-y-4"
+            className="max-w-md space-y-5"
             onSubmit={(e) => {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
@@ -254,78 +276,72 @@ export function SellerOnboarding() {
               <input
                 name="storeName"
                 defaultValue={profile?.storeName ?? ""}
-                className={inputCls}
+                className={fieldCls}
                 required
                 minLength={1}
               />
             </label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-5 sm:grid-cols-2">
               <label className="block space-y-2">
-                <span className="micro-label text-ash">
-                  Kategori (opsional)
-                </span>
+                <span className="micro-label text-ash">Kategori (opsional)</span>
                 <input
                   name="category"
                   defaultValue={profile?.category ?? ""}
-                  className={inputCls}
+                  className={fieldCls}
                 />
               </label>
               <label className="block space-y-2">
-                <span className="micro-label text-ash">
-                  Link sosial (opsional)
-                </span>
+                <span className="micro-label text-ash">Link sosial (opsional)</span>
                 <input
                   name="socialUrl"
                   type="url"
                   placeholder="https://…"
                   defaultValue={profile?.socialUrl ?? ""}
-                  className={inputCls}
+                  className={fieldCls}
                 />
               </label>
             </div>
-            <button type="submit" disabled={busy !== null} className={ctaCls}>
-              {busy === "profile"
-                ? "Menyimpan…"
-                : profile
-                  ? "Perbarui Profil"
-                  : "Simpan Profil"}
-            </button>
-            {profile && (
-              <span className="micro-label ml-3 text-mist">
-                Tersimpan ✓ {profile.storeName}
-              </span>
-            )}
+            <div className="flex flex-wrap items-center gap-4">
+              <button type="submit" disabled={busy !== null} className={keyCls}>
+                {busy === "profile"
+                  ? "Menyimpan…"
+                  : profile
+                    ? "Perbarui Profil"
+                    : "Simpan Profil"}
+              </button>
+              {profile && (
+                <span className="micro-label text-mist">Tersimpan · {profile.storeName}</span>
+              )}
+            </div>
           </form>
-        </section>
+        </Station>
 
-        {/* 02 · WALLET SELLER */}
-        <section className="space-y-5">
-          <SectionRule label="02 · Wallet Seller" />
-          <p className="max-w-[52ch] text-sm text-mist/70">
+        <Station n="02" label="Wallet Seller">
+          <p className="os-body max-w-[52ch] text-mist/70">
             Hubungkan wallet Stellar yang akan menerima pembayaran kamu, lalu
             daftarkan ke Trustip.
           </p>
-          <div className="grid max-w-md grid-cols-2 gap-4">
+          <div className="mt-6 grid max-w-md grid-cols-2 gap-4">
             {wallets.map((w) => (
               <button
                 key={w.id}
                 type="button"
                 disabled={!w.installed || busy !== null}
                 onClick={() => void connect(w.id)}
-                className={`group flex items-center gap-3 border bg-surface px-4 py-3.5 text-left transition-colors duration-300 hover:border-blood disabled:pointer-events-none disabled:opacity-35 ${
+                className={`mat-key os-press flex items-center gap-3 border px-4 py-3.5 text-left ${
                   walletId === w.id ? "border-blood/60" : "border-hairline"
                 }`}
               >
+                {/* Status lamp, lit only where a wallet actually is. Same lamp
+                    the checkout terminal and the release dialog use. */}
                 <span
                   aria-hidden
-                  className="grid h-6 w-6 shrink-0 place-items-center border border-blood/40 text-[11px] leading-none text-blood"
-                >
-                  ◈
-                </span>
+                  className={`h-8 w-[3px] shrink-0 ${
+                    w.installed ? "mat-emissive bg-blood" : "bg-hairline"
+                  }`}
+                />
                 <span className="flex flex-col leading-tight">
-                  <span className="text-sm font-medium text-bone">
-                    {w.name}
-                  </span>
+                  <span className="text-sm font-medium text-bone">{w.name}</span>
                   <span className="micro-label mt-1 text-ash">
                     {w.installed
                       ? walletId === w.id
@@ -338,13 +354,11 @@ export function SellerOnboarding() {
             ))}
           </div>
           {publicKey && (
-            <div className="max-w-md border border-hairline bg-surface px-4 py-3">
+            <div className="desk-sheet mt-6 max-w-md px-4 py-4">
               <div className="micro-label text-ash">Wallet terhubung</div>
-              <div className="mt-2 break-all font-mono text-xs text-mist">
-                {publicKey}
-              </div>
+              <div className="mt-2 break-all font-mono text-xs text-mist">{publicKey}</div>
               {wrongNetwork && (
-                <p className="mt-2 text-sm text-blood">
+                <p className="os-body mt-3 text-blood">
                   Jaringan wallet tidak sesuai. Pindahkan wallet ke jaringan
                   Stellar yang benar.
                 </p>
@@ -363,132 +377,120 @@ export function SellerOnboarding() {
                       });
                     })
                   }
-                  className={`mt-3 ${ghostCls}`}
+                  className={`mt-4 ${stampCls}`}
                 >
                   {busy === "register" ? "Mendaftarkan…" : "Daftarkan Wallet"}
                 </button>
               )}
               {connectedRegistered && (
-                <p className="micro-label mt-3 text-mist">Terdaftar ✓</p>
+                <p className="micro-label mt-4 text-mist">Terdaftar</p>
               )}
             </div>
           )}
-        </section>
+        </Station>
 
-        {/* 03 · VERIFIKASI KEPEMILIKAN */}
-        <section className="space-y-5">
-          <SectionRule label="03 · Verifikasi Kepemilikan" />
-          <p className="max-w-[52ch] text-sm text-mist/70">
+        <Station n="03" label="Verifikasi Kepemilikan">
+          <p className="os-body max-w-[52ch] text-mist/70">
             Tanda tangani satu permintaan verifikasi di wallet kamu. Ini bukan
-            transaksi dan tidak memindahkan dana — hanya bukti bahwa wallet ini
+            transaksi dan tidak memindahkan dana, hanya bukti bahwa wallet ini
             milik kamu. Wallet mungkin menampilkan peringatan karena permintaan
             berasal dari akun verifikasi Trustip; itu normal.
           </p>
-          {networkWallets.length === 0 && (
-            <p className="micro-label text-ash">
-              Daftarkan wallet dulu di langkah 02.
-            </p>
+          {networkWallets.length === 0 ? (
+            <p className="micro-label mt-6 text-ash">Daftarkan wallet dulu di langkah 02.</p>
+          ) : (
+            <ul className="mt-6 max-w-xl">
+              {networkWallets.map((w) => (
+                <li
+                  key={w.id}
+                  className="desk-row flex flex-wrap items-center justify-between gap-3 py-3.5"
+                >
+                  <span className="font-mono text-xs text-mist">{shortKey(w.publicKey)}</span>
+                  {w.verifiedAt ? (
+                    <span className="micro-label text-mist">Terverifikasi</span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy !== null || !walletId}
+                      onClick={() =>
+                        void run("verify", async () => {
+                          if (!token || !walletId) return;
+                          const challenge = await requestWalletChallenge(token, {
+                            publicKey: w.publicKey,
+                            network: w.network,
+                          });
+                          const adapter = getWalletAdapter(walletId);
+                          const signedXdr = await signTransactionWithWallet(
+                            adapter,
+                            challenge.challengeXdr,
+                            {
+                              networkPassphrase: challenge.networkPassphrase,
+                              address: w.publicKey,
+                            },
+                          );
+                          await verifyWallet(token, {
+                            publicKey: w.publicKey,
+                            network: w.network,
+                            signedXdr,
+                            challengeToken: challenge.challengeToken,
+                          });
+                        })
+                      }
+                      className={stampCls}
+                    >
+                      {busy === "verify" ? "Menunggu tanda tangan…" : "Verifikasi Sekarang"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-          <ul className="max-w-xl space-y-3">
-            {networkWallets.map((w) => (
-              <li
-                key={w.id}
-                className="flex flex-wrap items-center justify-between gap-3 border border-hairline bg-surface px-4 py-3"
-              >
-                <span className="break-all font-mono text-xs text-mist">
-                  {w.publicKey.slice(0, 8)}…{w.publicKey.slice(-6)}
-                </span>
-                {w.verifiedAt ? (
-                  <span className="micro-label text-mist">Terverifikasi ✓</span>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy !== null || !walletId}
-                    onClick={() =>
-                      void run("verify", async () => {
-                        if (!token || !walletId) return;
-                        const challenge = await requestWalletChallenge(token, {
-                          publicKey: w.publicKey,
-                          network: w.network,
-                        });
-                        const adapter = getWalletAdapter(walletId);
-                        const signedXdr = await signTransactionWithWallet(
-                          adapter,
-                          challenge.challengeXdr,
-                          {
-                            networkPassphrase: challenge.networkPassphrase,
-                            address: w.publicKey,
-                          },
-                        );
-                        await verifyWallet(token, {
-                          publicKey: w.publicKey,
-                          network: w.network,
-                          signedXdr,
-                          challengeToken: challenge.challengeToken,
-                        });
-                      })
-                    }
-                    className={ghostCls}
-                  >
-                    {busy === "verify"
-                      ? "Menunggu tanda tangan…"
-                      : "Verifikasi Sekarang"}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
+        </Station>
 
-        {/* 04 · PRIMARY WALLET */}
-        <section className="space-y-5">
-          <SectionRule label="04 · Primary Wallet" />
-          <p className="max-w-[52ch] text-sm text-mist/70">
-            Pilih satu wallet utama sebagai tujuan pembayaran untuk link
-            checkout kamu.
+        <Station n="04" label="Wallet Utama">
+          <p className="os-body max-w-[52ch] text-mist/70">
+            Pilih satu wallet utama sebagai tujuan pembayaran untuk link checkout
+            kamu.
           </p>
-          {verifiedWallets.length === 0 && (
-            <p className="micro-label text-ash">
-              Verifikasi wallet dulu di langkah 03.
-            </p>
+          {verifiedWallets.length === 0 ? (
+            <p className="micro-label mt-6 text-ash">Verifikasi wallet dulu di langkah 03.</p>
+          ) : (
+            <ul className="mt-6 max-w-xl">
+              {verifiedWallets.map((w) => (
+                <li
+                  key={w.id}
+                  className="desk-row flex flex-wrap items-center justify-between gap-3 py-3.5"
+                >
+                  <span className="font-mono text-xs text-mist">{shortKey(w.publicKey)}</span>
+                  {w.isPrimary ? (
+                    <span className="desk-stamp micro-label px-3 py-1.5 text-blood">
+                      Wallet Utama
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() =>
+                        void run("primary", async () => {
+                          if (!token) return;
+                          await setPrimaryWallet(token, { walletId: w.id });
+                        })
+                      }
+                      className={stampCls}
+                    >
+                      {busy === "primary" ? "Menyimpan…" : "Jadikan Utama"}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-          <ul className="max-w-xl space-y-3">
-            {verifiedWallets.map((w) => (
-              <li
-                key={w.id}
-                className={`flex flex-wrap items-center justify-between gap-3 border bg-surface px-4 py-3 ${
-                  w.isPrimary ? "border-blood/50" : "border-hairline"
-                }`}
-              >
-                <span className="break-all font-mono text-xs text-mist">
-                  {w.publicKey.slice(0, 8)}…{w.publicKey.slice(-6)}
-                </span>
-                {w.isPrimary ? (
-                  <span className="micro-label text-blood">Wallet Utama</span>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() =>
-                      void run("primary", async () => {
-                        if (!token) return;
-                        await setPrimaryWallet(token, { walletId: w.id });
-                      })
-                    }
-                    className={ghostCls}
-                  >
-                    {busy === "primary" ? "Menyimpan…" : "Jadikan Utama"}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
+        </Station>
 
         {actionError && (
-          <p className="max-w-xl border border-blood/30 px-3 py-2 text-sm text-blood">
-            {actionError}
-          </p>
+          <div className="max-w-3xl">
+            <ErrorState surface="seller" detail={actionError} />
+          </div>
         )}
       </div>
     </SellerShell>

@@ -2,21 +2,118 @@
 
 // Buyer checkout island. Lightweight product UI — no landing animation system.
 // All money/status truth is rendered from backend responses only.
+//
+// PHASE 13 — identity: A PAYMENT TERMINAL.
+//
+//   left    the payment progression, milled into a channel down the chassis
+//   centre  the payment module, with the amount as the largest object on screen
+//   right   compact protocol information: the lock, and what the protocol knows
+//
+// There is no centre column of stacked cards. Nothing here is a `card`: the
+// surfaces are glass panels (`terminal-panel`) and the controls are machine
+// keys (`terminal-control`), both from the Phase 12 material system.
 
 import { useState, type FormEvent } from "react";
+import { EscrowCore } from "../escrow/EscrowCore";
 import { CheckoutStatus } from "./CheckoutStatus";
 import { OrderSummary, type CheckoutLinkView } from "./OrderSummary";
 import { WalletConnect } from "./WalletConnect";
-import { errorLabel } from "./labels";
+import { ErrorState } from "../ui/ErrorState";
+import { errorHint, errorLabel, isRetryable } from "./labels";
 import { useCheckoutFlow } from "./useCheckoutFlow";
 
+/** The three stages of the machine, in the order the buyer walks them. Copy is
+ *  unchanged: these are the exact section labels the flow used before, moved out
+ *  of the centre column and into the chassis where progression belongs. */
+const STAGES = [
+  { n: "01", label: "Data Pesanan" },
+  { n: "02", label: "Hubungkan Wallet" },
+  { n: "03", label: "Pembayaran" },
+] as const;
+
+/** Progression rail. A channel milled down the chassis; the stage the buyer is
+ *  standing on lights its wall. Purely derived from `activeStage` — it can never
+ *  run ahead of the flow. */
+function TerminalRail({ active }: { active: number }) {
+  return (
+    <ol
+      aria-label="Tahap checkout"
+      className="terminal-rail flex gap-6 pr-5 md:sticky md:top-12 md:h-fit md:flex-col md:gap-0"
+    >
+      {STAGES.map((s, i) => {
+        const done = i < active;
+        const current = i === active;
+        return (
+          <li
+            key={s.n}
+            data-on={current || undefined}
+            aria-current={current ? "step" : undefined}
+            className="terminal-stage relative py-1 md:py-5"
+          >
+            <div
+              className={`micro-label tabular-nums ${
+                current ? "text-blood" : done ? "text-mist" : "text-bone/25"
+              }`}
+            >
+              {s.n}
+            </div>
+            <div
+              className={`mt-1.5 text-[13px] leading-tight tracking-tight ${
+                current ? "text-bone" : done ? "text-mist/70" : "text-bone/25"
+              }`}
+            >
+              {s.label}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+/** The amount, as the terminal's readout. The largest object on the page.
+ *
+ *  Before the backend has created an order there is no total, so this shows the
+ *  link's UNIT price with the quantity beneath it. It never multiplies the two:
+ *  a client-computed total is a number the backend never returned, and this
+ *  readout is the one place a buyer would trust it. */
+function AmountReadout({
+  unitPrice,
+  totalUsdc,
+  quantity,
+}: {
+  unitPrice: string;
+  totalUsdc: string | null;
+  quantity: number;
+}) {
+  return (
+    <div className="terminal-panel px-6 py-7 md:px-8 md:py-9">
+      <div className="micro-label text-ash">{totalUsdc ? "Total Tagihan" : "Harga Satuan"}</div>
+      <div className="terminal-readout mt-3 flex items-baseline gap-3">
+        <span className="text-[clamp(40px,7vw,76px)] leading-[0.9] font-semibold tracking-tighter text-bone">
+          {totalUsdc ?? unitPrice}
+        </span>
+        <span className="text-lg font-medium text-mist">USDC</span>
+      </div>
+      {!totalUsdc && (
+        <div className="micro-label mt-4 text-ash">
+          × {quantity} · total dihitung saat pesanan dibuat
+        </div>
+      )}
+    </div>
+  );
+}
+
 const inputCls =
-  "w-full border border-hairline bg-surface px-3 py-2.5 text-sm text-bone placeholder:text-ash transition-colors duration-300 focus:border-blood/70 focus:outline-none";
+  "terminal-control w-full bg-transparent px-3 py-2.5 text-sm text-bone placeholder:text-ash focus:outline-none";
 
 const labelCls = "micro-label text-ash";
 
+/** The primary key on the machine: illuminated, not a web button. `os-press`
+ *  supplies the cursor, the press depth, the disabled opacity and the timing —
+ *  identical to every other pressable object in the OS. */
 const ctaCls =
-  "w-full bg-bone px-4 py-3 text-sm font-semibold tracking-tight text-void transition-colors duration-300 hover:bg-blood active:scale-[0.99] disabled:pointer-events-none disabled:opacity-40";
+  "mat-illuminated os-press w-full px-4 py-3.5 text-sm font-semibold tracking-tight text-void hover:text-bone";
 
 export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
   const flow = useCheckoutFlow(link.slug);
@@ -47,16 +144,23 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
   const readyToPay = flow.phase === "connected";
   const inPayment = !inForm && !inWalletStep && flow.phase !== "connected";
 
+  const activeStage = inForm ? 0 : inWalletStep ? 1 : 2;
+
   return (
-    <div className="grid gap-8 md:grid-cols-[1fr_320px]">
-      <div className="space-y-6">
+    <div className="grid gap-10 md:grid-cols-[150px_minmax(0,1fr)] lg:grid-cols-[150px_minmax(0,1fr)_300px] lg:gap-12">
+      <TerminalRail active={activeStage} />
+
+      {/* CENTRE — the payment module. The readout is always mounted, so the
+          amount is the constant the whole machine is organised around. */}
+      <div className="min-w-0 space-y-8">
+        <AmountReadout
+          unitPrice={link.priceUsdc}
+          totalUsdc={flow.order?.totalUsdc ?? null}
+          quantity={quantity}
+        />
+
         {inForm && (
           <form onSubmit={onSubmitDetails} className="space-y-5">
-            <div className="flex items-center gap-2">
-              <span className="micro-label text-mist">01 · Data Pesanan</span>
-              <span className="h-px flex-1 bg-hairline" aria-hidden />
-            </div>
-
             <label className="block space-y-2">
               <span className={labelCls}>Jumlah</span>
               <input
@@ -75,21 +179,11 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             </label>
             <label className="block space-y-2">
               <span className={labelCls}>Nama</span>
-              <input
-                name="buyerName"
-                className={inputCls}
-                required
-                minLength={1}
-              />
+              <input name="buyerName" className={inputCls} required minLength={1} />
             </label>
             <label className="block space-y-2">
               <span className={labelCls}>Email</span>
-              <input
-                name="buyerEmail"
-                type="email"
-                className={inputCls}
-                required
-              />
+              <input name="buyerEmail" type="email" className={inputCls} required />
             </label>
             <label className="block space-y-2">
               <span className={labelCls}>No. HP</span>
@@ -106,12 +200,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
               </label>
               <label className="block space-y-2">
                 <span className={labelCls}>Kode pos</span>
-                <input
-                  name="postalCode"
-                  className={inputCls}
-                  required
-                  minLength={3}
-                />
+                <input name="postalCode" className={inputCls} required minLength={3} />
               </label>
             </div>
             <label className="block space-y-2">
@@ -126,9 +215,11 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             </label>
 
             {flow.error && (
-              <p className="border border-blood/30 px-3 py-2 text-sm text-blood">
-                {errorLabel(flow.error.code, flow.error.message)}
-              </p>
+              <ErrorState
+                surface="checkout"
+                detail={errorLabel(flow.error.code, flow.error.message)}
+                hint={errorHint(flow.error.code)}
+              />
             )}
 
             <button
@@ -152,35 +243,47 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
               onConnect={flow.connect}
             />
             {flow.error && (
-              <p className="border border-blood/30 px-3 py-2 text-sm text-blood">
-                {errorLabel(flow.error.code, flow.error.message)}
-              </p>
+              <ErrorState
+                surface="checkout"
+                detail={errorLabel(flow.error.code, flow.error.message)}
+                hint={errorHint(flow.error.code)}
+                action={{
+                  label: "Deteksi Ulang Wallet",
+                  onClick: flow.detectWallets,
+                }}
+              />
             )}
           </>
         )}
 
         {readyToPay && (
           <div className="space-y-5">
-            <div className="flex items-center gap-2">
-              <span className="micro-label text-mist">03 · Pembayaran</span>
-              <span className="h-px flex-1 bg-hairline" aria-hidden />
-            </div>
-            <div className="border border-hairline bg-surface px-4 py-3">
+            {/* The connected wallet, read out on the machine's own plate. */}
+            <div className="terminal-panel px-4 py-3">
               <div className="micro-label text-ash">Wallet terhubung</div>
-              <div className="mt-2 break-all font-mono text-xs text-mist">
+              <div className="os-serial mt-2 font-mono text-mist">
                 {flow.publicKey}
               </div>
             </div>
             {flow.wrongNetwork && (
-              <p className="border border-blood/30 px-3 py-2 text-sm text-blood">
-                Jaringan wallet tidak sesuai. Pindahkan wallet ke jaringan
-                Stellar yang benar sebelum membayar.
-              </p>
+              <ErrorState
+                surface="checkout"
+                title="Jaringan wallet tidak sesuai"
+                detail="Wallet kamu sedang terhubung ke jaringan Stellar yang berbeda dari pesanan ini, jadi pembayaran tidak bisa dilanjutkan."
+                hint={errorHint("WrongNetwork")}
+              />
             )}
             {flow.error && (
-              <p className="border border-blood/30 px-3 py-2 text-sm text-blood">
-                {errorLabel(flow.error.code, flow.error.message)}
-              </p>
+              <ErrorState
+                surface="checkout"
+                detail={errorLabel(flow.error.code, flow.error.message)}
+                hint={errorHint(flow.error.code)}
+                action={
+                  isRetryable(flow.error.code)
+                    ? { label: "Coba Lagi", onClick: () => void flow.pay() }
+                    : undefined
+                }
+              />
             )}
             <button
               type="button"
@@ -199,9 +302,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             error={flow.error}
             txHash={flow.txHash}
             onRetry={
-              flow.phase === "failed" || flow.error
-                ? () => void flow.pay()
-                : null
+              flow.phase === "failed" || flow.error ? () => void flow.pay() : null
             }
           />
         )}
@@ -211,19 +312,81 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
         {flow.phase === "confirmed" && flow.order && (
           <a
             href={`/checkout/${link.slug}/status/${flow.order.orderNo}`}
-            className="block w-full bg-bone px-4 py-3 text-center text-sm font-semibold tracking-tight text-void transition-colors duration-300 hover:bg-blood active:scale-[0.99]"
+            className={`${ctaCls} block text-center`}
           >
             Lihat Status Pesanan
           </a>
         )}
       </div>
 
-      <OrderSummary
-        link={link}
-        orderNo={flow.order?.orderNo ?? null}
-        totalUsdc={flow.order?.totalUsdc ?? null}
-        quantity={quantity}
-      />
+      {/* RIGHT — compact protocol information. What the protocol knows, stated
+          plainly, and the lock it is holding. No decision lives here. */}
+      <aside className="h-fit space-y-8 md:col-span-2 lg:col-span-1">
+        <ProtocolReadout
+          hasOrder={flow.order !== null}
+          hasTx={flow.txHash !== null}
+          confirmed={flow.phase === "confirmed"}
+        />
+        <OrderSummary
+          link={link}
+          orderNo={flow.order?.orderNo ?? null}
+          quantity={quantity}
+        />
+      </aside>
+    </div>
+  );
+}
+
+/** Protected-checkout framing. Each fact is lit by a DISTINCT backend fact —
+ * never by elapsed time or an optimistic client transition:
+ *   01 the order-create API returned an order
+ *   02 the submit API returned a network tx hash
+ *   03 the sync API reported `confirmed` (escrow funded on-chain)
+ * The core artifact stays `dormant` until 03. There is no fake payment
+ * animation: it only reacts after the backend confirms. */
+function ProtocolReadout({
+  hasOrder,
+  hasTx,
+  confirmed,
+}: {
+  hasOrder: boolean;
+  hasTx: boolean;
+  confirmed: boolean;
+}) {
+  const facts = [
+    { n: "01", label: "Pesanan Disiapkan", done: hasOrder },
+    { n: "02", label: "Pembayaran Dikirim", done: hasTx },
+    // The one buyer-visible "escrow" headline. The mechanism keeps its name in
+    // metadata; the fact reads as what it means to the buyer.
+    { n: "03", label: "Dana Dilindungi", done: confirmed },
+  ];
+  return (
+    <div className="terminal-panel px-5 py-6">
+      <div className="flex justify-center">
+        <EscrowCore
+          state={confirmed ? "funded" : "dormant"}
+          context="terminal"
+          className="h-36 w-36"
+        />
+      </div>
+      <ol className="mt-6 space-y-2.5">
+        {facts.map((f) => (
+          <li key={f.n} className="flex items-center gap-3">
+            <span
+              className={`h-px w-5 shrink-0 ${f.done ? "bg-blood" : "bg-hairline"}`}
+              aria-hidden
+            />
+            <span className={`micro-label ${f.done ? "text-bone" : "text-bone/25"}`}>
+              {f.n} · {f.label}
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="os-note mt-5 text-ash">
+        {confirmed
+          ? "Dana kamu terkunci dengan aman sampai pesanan diterima."
+          : "Dana kamu akan terkunci dengan aman setelah pembayaran terverifikasi di jaringan."}
+      </p>
     </div>
   );
 }

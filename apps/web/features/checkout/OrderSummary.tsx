@@ -1,7 +1,11 @@
 "use client";
 
-// Order summary panel. Total is ALWAYS the backend-returned amount — before an
-// order exists we show the link's unit price as display context only.
+// Order summary panel. The TOTAL is not here: it is the terminal's readout, and
+// printing it twice would give the machine two largest objects. This panel is
+// compact protocol context only — what was ordered, and under which order number.
+//
+// Every value is either link metadata or a backend-returned order field. Nothing
+// here is computed on the client.
 
 export interface CheckoutLinkView {
   slug: string;
@@ -10,60 +14,47 @@ export interface CheckoutLinkView {
   priceUsdc: string;
 }
 
+/** One engraved row. No borders: a milled rule under each fact. */
+function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="engraved-b flex items-baseline justify-between gap-3 py-2.5 text-sm">
+      <dt className="shrink-0 text-ash">{label}</dt>
+      <dd className={`text-right text-mist ${mono ? "os-serial font-mono" : ""}`}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export function OrderSummary({
   link,
   orderNo,
-  totalUsdc,
   quantity,
 }: {
   link: CheckoutLinkView;
   orderNo: string | null;
-  totalUsdc: string | null;
   quantity: number;
 }) {
   return (
-    <aside className="h-fit border border-hairline bg-surface p-5">
-      <div className="micro-label flex items-center gap-2 text-ash">
-        <span aria-hidden className="text-blood">
-          ◈
-        </span>
-        Ringkasan Pesanan
-      </div>
-      <div className="mt-4 text-lg font-semibold tracking-tight text-bone">
+    <aside className="h-fit">
+      <div className="micro-label text-ash">Ringkasan Pesanan</div>
+      <div className="mt-3 text-base font-semibold tracking-tight text-bone">
         {link.title}
       </div>
       {link.description && (
-        <p className="mt-1.5 text-sm leading-relaxed text-mist/70">
+        <p className="os-body mt-1.5 text-mist/70">
           {link.description}
         </p>
       )}
-      <dl className="mt-5 space-y-0 text-sm">
-        <div className="flex justify-between border-t border-hairline py-2.5">
-          <dt className="text-ash">Harga satuan</dt>
-          <dd className="text-mist">{link.priceUsdc} USDC</dd>
-        </div>
-        <div className="flex justify-between border-t border-hairline py-2.5">
-          <dt className="text-ash">Jumlah</dt>
-          <dd className="text-mist">{quantity}</dd>
-        </div>
-        {orderNo && (
-          <div className="flex items-baseline justify-between gap-3 border-t border-hairline py-2.5">
-            <dt className="text-ash">No. pesanan</dt>
-            <dd className="font-mono text-xs text-mist">{orderNo}</dd>
-          </div>
-        )}
+      <dl className="mt-5">
+        <Row label="Harga satuan" value={`${link.priceUsdc} USDC`} />
+        <Row label="Jumlah" value={String(quantity)} />
+        {orderNo && <Row label="No. pesanan" value={orderNo} mono />}
       </dl>
-      {totalUsdc && (
-        <div className="mt-1 flex items-baseline justify-between border-t border-bone/25 pt-4">
-          <span className="micro-label text-ash">Total</span>
-          <span className="text-2xl font-semibold tracking-tight text-bone">
-            {totalUsdc} <span className="text-sm text-mist">USDC</span>
-          </span>
-        </div>
-      )}
-      <p className="mt-5 text-xs leading-relaxed text-ash">
-        Pembayaran menggunakan USDC di jaringan Stellar. Dana kamu ditahan aman
-        sampai pesanan diterima.
+      {/* Reassurance first, mechanism second. */}
+      <p className="os-note mt-5 text-ash">
+        Dana kamu ditahan aman sampai pesanan diterima. Pembayaran menggunakan
+        USDC di jaringan Stellar.
       </p>
     </aside>
   );

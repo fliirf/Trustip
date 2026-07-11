@@ -1,56 +1,16 @@
 "use client";
 
-// Seller area shell: VOID identity at operational intensity — layered surface
-// panels, grain, one decorative escrow glyph. No GSAP/Lenis/3D; motion is CSS
-// transitions/keyframes only and respects prefers-reduced-motion.
+// Seller area shell: the desk the whole board is laid on. No GSAP/Lenis/3D;
+// motion is CSS transitions/keyframes only and respects prefers-reduced-motion.
+//
+// PHASE 14 — `EscrowMark` was deleted here. It was a second, near-identical
+// drawing of the Escrow artifact with its own geometry, its own float loop and
+// its own `◈` glyph, used purely as decoration on the dashboard and the login
+// page. Both now render the real `EscrowCore` in its `seal` context. One
+// artifact, or it is not an artifact.
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-
-/** Decorative escrow mark: nested hairline squares with the blood glyph.
- * Pure SVG, gently floating (motion-safe only). */
-export function EscrowMark({ size = 120 }: { size?: number }) {
-  return (
-    <svg
-      aria-hidden
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      className="motion-safe:animate-[float-slow_7s_ease-in-out_infinite]"
-    >
-      <rect
-        x="10"
-        y="10"
-        width="100"
-        height="100"
-        fill="none"
-        stroke="rgba(237,234,227,0.14)"
-      />
-      <rect
-        x="60"
-        y="18"
-        width="60"
-        height="60"
-        transform="rotate(45 60 60)"
-        fill="none"
-        stroke="rgba(237,234,227,0.25)"
-      />
-      <rect
-        x="60"
-        y="38"
-        width="31"
-        height="31"
-        transform="rotate(45 60 60)"
-        fill="none"
-        stroke="#FF2D00"
-        strokeOpacity="0.7"
-      />
-      <text x="60" y="65" textAnchor="middle" fontSize="13" fill="#FF2D00">
-        ◈
-      </text>
-    </svg>
-  );
-}
 
 export function SellerShell({
   active,
@@ -66,20 +26,19 @@ export function SellerShell({
   return (
     <>
       <div className="grain-overlay" aria-hidden />
-      {/* Layered backdrop: one deep surface panel bleeding off-canvas. */}
+      {/* The desk itself: a sheet of graphite the whole board is laid on, milled
+          down its left edge. It bleeds off-canvas rather than framing anything. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-y-0 right-0 hidden w-[38vw] border-l border-hairline bg-surface/60 lg:block"
+        className="pointer-events-none fixed inset-y-0 right-0 hidden w-[38vw] bg-surface/60 shadow-[inset_1px_0_0_var(--mat-groove),inset_2px_0_0_var(--mat-lip)] lg:block"
       />
-      <div className="relative mx-auto min-h-[100dvh] max-w-5xl px-4 py-8 md:px-6">
-        <header className="mb-10 flex items-center justify-between gap-4 border-b border-hairline pb-5">
+      <div className="relative mx-auto min-h-[100dvh] max-w-6xl px-4 py-8 md:px-6">
+        <header className="engraved-b mb-12 flex items-center justify-between gap-4 pb-5">
           <Link href="/seller" className="group flex items-baseline gap-1">
             <span className="text-lg font-semibold tracking-tight text-bone">
               TRUSTIP
             </span>
-            <span className="text-lg font-semibold text-blood transition-transform duration-300 group-hover:translate-y-[-2px]">
-              .
-            </span>
+            <span className="text-lg font-semibold text-blood">.</span>
             <span className="micro-label ml-3 hidden text-ash sm:inline">
               Seller
             </span>
@@ -87,7 +46,7 @@ export function SellerShell({
           <nav className="flex items-center gap-5">
             <Link
               href="/seller"
-              className={`micro-label transition-colors duration-300 hover:text-bone ${
+              className={`os-press micro-label py-2 hover:text-bone ${
                 active === "dashboard" ? "text-bone" : "text-ash"
               }`}
             >
@@ -95,7 +54,7 @@ export function SellerShell({
             </Link>
             <Link
               href="/seller/onboarding"
-              className={`micro-label transition-colors duration-300 hover:text-bone ${
+              className={`os-press micro-label py-2 hover:text-bone ${
                 active === "onboarding" ? "text-bone" : "text-ash"
               }`}
             >
@@ -103,7 +62,7 @@ export function SellerShell({
             </Link>
             <Link
               href="/seller/links"
-              className={`micro-label transition-colors duration-300 hover:text-bone ${
+              className={`os-press micro-label py-2 hover:text-bone ${
                 active === "links" ? "text-bone" : "text-ash"
               }`}
             >
@@ -111,7 +70,7 @@ export function SellerShell({
             </Link>
             <Link
               href="/seller/orders"
-              className={`micro-label transition-colors duration-300 hover:text-bone ${
+              className={`os-press micro-label py-2 hover:text-bone ${
                 active === "orders" ? "text-bone" : "text-ash"
               }`}
             >
@@ -121,7 +80,7 @@ export function SellerShell({
               <button
                 type="button"
                 onClick={onSignOut}
-                className="micro-label border border-hairline px-3 py-1.5 text-mist transition-colors duration-300 hover:border-blood hover:text-bone"
+                className="desk-stamp os-press micro-label px-3 py-1.5 text-mist hover:text-bone"
                 title={email ?? undefined}
               >
                 Keluar

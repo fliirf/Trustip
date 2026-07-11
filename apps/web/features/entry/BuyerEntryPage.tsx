@@ -3,6 +3,11 @@
 // Buyer manual entry: paste a checkout/status link, or type slug + order
 // number. Client-side parsing + redirect only — existence is never checked
 // here (the public routes 404 safely on their own).
+//
+// PHASE 14 — this is where a buyer walks up to the machine, so it speaks
+// TERMINAL: a chassis plate, two glass fields, two keys. It used the default
+// bordered-box form before, which made the buyer's first screen look like the
+// seller's desk.
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,6 +18,9 @@ const ERROR_COPY =
   "Link atau kode tidak dikenali. Periksa kembali link dari seller kamu.";
 const ERROR_NEED_ORDER =
   "Masukkan nomor pesanan (contoh: TRP-…) untuk cek status.";
+
+const fieldCls =
+  "terminal-control w-full bg-transparent px-4 py-3 text-[14px] text-bone placeholder:text-ash focus:outline-none";
 
 export function BuyerEntryPage() {
   const router = useRouter();
@@ -50,56 +58,50 @@ export function BuyerEntryPage() {
     router.push(targetUrl(target));
   };
 
-  const inputCls =
-    "w-full border border-hairline bg-surface px-4 py-3 text-[14px] text-bone placeholder:text-ash focus:border-blood focus:outline-none transition-colors duration-300";
-
   return (
     <>
       <div className="grain-overlay" aria-hidden />
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-y-0 right-0 hidden w-[38vw] border-l border-hairline bg-surface/60 lg:block"
-      />
 
       <main className="relative mx-auto flex min-h-[100dvh] max-w-5xl flex-col px-4 py-8 md:px-6">
-        <header className="flex items-center justify-between border-b border-hairline pb-5">
+        <header className="engraved-b flex items-center justify-between pb-5">
           <Link href="/" className="group flex items-baseline gap-1">
-            <span className="text-lg font-semibold tracking-tight text-bone">
-              TRUSTIP
-            </span>
-            <span className="text-lg font-semibold text-blood transition-transform duration-300 group-hover:translate-y-[-2px]">
-              .
-            </span>
-            <span className="micro-label ml-3 hidden text-ash sm:inline">
-              Pembeli
-            </span>
+            <span className="text-lg font-semibold tracking-tight text-bone">TRUSTIP</span>
+            <span className="text-lg font-semibold text-blood">.</span>
+            <span className="micro-label ml-3 hidden text-ash sm:inline">Pembeli</span>
           </Link>
-          <Link
-            href="/"
-            className="micro-label text-ash transition-colors duration-300 hover:text-bone"
-          >
+          <Link href="/" className="os-press micro-label py-2 text-ash hover:text-bone">
             Kembali
           </Link>
         </header>
 
-        <section className="flex flex-1 flex-col justify-center py-16 lg:max-w-[55%]">
-          <h1 className="text-3xl leading-[1.05] font-semibold tracking-tight text-bone md:text-4xl">
+        <section className="flex flex-1 flex-col justify-center py-16 lg:max-w-[58%]">
+          <h1 className="os-title text-bone">
             Buka checkout atau cek status pesanan.
           </h1>
-          <p className="mt-5 max-w-md text-[14px] leading-relaxed text-mist">
+          <p className="os-body mt-5 max-w-md text-mist">
             Biasanya link diberikan oleh seller melalui DM, WhatsApp, atau
             halaman toko.
           </p>
+          <Link
+            href="/cara-kerja"
+            className="os-press micro-label mt-4 inline-block py-2 text-ash hover:text-bone"
+          >
+            Baru pertama kali? Lihat Cara Kerja
+          </Link>
 
           <form
-            className="mt-10 flex max-w-md flex-col gap-5"
+            className="mt-12 flex max-w-md flex-col gap-6"
             onSubmit={(e) => {
               e.preventDefault();
-              openCheckout();
+              // Enter follows what the buyer actually filled in: with an order
+              // number present they came to check status, and routing them to
+              // checkout would silently drop the number they just typed.
+              if (normalizeOrderNo(orderNo)) openStatus();
+              else openCheckout();
             }}
           >
             <div className="flex flex-col gap-2">
-              <label htmlFor="buyer-link" className="micro-label text-mist">
+              <label htmlFor="buyer-link" className="micro-label text-ash">
                 Link atau kode checkout
               </label>
               <input
@@ -113,12 +115,13 @@ export function BuyerEntryPage() {
                 placeholder="https://…/checkout/kode-toko atau kode-toko"
                 autoComplete="off"
                 spellCheck={false}
-                className={inputCls}
+                aria-invalid={error !== null || undefined}
+                className={fieldCls}
               />
             </div>
 
             <div className="flex flex-col gap-2">
-              <label htmlFor="buyer-order" className="micro-label text-mist">
+              <label htmlFor="buyer-order" className="micro-label text-ash">
                 Nomor pesanan (untuk cek status)
               </label>
               <input
@@ -132,30 +135,41 @@ export function BuyerEntryPage() {
                 placeholder="TRP-…"
                 autoComplete="off"
                 spellCheck={false}
-                className={inputCls}
+                className={`${fieldCls} font-mono`}
               />
             </div>
 
+            {/* The machine's fault lamp, in the same channel the checkout
+                terminal lights when a stage fails. */}
             {error && (
-              <p role="alert" className="text-[13px] text-blood">
-                {error}
-              </p>
+              <div role="alert" className="relative pl-4">
+                <span aria-hidden className="absolute inset-y-0 left-0 w-[2px] bg-blood" />
+                <p className="os-note text-blood">{error}</p>
+              </div>
             )}
 
+            {/* The primary key's label tracks what submit will actually do:
+                with an order number present, submit routes to STATUS (see the
+                form handler above), and a key that says "Buka Checkout" while
+                doing that would lie to the buyer. When the label becomes
+                "Cek Status", the secondary key would duplicate it, so it
+                steps aside. */}
             <div className="mt-2 flex flex-col gap-3 sm:flex-row">
               <button
                 type="submit"
-                className="micro-label border border-bone bg-bone px-6 py-3 text-void transition-colors duration-300 hover:border-blood hover:bg-blood hover:text-bone"
+                className="mat-illuminated os-press micro-label px-6 py-3.5 text-void hover:text-bone"
               >
-                Buka Checkout
+                {normalizeOrderNo(orderNo) ? "Cek Status" : "Buka Checkout"}
               </button>
-              <button
-                type="button"
-                onClick={openStatus}
-                className="micro-label border border-hairline px-6 py-3 text-mist transition-colors duration-300 hover:border-blood hover:text-bone"
-              >
-                Cek Status
-              </button>
+              {!normalizeOrderNo(orderNo) && (
+                <button
+                  type="button"
+                  onClick={openStatus}
+                  className="mat-key os-press micro-label border border-hairline px-6 py-3.5 text-mist hover:text-bone"
+                >
+                  Cek Status
+                </button>
+              )}
             </div>
           </form>
         </section>

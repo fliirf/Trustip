@@ -6,8 +6,18 @@
 
 import { supabase } from "@trustip/database";
 import { BuyerCheckout } from "../../../features/checkout/BuyerCheckout";
+import { EmptyState } from "../../../features/ui/ErrorState";
 
 export const dynamic = "force-dynamic";
+
+// Static on purpose: naming the product in a per-link title would need a second
+// fetch in generateMetadata, and the tab only has to say which surface this is.
+// noindex: a checkout URL is a capability URL — robots.txt stops crawling, but
+// only this meta stops indexing when the link is shared somewhere public.
+export const metadata = {
+  title: "Checkout · Trustip",
+  robots: { index: false, follow: false },
+};
 
 /** Display-format a numeric USDC price (trim trailing zeros). Display only —
  * every trusted amount comes from backend API responses. */
@@ -18,20 +28,18 @@ function formatUsdc(value: number): string {
     .replace(/\.$/, "");
 }
 
+/** A powered terminal with nothing to charge: the machine is up, the lock is
+ *  dormant, and there is no order to run. Not an error page. */
 function Unavailable() {
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col items-center justify-center px-6 text-center">
-      <div className="micro-label text-ash">
-        Trustip <span className="text-blood">·</span> Protected Checkout
+    <main className="mx-auto flex min-h-[100dvh] max-w-xl items-center px-6 py-16">
+      <div className="w-full">
+        <EmptyState
+          surface="checkout"
+          title="Link checkout tidak tersedia"
+          detail="Link ini tidak ditemukan, sudah tidak aktif, atau sudah kedaluwarsa. Hubungi penjual untuk mendapatkan link terbaru."
+        />
       </div>
-      <h1 className="mt-4 text-xl font-semibold tracking-tight text-bone">
-        Link checkout tidak tersedia
-      </h1>
-      <p className="mt-3 max-w-[36ch] text-sm leading-relaxed text-mist/80">
-        Link ini tidak ditemukan, sudah tidak aktif, atau sudah kedaluwarsa.
-        Hubungi penjual untuk mendapatkan link terbaru.
-      </p>
-      <div className="mt-8 h-px w-16 bg-hairline" />
     </main>
   );
 }
@@ -60,18 +68,17 @@ export default async function CheckoutPage({
   return (
     <>
       <div className="grain-overlay" aria-hidden />
-      <main className="relative mx-auto max-w-3xl px-4 py-12 md:py-16">
-        <header className="mb-10">
-          <div className="micro-label flex items-center gap-2 text-ash">
-            <span aria-hidden className="text-blood">
-              ◈
-            </span>
-            Trustip · Protected Checkout
+      <main className="relative mx-auto max-w-6xl px-4 py-10 md:py-14">
+        {/* The chassis plate. A machine states its identity and its network on
+            the metal, at small size, before it states the job. */}
+        <header className="engraved-b mb-12 flex flex-wrap items-end justify-between gap-4 pb-5">
+          <div>
+            <div className="micro-label text-ash">Trustip · Protected Checkout</div>
+            <h1 className="os-title mt-3 text-bone">
+              {link.title}
+            </h1>
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-bone md:text-4xl">
-            {link.title}
-          </h1>
-          <p className="mt-2 text-sm text-mist/80">
+          <p className="max-w-[34ch] text-sm leading-relaxed text-mist/80">
             Pembayaran kamu ditahan aman sampai pesanan diterima.
           </p>
         </header>

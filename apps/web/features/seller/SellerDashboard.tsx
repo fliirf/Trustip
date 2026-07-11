@@ -1,11 +1,17 @@
 "use client";
 
-// Seller dashboard shell: backend-backed onboarding checklist + placeholders
-// for the upcoming link/order surfaces (Phase 7C/7D).
+// Seller dashboard shell: backend-backed onboarding checklist + entry to the
+// link surface.
+//
+// PHASE 14 — OPERATIONS DESK grammar. The checklist is an inspection list, not
+// a bordered table: ruled rows, a stamped verdict per line, nothing boxed.
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { EscrowMark, SellerShell } from "./SellerShell";
+import { EscrowCore } from "../escrow/EscrowCore";
+import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
+import { InspectionList } from "./InspectionList";
+import { SellerShell } from "./SellerShell";
 import { STEP_LABELS, sellerErrorLabel } from "./labels";
 import {
   getOnboarding,
@@ -33,7 +39,9 @@ export function SellerDashboard() {
   if (session.loading) {
     return (
       <SellerShell active="dashboard">
-        <p className="micro-label text-ash">Memuat sesi…</p>
+        <div className="max-w-md">
+          <ProtocolState surface="seller" label="Memverifikasi sesi" />
+        </div>
       </SellerShell>
     );
   }
@@ -41,18 +49,12 @@ export function SellerDashboard() {
   if (!session.session) {
     return (
       <SellerShell active="dashboard">
-        <div className="max-w-md border border-hairline bg-surface p-6">
-          <div className="micro-label text-ash">Perlu Masuk</div>
-          <p className="mt-3 text-sm text-mist/80">
-            Masuk untuk melihat ringkasan toko kamu.
-          </p>
-          <Link
-            href="/seller/login"
-            className="mt-5 inline-block bg-bone px-5 py-2.5 text-sm font-semibold tracking-tight text-void transition-colors duration-300 hover:bg-blood"
-          >
-            Masuk Seller
-          </Link>
-        </div>
+        <EmptyState
+          surface="seller"
+          title="Perlu Masuk"
+          detail="Masuk untuk melihat ringkasan toko kamu."
+          action={{ label: "Masuk Seller", href: "/seller/login" }}
+        />
       </SellerShell>
     );
   }
@@ -72,81 +74,68 @@ export function SellerDashboard() {
       onSignOut={() => void session.signOut()}
       email={session.email}
     >
-      <div className="grid gap-10 md:grid-cols-[1fr_260px]">
+      <div className="engraved-b flex flex-wrap items-end justify-between gap-4 pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <span aria-hidden className="text-blood">
-              ◈
-            </span>
-            <h1 className="text-2xl font-semibold tracking-tight text-bone">
-              {status?.profile?.storeName ?? "Toko Kamu"}
-            </h1>
-          </div>
-          <p className="mt-2 max-w-[52ch] text-sm leading-relaxed text-mist/80">
+          <h1 className="os-title text-bone">
+            {status?.profile?.storeName ?? "Toko Kamu"}
+          </h1>
+          <p className="os-body mt-3 max-w-[52ch] text-mist/80">
             {status?.checkoutReady
               ? "Toko kamu siap menerima pembayaran terlindungi."
               : "Selesaikan persiapan supaya link checkout kamu bisa menerima pembayaran."}
           </p>
+        </div>
+        <div className="micro-label text-ash tabular-nums">
+          {Object.values(done).filter(Boolean).length} / {STEP_LABELS.length} langkah
+        </div>
+      </div>
 
-          {error && (
-            <p className="mt-6 max-w-md border border-blood/30 px-3 py-2 text-sm text-blood">
-              {error}
-            </p>
-          )}
+      {error && (
+        <div className="mt-6 max-w-3xl">
+          <ErrorState surface="seller" detail={error} />
+        </div>
+      )}
 
-          <section className="mt-8 max-w-md space-y-0 border border-hairline bg-surface">
-            <div className="micro-label border-b border-hairline px-4 py-3 text-ash">
-              Checklist Persiapan
-            </div>
-            <ul>
-              {STEP_LABELS.map((step) => {
-                const isDone = done[step.key];
-                return (
-                  <li
-                    key={step.key}
-                    className="flex items-center justify-between border-b border-hairline px-4 py-3 text-sm last:border-b-0"
-                  >
-                    <span className={isDone ? "text-bone" : "text-ash"}>
-                      {step.label}
-                    </span>
-                    <span
-                      className={`micro-label ${
-                        isDone ? "text-blood" : "text-bone/25"
-                      }`}
-                    >
-                      {isDone ? "Selesai" : "Belum"}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+      <div className="grid gap-12 pt-10 pb-16 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-20">
+        <div className="min-w-0 max-w-lg">
+          <div className="micro-label text-ash">Checklist Persiapan</div>
+          <div className="mt-5">
+            <InspectionList done={done} />
+          </div>
 
           {!status?.checkoutReady && (
             <Link
               href="/seller/onboarding"
-              className="mt-6 inline-block bg-bone px-5 py-2.5 text-sm font-semibold tracking-tight text-void transition-colors duration-300 hover:bg-blood active:scale-[0.99]"
+              className="mat-illuminated os-press mt-8 inline-block px-5 py-2.5 text-sm font-semibold tracking-tight text-void hover:text-bone"
             >
               Lanjutkan Persiapan
             </Link>
           )}
 
-          <section className="mt-10 max-w-md border border-hairline bg-surface px-4 py-4">
+          <div className="mt-14">
             <div className="micro-label text-ash">Link Checkout</div>
-            <p className="mt-2 text-sm text-mist/70">
+            <p className="os-body mt-3 max-w-[46ch] text-mist/70">
               Buat link checkout dan bagikan ke pembeli kamu.
             </p>
             <Link
               href="/seller/links"
-              className="micro-label mt-3 inline-block border border-hairline px-4 py-2 text-bone transition-colors duration-300 hover:border-blood"
+              className="desk-stamp os-press micro-label mt-5 inline-block px-4 py-2 text-bone hover:text-blood"
             >
               Kelola Link
             </Link>
-          </section>
+          </div>
         </div>
 
-        <aside className="hidden items-start justify-center pt-6 md:flex">
-          <EscrowMark size={180} />
+        {/* The seal, read from the desk. Same artifact as everywhere else; the
+            decorative `EscrowMark` it replaces was a second, near-identical
+            drawing of the same object.
+
+            Always `dormant`. There is no escrow on this page — a finished
+            checklist means the store CAN receive protected funds, not that it
+            holds any. Lighting the lock here would be the artifact running ahead
+            of backend truth, which is the one thing it must never do. */}
+        <aside className="hidden justify-center lg:flex">
+          <EscrowCore state="dormant" context="seal" className="h-44 w-44" />
         </aside>
       </div>
     </SellerShell>

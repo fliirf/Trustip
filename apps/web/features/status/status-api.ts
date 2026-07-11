@@ -40,6 +40,9 @@ export interface PublicOrderStatus {
   totalUsdc: string;
   quantity: number | null;
   createdAt: string;
+  /** Set only once the order has actually completed (buyer-confirmed release);
+   * null otherwise — never inferred ahead of backend truth. */
+  completedAt: string | null;
   link: { title: string; description: string | null; slug: string };
   storeName: string | null;
   buyer: OrderStatusBuyer | null;

@@ -1,18 +1,55 @@
-/* Real root landing — the optimized Trustip VOID identity ported from the
-   prototype, rebuilt as server-rendered HTML + CSS motion. No framer-motion,
-   no smooth-scroll lib, no mock wallet/payment behavior: every CTA routes
-   into the actual product. The only client code is the Reveal island. */
+/* The Trustip VOID landing, composed as six chapters rather than six sections.
+
+   BEGINNING  hero          editorial, near-empty, the Core floating
+   CONFLICT   ConflictScene scattered fragments converging under scroll
+   THESIS     ManifestoPan  full-viewport typography, panned sideways
+   PROTOCOL   ProtocolScene one Escrow Core, pinned, scrubbed
+   PROOF      ProofDocument dense technical document with sticky marginalia
+   PLATFORM   PlatformSplit asymmetric code split, real contract source
+   ACTION     closing       massive type, one Core, one button
+
+   No two consecutive chapters share a structure, an alignment, a density, or a
+   scroll axis. Every CTA routes into the real product; nothing here simulates a
+   payment. The only client islands are the three scenes and the magnetic CTAs. */
 
 import Link from "next/link";
-import { OrbitalCore } from "./OrbitalCore";
+import { CameraRig } from "./CameraRig";
+import { ConflictScene } from "./ConflictScene";
+import { HeroMotion } from "./HeroMotion";
+import { ManifestoPan } from "./ManifestoPan";
+import { PlatformSplit } from "./PlatformSplit";
+import { ProofDocument } from "./ProofDocument";
+import { ProtocolScene } from "./ProtocolScene";
 import { Reveal } from "./Reveal";
+import { SplitWords } from "./SplitWords";
+import { WorldLayers } from "./WorldLayers";
 import { displayFont, monoFont } from "./fonts";
 
+/* Server-rendered per-character boot spans for the wordmark (CSS staggered). */
+function BootChars({ text, start, step = 0.05 }: { text: string; start: number; step?: number }) {
+  return (
+    <>
+      {[...text].map((ch, i) => (
+        <span
+          key={i}
+          className="boot-char"
+          style={{ animationDelay: `${(start + i * step).toFixed(2)}s` }}
+        >
+          {ch}
+        </span>
+      ))}
+    </>
+  );
+}
+
+/* Wayfinding speaks the reader's language; the chapters underneath keep their
+   instrument identity. FAQ is a real route, not an anchor. */
 const NAV = [
-  { id: "problem", label: "RISK", n: "02" },
-  { id: "checkout", label: "CHECKOUT", n: "03" },
-  { id: "escrow", label: "ESCROW", n: "04" },
-  { id: "trust", label: "TRUST", n: "05" },
+  { href: "#conflict", label: "MASALAH" },
+  { href: "#protocol", label: "CARA KERJA" },
+  { href: "#proof", label: "BUKTI" },
+  { href: "#platform", label: "TEKNOLOGI" },
+  { href: "/faq", label: "FAQ" },
 ] as const;
 
 const MARQUEE = [
@@ -26,128 +63,73 @@ const MARQUEE = [
   "GROUP BUY",
 ] as const;
 
+/* The three real failure cases, set as a staircase rather than a card row: each
+   steps further right than the last, so the eye falls down and across instead of
+   scanning three equal boxes. */
 const RISK_CASES = [
   {
     platform: "INSTAGRAM",
     scenario: "Jastip pre-order",
-    risk: "Transfer duluan, chat dihapus. Tidak ada jejak, tidak ada recourse.",
+    risk: "Transfer duluan, chat dihapus. Tidak ada jejak, tidak ada perlindungan.",
+    indent: "md:ml-0",
   },
   {
     platform: "TIKTOK",
     scenario: "Group buy",
     risk: "Sepuluh pembeli patungan. Organizer hilang setelah dana terkumpul.",
+    indent: "md:ml-[22%]",
   },
   {
     platform: "WHATSAPP",
     scenario: "Barang second",
     risk: "DP 50% dibayar. Barang tidak pernah dikirim. Tanpa tracking.",
+    indent: "md:ml-[44%]",
   },
 ] as const;
-
-const STEPS = [
-  {
-    n: "01",
-    title: "Seller membuat link",
-    copy: "Setelah onboarding dan verifikasi wallet, seller membuat link checkout terlindungi untuk produknya.",
-  },
-  {
-    n: "02",
-    title: "Pembeli bayar USDC",
-    copy: "Pembeli membuka link, mengisi pesanan, dan membayar USDC di Stellar lewat wallet miliknya sendiri.",
-  },
-  {
-    n: "03",
-    title: "Dana terkunci di escrow",
-    copy: "Setelah pembayaran terverifikasi di jaringan, dana terkunci di escrow — bukan di seller, bukan di Trustip.",
-  },
-] as const;
-
-const RAIL = [
-  "Menunggu Pembayaran",
-  "Pesanan Aman",
-  "Dikemas",
-  "Dikirim",
-  "Pesanan Diterima",
-  "Selesai",
-] as const;
-
-const PRINCIPLES = [
-  {
-    numeral: "I",
-    title: "Trust is not a screenshot.",
-    body: "Bukti chat dan screenshot transfer tidak melindungi siapa pun. Trustip mengganti bukti tangkapan layar dengan bukti kontrak.",
-  },
-  {
-    numeral: "II",
-    title: "The buyer never marks paid.",
-    body: "Tidak ada tombol “saya sudah bayar”. Pembayaran dikonfirmasi dari jaringan Stellar, bukan dari klik.",
-  },
-  {
-    numeral: "III",
-    title: "The seller earns release.",
-    body: "Dana pindah ke seller hanya setelah pesanan dikonfirmasi diterima, atau setelah peninjauan selesai.",
-  },
-] as const;
-
-const PATHS = [
-  {
-    n: "01",
-    label: "PEMBELI",
-    title: "Saya Pembeli",
-    copy: "Buka link checkout dari seller atau cek status pesanan kamu.",
-    href: "/buyer",
-    cta: "Buka Link Checkout",
-  },
-  {
-    n: "02",
-    label: "SELLER",
-    title: "Mulai Jualan",
-    copy: "Buat link checkout terlindungi, verifikasi wallet, dan kelola pesanan.",
-    href: "/seller/login",
-    cta: "Buat Checkout Terlindungi",
-  },
-] as const;
-
-function MicroTag({ n, children }: { n: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-8 flex items-center gap-3">
-      <span className="micro-label font-mono-jb text-mist">[{n}]</span>
-      <span className="h-px w-8 bg-hairline" />
-      <span className="micro-label font-mono-jb text-mist">{children}</span>
-    </div>
-  );
-}
 
 export function VoidLanding() {
   return (
     <div className={`${displayFont.variable} ${monoFont.variable} landing-root relative bg-void text-bone`}>
+      {/* The world: ambient wash, three lights, protocol grid, two dust fields,
+          telemetry. Rendered once, never unmounted, so no chapter can restart the
+          atmosphere it inherits. */}
+      <WorldLayers />
+      {/* The one Escrow Core, for the whole page. Mounted here, never remounted:
+          every chapter below frames this same object. The rig also drives the
+          lights, the grid and the spine. */}
+      <CameraRig />
       <div className="grain-overlay" aria-hidden />
 
-      {/* Nav — hairline header, anchors + real entry links */}
-      <header className="fixed inset-x-0 top-0 z-50 border-b border-hairline bg-void/85 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 py-3 md:px-10">
+      {/* Phase 20: the bar was ~48px (py-3, 18px wordmark) and read as thin and
+          weak. Lifted to ~66px with a larger wordmark, more menu rhythm, and a
+          clearer two-tier action hierarchy (bright buyer link + standing seller
+          key). Still floating and minimal — height and balance only, no redesign. */}
+      <header className="engraved-b fixed inset-x-0 top-0 z-50 bg-void/85 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-5 py-4 md:px-10 md:py-[18px]">
           <a href="#hero" className="flex items-baseline">
-            <span className="font-display text-lg font-medium tracking-tight text-bone">TRUSTIP</span>
-            <span className="font-display text-lg font-medium text-blood">.</span>
+            <span className="font-display text-xl font-medium tracking-tight text-bone">TRUSTIP</span>
+            <span className="font-display text-xl font-medium text-blood">.</span>
           </a>
-          <nav className="hidden items-center gap-6 md:flex" aria-label="Section">
+          <nav className="hidden items-center gap-7 md:flex lg:gap-9" aria-label="Section">
             {NAV.map((item) => (
               <a
-                key={item.id}
-                href={`#${item.id}`}
+                key={item.href}
+                href={item.href}
                 className="micro-label font-mono-jb text-ash transition-colors duration-300 hover:text-bone"
               >
                 {item.label}
               </a>
             ))}
           </nav>
-          <div className="flex items-center gap-4">
-            <Link href="/buyer" className="micro-label font-mono-jb text-mist transition-colors hover:text-bone">
+          <div className="flex items-center gap-5">
+            {/* Buyer is the primary funnel (mirrors the hero's illuminated CTA),
+                so it reads at full bone here, not the dimmer mist it was. */}
+            <Link href="/buyer" className="micro-label font-mono-jb text-bone transition-colors hover:text-blood">
               Saya Pembeli
             </Link>
             <Link
               href="/seller/login"
-              className="micro-label border border-hairline px-3 py-2 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
+              className="micro-label cta-ghost mat-key border border-hairline px-4 py-2.5 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
             >
               Mulai Jualan
             </Link>
@@ -156,262 +138,202 @@ export function VoidLanding() {
       </header>
 
       <main className="relative z-10">
-        {/* ---- 01 · HERO ---- */}
-        <section id="hero" className="relative flex min-h-[100svh] flex-col overflow-hidden">
-          <OrbitalCore className="absolute top-1/2 left-1/2 z-0 h-[130vw] max-h-[1000px] w-[130vw] max-w-[1000px] -translate-x-1/2 -translate-y-1/2 md:h-[90vw] md:w-[90vw]" />
-
-          <div className="relative z-10 flex items-start justify-between px-5 pt-24 md:px-10">
-            <span className="micro-label font-mono-jb text-ash">[01] / Protected Checkout</span>
-            <span className="micro-label hidden font-mono-jb text-ash md:block">STELLAR NATIVE · USDC</span>
-          </div>
-
-          <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 text-center">
-            <h1 className="font-display text-[clamp(56px,15vw,220px)] leading-none font-medium tracking-tight">
-              TRUSTIP<span className="text-blood">.</span>
-            </h1>
-            <p className="font-display mt-6 max-w-2xl text-[clamp(24px,4vw,52px)] leading-[1.06] font-normal tracking-tight text-bone md:mt-10">
-              Protected checkout for risky social commerce.
-            </p>
-            <p className="mt-5 max-w-md text-[15px] leading-relaxed text-mist md:text-[17px]">
-              Link checkout menjadi{" "}
-              <span className="border-b border-blood pb-0.5 text-bone">pembayaran terlindungi</span>. Pembeli membayar
-              USDC di Stellar. Dana terkunci di escrow sampai pesanan selesai.
-            </p>
-            <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row md:mt-14">
-              <Link
-                href="/buyer"
-                className="micro-label bg-bone px-8 py-4 font-mono-jb text-void transition-colors duration-300 hover:bg-blood hover:text-bone"
+        {/* ============ 01 · BEGINNING ============
+            Almost nothing: a corner coordinate, the wordmark, one line, two
+            actions. The Core floats behind at full bleed. Everything that used to
+            crowd this viewport (the boot meta strip, the value paragraph) has been
+            pushed into the chapters that earn it. */}
+        <HeroMotion>
+          <section id="hero" className="relative flex min-h-[100svh] flex-col overflow-hidden">
+            {/* No Core here. The Core is already on screen, held by the rig. */}
+            <div className="relative z-10 flex items-start justify-between px-5 pt-24 md:px-10">
+              <span className="boot-label micro-label font-mono-jb text-ash" style={{ animationDelay: "0.05s" }}>
+                [01] / Protected Checkout
+              </span>
+              <span
+                className="boot-label micro-label hidden font-mono-jb text-ash md:block"
+                style={{ animationDelay: "0.12s" }}
               >
-                Saya Pembeli
-              </Link>
-              <Link
-                href="/seller/login"
-                className="micro-label border border-hairline px-8 py-4 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
-              >
-                Mulai Jualan
-              </Link>
+                STELLAR NATIVE · USDC
+              </span>
             </div>
-          </div>
 
-          {/* Bottom marquee — pure CSS */}
-          <div className="relative z-10 overflow-hidden border-t border-hairline py-4">
-            <div className="marquee-track flex whitespace-nowrap">
-              {[...MARQUEE, ...MARQUEE].map((item, i) => (
-                <span key={i} className="mx-4 flex items-center" aria-hidden={i >= MARQUEE.length}>
-                  <span className="micro-label font-mono-jb text-ash">{item}</span>
-                  <span className="ml-4 text-bone/20">·</span>
+            <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 text-center">
+              <h1
+                className="font-display text-[clamp(56px,15vw,220px)] leading-none font-medium tracking-tight"
+                aria-label="TRUSTIP."
+              >
+                <span aria-hidden>
+                  <BootChars text="TRUSTIP" start={0.35} />
+                  <span className="boot-char text-blood" style={{ animationDelay: "0.7s" }}>
+                    .
+                  </span>
                 </span>
-              ))}
+              </h1>
+
+              <div className="boot-line relative mt-8 max-w-2xl md:mt-12" style={{ animationDelay: "0.9s" }}>
+                {/* The promise leads in the reader's own language; the mechanism
+                    (tagline B) is still human. The tech stays in the corner
+                    micro-labels and the marquee, where metadata belongs. */}
+                <p className="hero-tagline-a font-display text-[clamp(24px,4vw,52px)] leading-[1.06] font-normal tracking-tight text-bone">
+                  Pembayaran kamu tetap aman sampai pesanan diterima.
+                </p>
+                <p
+                  aria-hidden
+                  className="hero-tagline-b font-display absolute inset-0 text-[clamp(24px,4vw,52px)] leading-[1.06] font-normal tracking-tight text-bone opacity-0"
+                >
+                  Dana berpindah hanya setelah kamu mengonfirmasi.
+                </p>
+              </div>
+
+              <div
+                className="boot-line mt-14 flex flex-col items-center gap-4 sm:flex-row md:mt-20"
+                style={{ animationDelay: "1.05s" }}
+              >
+                <Link
+                  href="/buyer"
+                  className="micro-label cta-primary mat-illuminated inline-block bg-bone px-8 py-4 font-mono-jb text-void transition-colors duration-300 hover:bg-blood hover:text-bone"
+                >
+                  Saya Pembeli
+                </Link>
+                <Link
+                  href="/seller/login"
+                  className="micro-label cta-ghost mat-key inline-block border border-hairline px-8 py-4 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
+                >
+                  Mulai Jualan
+                </Link>
+              </div>
             </div>
-          </div>
 
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[30vh]"
-            style={{ background: "linear-gradient(to bottom, transparent, #050505 85%)" }}
-          />
-        </section>
+            <div className="engraved-t relative z-10 overflow-hidden py-4">
+              <div className="marquee-track flex whitespace-nowrap">
+                {[...MARQUEE, ...MARQUEE].map((item, i) => (
+                  <span key={i} className="mx-4 flex items-center" aria-hidden={i >= MARQUEE.length}>
+                    <span className="micro-label font-mono-jb text-ash">{item}</span>
+                    <span className="ml-4 text-bone/20">·</span>
+                  </span>
+                ))}
+              </div>
+            </div>
 
-        {/* ---- 02 · PROBLEM ---- */}
-        <section id="problem" className="scroll-mt-16 px-5 py-24 md:px-10 md:py-36">
-          <Reveal>
-            <MicroTag n="02">Kenapa transfer duluan berisiko</MicroTag>
-            <h2 className="font-display max-w-3xl text-[clamp(32px,6vw,80px)] leading-[0.95] font-normal tracking-tight">
-              Social commerce berjalan di atas kepercayaan buta.
-            </h2>
-          </Reveal>
-          <div className="mt-14 grid gap-px border border-hairline bg-hairline md:grid-cols-3">
-            {RISK_CASES.map((c) => (
-              <div key={c.platform + c.scenario} className="bg-void p-6 md:p-8">
-                <div className="flex items-center justify-between">
-                  <span className="micro-label font-mono-jb text-ash">{c.platform}</span>
-                  <span className="micro-label font-mono-jb text-blood/70">RISK</span>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-[1] h-[30vh]"
+              style={{ background: "linear-gradient(to bottom, transparent, #050505 85%)" }}
+            />
+          </section>
+        </HeroMotion>
+
+        {/* ============ 02 · CONFLICT ============ */}
+        <ConflictScene />
+
+        {/* Coda to the conflict chapter: the three real cases, stepped down and
+            across. No container, no hairline box, no equal columns. */}
+        <section className="px-5 pb-32 md:px-10 md:pb-48">
+          <Reveal className="mx-auto w-full max-w-[1400px]">
+            {RISK_CASES.map((c, i) => (
+              <div
+                key={c.platform}
+                className={`max-w-md py-10 md:py-14 ${c.indent}`}
+                data-rv="rise"
+                style={{ transitionDelay: `${i * 140}ms` }}
+              >
+                <span className="micro-label font-mono-jb text-blood/70">{c.platform}</span>
+                <div className="font-display mt-4 text-[clamp(22px,2.6vw,34px)] leading-tight font-normal tracking-tight text-bone">
+                  {c.scenario}
                 </div>
-                <div className="font-display mt-6 text-xl font-medium tracking-tight text-bone">{c.scenario}</div>
                 <p className="mt-3 text-[14px] leading-relaxed text-mist">{c.risk}</p>
               </div>
             ))}
-          </div>
+          </Reveal>
         </section>
 
-        {/* ---- 03 · PROTECTED CHECKOUT ---- */}
-        <section id="checkout" className="scroll-mt-16 border-t border-hairline px-5 py-24 md:px-10 md:py-36">
-          <Reveal>
-            <MicroTag n="03">Cara kerja checkout terlindungi</MicroTag>
-            <h2 className="font-display max-w-3xl text-[clamp(32px,6vw,80px)] leading-[0.95] font-normal tracking-tight">
-              Satu link. Pembayaran wallet. Dana terkunci.
-            </h2>
-          </Reveal>
-          <div className="mt-14 grid gap-10 md:grid-cols-3 md:gap-6">
-            {STEPS.map((s) => (
-              <Reveal key={s.n}>
-                <div className="border-l border-hairline pl-5">
-                  <span className="micro-label font-mono-jb text-blood">{s.n}</span>
-                  <div className="font-display mt-4 text-2xl font-medium tracking-tight text-bone">{s.title}</div>
-                  <p className="mt-3 max-w-sm text-[14px] leading-relaxed text-mist">{s.copy}</p>
-                </div>
-              </Reveal>
-            ))}
+        {/* ============ 03 · THESIS ============ */}
+        <ManifestoPan />
+
+        {/* ============ 04 · PROTOCOL ============ */}
+        <ProtocolScene />
+
+        {/* ============ 05 · PROOF + 06 · PLATFORM ============
+            One hairline spine runs through both. It is a single element: the Proof
+            rail hangs its states off it, the Platform code block starts flush
+            against it, and CameraRig draws it downward as the reader descends. The
+            chapter boundary between them has no rule of its own to announce it. */}
+        <div data-spine-wrap className="relative px-5 md:px-10">
+          <div className="relative mx-auto max-w-[1400px]">
+            <span aria-hidden data-spine className="landing-spine absolute inset-y-0 left-0 w-px bg-hairline" />
+            <ProofDocument />
+            <PlatformSplit />
           </div>
-          <div className="mt-14">
-            <Link
-              href="/seller/login"
-              className="micro-label inline-block border border-hairline px-8 py-4 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
+        </div>
+
+        {/* ============ 07 · ACTION ============
+            The emptiest viewport on the page. One Core, one sentence, one button,
+            one text link out. Nothing to read, nothing to compare. */}
+        <section
+          id="closing"
+          className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-5 text-center md:px-10"
+        >
+          {/* No Core here either: the rig has already dimmed the same object down
+              to an aura behind this frame. The scrim keeps its orbiting particles
+              off the headline's descenders so the type stays the subject. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-[1]"
+            style={{ background: "radial-gradient(closest-side at 50% 50%, #050505 38%, transparent 78%)" }}
+          />
+
+          <Reveal className="relative z-10">
+            {/* The spine, re-entering the frame. Same 1px hairline, now vertical
+                through the CTA: the rule the reader followed down the document
+                terminates on the button. */}
+            <span
+              aria-hidden
+              data-spine-tail
+              className="landing-spine mx-auto mb-16 block h-[9vh] w-px bg-hairline"
+            />
+            <h2
+              className="font-display mx-auto max-w-5xl text-[clamp(40px,8vw,120px)] leading-[0.92] font-normal tracking-tight"
+              aria-label="Berhenti transfer ke orang asing."
             >
-              Buat Checkout Terlindungi →
-            </Link>
-          </div>
-        </section>
-
-        {/* ---- 04 · ESCROW / PROOF ---- */}
-        <section id="escrow" className="scroll-mt-16 border-t border-hairline px-5 py-24 md:px-10 md:py-36">
-          <Reveal>
-            <MicroTag n="04">Bagaimana dana tetap aman</MicroTag>
-            <h2 className="font-display max-w-3xl text-[clamp(32px,6vw,80px)] leading-[0.95] font-normal tracking-tight">
-              Dana tidak bergerak sampai pesanan selesai.
+              <SplitWords text="Berhenti transfer ke orang asing." step={65} />
             </h2>
-            <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-mist md:text-[17px]">
-              Setelah pembayaran terkonfirmasi di jaringan, dana ditahan di escrow. Status pesanan yang kamu lihat
-              berasal dari catatan yang terverifikasi — bukan klaim sepihak.
-            </p>
-          </Reveal>
 
-          {/* Lifecycle rail — real buyer-facing states */}
-          <div className="mt-14 overflow-x-auto">
-            <ol className="flex min-w-max items-center gap-3 border border-hairline p-5 md:p-8">
-              {RAIL.map((state, i) => (
-                <li key={state} className="flex items-center gap-3">
-                  <span className="flex flex-col gap-2">
-                    <span className="micro-label font-mono-jb text-ash">0{i + 1}</span>
-                    <span
-                      className={`micro-label font-mono-jb ${i === 1 ? "text-blood" : "text-bone"}`}
-                    >
-                      {state}
-                    </span>
-                  </span>
-                  {i < RAIL.length - 1 && <span aria-hidden className="mx-1 h-px w-8 bg-hairline md:w-14" />}
-                </li>
-              ))}
-            </ol>
-          </div>
-
-          <div className="mt-10 flex flex-col gap-4 sm:flex-row">
-            <Link
-              href="/buyer"
-              className="micro-label inline-block border border-hairline px-8 py-4 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
+            <div
+              className="mt-20 flex flex-col items-center gap-8"
+              data-rv="rise"
+              style={{ transitionDelay: "420ms" }}
             >
-              Cek Status Pesanan →
-            </Link>
-          </div>
-        </section>
-
-        {/* ---- Principles strip ---- */}
-        <section className="border-t border-hairline px-5 py-24 md:px-10 md:py-32">
-          <div className="grid gap-12 md:grid-cols-3 md:gap-8">
-            {PRINCIPLES.map((p) => (
-              <Reveal key={p.numeral}>
-                <div>
-                  <span className="font-display text-3xl text-blood">{p.numeral}</span>
-                  <div className="font-display mt-4 text-2xl font-medium tracking-tight text-bone">{p.title}</div>
-                  <p className="mt-3 text-[14px] leading-relaxed text-mist">{p.body}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </section>
-
-        {/* ---- 05 · SELLER TRUST ---- */}
-        <section id="trust" className="scroll-mt-16 border-t border-hairline px-5 py-24 md:px-10 md:py-36">
-          <Reveal>
-            <MicroTag n="05">Reputasi yang bisa dibuktikan</MicroTag>
-            <h2 className="font-display max-w-3xl text-[clamp(32px,6vw,80px)] leading-[0.95] font-normal tracking-tight">
-              Seller membangun trust profile dari pesanan yang selesai.
-            </h2>
-            <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-mist md:text-[17px]">
-              Setiap checkout terlindungi yang selesai tercatat. Pembeli melihat riwayat yang nyata, bukan testimoni
-              yang bisa dikarang.
-            </p>
-          </Reveal>
-          <div className="mt-14 grid gap-px border border-hairline bg-hairline sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              ["LINK", "Checkout link dengan identitas seller terverifikasi"],
-              ["WALLET", "Wallet seller diverifikasi lewat ownership challenge"],
-              ["ORDERS", "Riwayat pesanan terlindungi yang selesai"],
-              ["STATUS", "Halaman status publik untuk setiap pesanan"],
-            ].map(([tag, copy]) => (
-              <div key={tag} className="bg-void p-6">
-                <span className="micro-label font-mono-jb text-blood/70">{tag}</span>
-                <p className="mt-4 text-[14px] leading-relaxed text-mist">{copy}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ---- 06 · ENTRY PATHS ---- */}
-        <section id="entry" className="scroll-mt-16 border-t border-hairline px-5 py-24 md:px-10 md:py-36">
-          <Reveal>
-            <MicroTag n="06">Mulai dari sini</MicroTag>
-          </Reveal>
-          <div className="grid gap-px border border-hairline bg-hairline sm:grid-cols-2">
-            {PATHS.map((p) => (
-              <Link
-                key={p.n}
-                href={p.href}
-                className="group relative flex flex-col bg-void p-8 transition-colors duration-300 hover:bg-surface md:p-12"
-              >
-                <span className="micro-label font-mono-jb text-ash">
-                  {p.n} · {p.label}
-                </span>
-                <span className="font-display mt-6 text-3xl font-medium tracking-tight text-bone md:text-4xl">
-                  {p.title}
-                </span>
-                <span className="mt-3 max-w-sm text-[14px] leading-relaxed text-mist">{p.copy}</span>
-                <span className="micro-label mt-8 inline-flex items-center gap-2 font-mono-jb text-mist transition-colors duration-300 group-hover:text-bone">
-                  <span className="text-blood transition-transform duration-300 group-hover:translate-x-1">→</span>
-                  {p.cta}
-                </span>
-                <span
-                  aria-hidden
-                  className="absolute inset-x-0 bottom-0 h-px scale-x-0 bg-blood transition-transform duration-500 group-hover:scale-x-100"
-                />
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ---- 07 · FINAL CTA ---- */}
-        <section id="closing" className="relative scroll-mt-16 overflow-hidden border-t border-hairline px-5 py-32 text-center md:px-10 md:py-44">
-          <Reveal>
-            <p className="micro-label font-mono-jb text-ash">[07] / PROTOCOL</p>
-            <h2 className="font-display mx-auto mt-8 max-w-4xl text-[clamp(36px,7vw,96px)] leading-[0.95] font-normal tracking-tight">
-              Berhenti transfer ke orang asing.
-            </h2>
-            <p className="mx-auto mt-6 max-w-md text-[15px] leading-relaxed text-mist md:text-[17px]">
-              Pembayaran terlindungi escrow di Stellar. Untuk pembeli dan seller yang bertemu di feed, bukan di toko.
-            </p>
-            <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <Link
-                href="/buyer"
-                className="micro-label bg-bone px-8 py-4 font-mono-jb text-void transition-colors duration-300 hover:bg-blood hover:text-bone"
-              >
-                Saya Pembeli
-              </Link>
               <Link
                 href="/seller/login"
-                className="micro-label border border-hairline px-8 py-4 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
+                className="micro-label cta-primary mat-illuminated inline-block bg-bone px-10 py-5 font-mono-jb text-void transition-colors duration-300 hover:bg-blood hover:text-bone"
               >
                 Mulai Jualan
+              </Link>
+              <Link
+                href="/buyer"
+                className="micro-label cta-ghost pb-1 font-mono-jb text-mist transition-colors duration-300 hover:text-bone"
+              >
+                Saya Pembeli
               </Link>
             </div>
           </Reveal>
         </section>
 
-        <footer className="flex flex-col items-start justify-between gap-4 border-t border-hairline px-5 py-8 md:flex-row md:items-center md:px-10">
+        <footer className="engraved-t flex flex-col items-start justify-between gap-4 px-5 py-8 md:flex-row md:items-center md:px-10">
           <div className="flex items-baseline">
             <span className="font-display font-medium text-bone">TRUSTIP</span>
             <span className="font-display font-medium text-blood">.</span>
             <span className="micro-label ml-3 font-mono-jb text-ash">Stellar native · USDC · Soroban escrow</span>
           </div>
+          <nav className="flex items-center gap-5" aria-label="Bantuan">
+            <Link href="/cara-kerja" className="micro-label font-mono-jb text-ash transition-colors hover:text-bone">
+              Cara Kerja
+            </Link>
+            <Link href="/faq" className="micro-label font-mono-jb text-ash transition-colors hover:text-bone">
+              FAQ
+            </Link>
+          </nav>
           <span className="micro-label font-mono-jb text-ash">© {new Date().getFullYear()} TRUSTIP</span>
         </footer>
       </main>

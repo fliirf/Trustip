@@ -1,7 +1,16 @@
 "use client";
 
 import type { WalletAvailability, WalletId } from "@trustip/stellar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { ErrorState } from "../ui/ErrorState";
+
+const INSTALL_URL: Record<string, string> = {
+  freighter: "https://freighter.app/",
+  xbull: "https://xbull.app/",
+};
+
+const linkCls =
+  "os-transition text-mist underline underline-offset-2 hover:text-blood";
 
 export function WalletConnect({
   wallets,
@@ -14,6 +23,10 @@ export function WalletConnect({
   onDetect: () => void;
   onConnect: (id: WalletId) => void;
 }) {
+  // The key the buyer actually pressed. "Menghubungkan…" on both keys claimed a
+  // connection with a wallet nobody had asked for.
+  const [pressedId, setPressedId] = useState<WalletId | null>(null);
+
   useEffect(() => {
     onDetect();
     // detect once when the wallet step becomes visible
@@ -23,44 +36,107 @@ export function WalletConnect({
   const anyInstalled = wallets.some((w) => w.installed);
 
   return (
+    // No section rule here: the stage label lives on the terminal's progression
+    // rail now, and printing it twice would put the machine's own chapter marker
+    // inside one of its modules.
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <span className="micro-label text-mist">02 · Hubungkan Wallet</span>
-        <span className="h-px flex-1 bg-hairline" aria-hidden />
-      </div>
+      {/* One guiding line for the first-timer standing at this step. */}
+      <p className="os-note text-ash">
+        Pilih wallet Stellar kamu untuk melanjutkan. Pesanan kamu sudah
+        tersimpan.
+      </p>
       {wallets.length > 0 && !anyInstalled && (
-        <p className="border border-hairline px-3 py-2 text-sm text-mist/80">
-          Wallet belum terpasang. Pasang Freighter atau xBull di browser kamu,
-          lalu muat ulang halaman ini.
-        </p>
+        <ErrorState
+          surface="checkout"
+          title="Wallet belum terpasang"
+          detail="Trustip tidak menemukan wallet Stellar di browser ini, jadi kamu belum bisa membayar."
+          hint={
+            <>
+              Pasang{" "}
+              <a
+                href={INSTALL_URL.freighter}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={linkCls}
+              >
+                Freighter
+              </a>{" "}
+              atau{" "}
+              <a
+                href={INSTALL_URL.xbull}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={linkCls}
+              >
+                xBull
+              </a>
+              , lalu deteksi ulang. Pesanan kamu tetap tersimpan.
+            </>
+          }
+          action={{ label: "Deteksi Ulang", onClick: onDetect }}
+        />
       )}
       <div className="grid grid-cols-2 gap-4">
-        {wallets.map((w) => (
-          <button
-            key={w.id}
-            type="button"
-            disabled={!w.installed || connecting}
-            onClick={() => onConnect(w.id)}
-            className="group flex items-center gap-3 border border-hairline bg-surface px-4 py-3.5 text-left transition-colors duration-300 hover:border-blood disabled:pointer-events-none disabled:opacity-35"
-          >
-            <span
-              aria-hidden
-              className="grid h-6 w-6 shrink-0 place-items-center border border-blood/40 text-[11px] leading-none text-blood transition-colors duration-300 group-hover:border-blood"
-            >
-              ◈
-            </span>
-            <span className="flex flex-col leading-tight">
-              <span className="text-sm font-medium text-bone">{w.name}</span>
-              <span className="micro-label mt-1 text-ash">
-                {w.installed
-                  ? connecting
-                    ? "Menghubungkan…"
-                    : "Stellar"
-                  : "Belum terpasang"}
+        {wallets.map((w) => {
+          // A wallet that isn't installed becomes a link to install it. A
+          // disabled button that does nothing on click is the dead end this
+          // replaces.
+          //
+          // `terminal-control`: a machine key, not a card. It lights its rim on
+          // hover and swaps its lips on press.
+          const cardCls =
+            "terminal-control os-press group flex items-center gap-3 px-4 py-3.5 text-left";
+          const inner = (
+            <>
+              {/* The key's status lamp. Lit only where a wallet actually is. */}
+              <span
+                aria-hidden
+                className={`h-8 w-[3px] shrink-0 ${
+                  w.installed ? "mat-emissive bg-blood" : "bg-hairline"
+                }`}
+              />
+              <span className="flex flex-col leading-tight">
+                <span className="text-sm font-medium text-bone">{w.name}</span>
+                <span className="micro-label mt-1 text-ash">
+                  {w.installed
+                    ? connecting && pressedId === w.id
+                      ? "Menghubungkan…"
+                      : "Stellar"
+                    : "Pasang wallet"}
+                </span>
               </span>
-            </span>
-          </button>
-        ))}
+            </>
+          );
+
+          if (!w.installed && INSTALL_URL[w.id]) {
+            return (
+              <a
+                key={w.id}
+                href={INSTALL_URL[w.id]}
+                target="_blank"
+                rel="noreferrer noopener"
+                className={`${cardCls} opacity-60 hover:opacity-100`}
+              >
+                {inner}
+              </a>
+            );
+          }
+
+          return (
+            <button
+              key={w.id}
+              type="button"
+              disabled={!w.installed || connecting}
+              onClick={() => {
+                setPressedId(w.id);
+                onConnect(w.id);
+              }}
+              className={cardCls}
+            >
+              {inner}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
