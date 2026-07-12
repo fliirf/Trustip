@@ -158,6 +158,19 @@ export const issueCheckoutTokenSchema = z.object({
 });
 export type IssueCheckoutTokenInput = z.infer<typeof issueCheckoutTokenSchema>;
 
+/** SEP-10 Web Auth (Roadmap A2). GET challenge query + POST token body. SHAPE
+ * only — the server signs/verifies the challenge and issues the JWT. */
+export const sep10ChallengeQuerySchema = z.object({
+  account: stellarPublicKeySchema,
+  home_domain: z.string().max(255).optional(),
+});
+export type Sep10ChallengeQuery = z.infer<typeof sep10ChallengeQuerySchema>;
+
+export const sep10TokenSchema = z.object({
+  transaction: signedXdrSchema,
+});
+export type Sep10TokenInput = z.infer<typeof sep10TokenSchema>;
+
 // ---------------------------------------------------------------------------
 // Seller onboarding (Phase 7B). SHAPE only — ownership, role, network policy,
 // and `verified_at` are enforced server-side. The client can NEVER submit

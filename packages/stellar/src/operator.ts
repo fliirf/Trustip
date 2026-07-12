@@ -108,6 +108,22 @@ export function buildOperatorSigner(
 }
 
 /**
+ * The operator/admin PUBLIC key (G...), derived from the server-only secret.
+ * Safe to publish (SEP-1 SIGNING_KEY, SEP-10 server account). Returns null when
+ * the secret is unset or invalid so callers (stellar.toml, SEP-10) degrade
+ * gracefully instead of throwing. Only the public key is ever emitted.
+ */
+export function getOperatorPublicKey(): string | null {
+  const secret = getOperatorSecretKey();
+  if (!secret || !StrKey.isValidEd25519SecretSeed(secret)) return null;
+  try {
+    return Keypair.fromSecret(secret).publicKey();
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Resolve the operator signer from server-only env for the active network.
  * SERVER-ONLY — call sites (the escrow gateway) are reached only through the
  * server payment path. Fails closed when unset / not permitted.

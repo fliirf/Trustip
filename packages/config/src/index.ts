@@ -135,6 +135,29 @@ export function getWalletChallengeSecret(): string | undefined {
 }
 
 /**
+ * SERVER-ONLY secret for signing SEP-10 session JWTs (POST /api/auth). NOT a
+ * NEXT_PUBLIC var. Returns undefined when unset — the web-auth endpoint then
+ * fails closed (no token is issued). Never logged or returned to clients.
+ */
+export function getSep10JwtSecret(): string | undefined {
+  return envAny("TRUSTIP_SEP10_JWT_SECRET");
+}
+
+/**
+ * Domain hosting stellar.toml + serving SEP-10 web-auth (the `home_domain` /
+ * `web_auth_domain`). Derived from NEXT_PUBLIC_APP_URL's host so it matches the
+ * deployed origin; localhost fallback for dev.
+ */
+export function getHomeDomain(): string {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000")
+      .host;
+  } catch {
+    return "localhost:3000";
+  }
+}
+
+/**
  * Whether an env-secret operator signer is explicitly permitted on mainnet.
  * Defaults to false: on mainnet the env-key signer is refused unless an approved
  * signer strategy is deliberately enabled (e.g. after wiring KMS/multisig).

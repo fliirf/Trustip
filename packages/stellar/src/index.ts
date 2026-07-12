@@ -8,11 +8,14 @@ export * from "./payment-gateway.js";
 export * from "./wallet/index.js";
 export * from "./wallet-challenge.js";
 export * from "./wallet-readiness.js";
-// Operator signer: export the pure builder, types, and error only. The env
-// factory (createEnvOperatorSigner) is intentionally NOT re-exported — it is
-// server-only and reached solely through the escrow gateway.
+export * from "./sep10.js";
+// Operator signer: export the pure builder, types, error, and the derived
+// PUBLIC key only. The env factory (createEnvOperatorSigner) is intentionally
+// NOT re-exported — it is server-only and reached solely through the escrow
+// gateway. getOperatorPublicKey emits only the public key (safe to publish).
 export {
   buildOperatorSigner,
+  getOperatorPublicKey,
   OperatorSignerError,
   type OperatorSigner,
   type OperatorSignerErrorCode,
