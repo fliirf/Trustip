@@ -1,4 +1,7 @@
 import React from "react";
+import { LanguageToggle } from "../features/i18n/LanguageToggle";
+import { LocaleProvider } from "../features/i18n/LocaleProvider";
+import { getServerLocale } from "../lib/i18n/server";
 import "./globals.css";
 
 const TITLE = "Trustip · Protected Checkout";
@@ -39,14 +42,20 @@ export const viewport = {
   themeColor: "#050505",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getServerLocale();
   return (
-    <html lang="id">
-      <body>{children}</body>
+    <html lang={locale}>
+      <body>
+        <LocaleProvider locale={locale}>
+          {children}
+          <LanguageToggle />
+        </LocaleProvider>
+      </body>
     </html>
   );
 }
