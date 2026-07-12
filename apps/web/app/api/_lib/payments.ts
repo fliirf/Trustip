@@ -7,6 +7,7 @@ import {
   clientIp as trustedClientIp,
   getCheckoutTokenSecret,
   getEscrowContractId,
+  getWalletChallengeSecret,
 } from "@trustip/config";
 import { getServiceClient, supabase } from "@trustip/database";
 import {
@@ -43,6 +44,9 @@ export function getPaymentDeps(): PaymentDeps {
     attemptSecret: process.env.PAYMENT_ATTEMPT_SECRET,
     // Optional: when set, guest create-order requires a valid checkout token.
     checkoutTokenSecret: getCheckoutTokenSecret(),
+    // Optional: when set, checkout token issuance requires a signed wallet
+    // ownership proof (SEP-10). Shared with the seller/release challenge secret.
+    walletChallengeSecret: getWalletChallengeSecret(),
   };
   return {
     store: createSupabasePaymentStore(getServiceClient()),

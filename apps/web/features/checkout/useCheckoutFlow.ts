@@ -21,6 +21,7 @@ import {
   createOrder,
   issueCheckoutToken,
   preparePayment,
+  requestCheckoutChallenge,
   submitPayment,
   syncPayment,
   type CreateOrderResponse,
@@ -154,12 +155,34 @@ export function useCheckoutFlow(slug: string) {
     const networkPassphrase = currentNetwork.networkPassphrase;
     setError(null);
     try {
+      // SEP-10: prove wallet ownership before the server will operator-sign an
+      // on-chain order. Request a challenge, sign it, then mint the token.
+      setPhase("requesting-token");
+      const challenge = await requestCheckoutChallenge({
+        slug,
+        orderNo: order.orderNo,
+        buyerPublicKey: publicKey,
+        networkPassphrase,
+      });
+      if (cancelled.current) return;
+
+      setPhase("awaiting-signature");
+      const proofAdapter = getWalletAdapter(walletId);
+      const signedChallengeXdr = await signTransactionWithWallet(
+        proofAdapter,
+        challenge.challengeXdr,
+        { networkPassphrase, address: publicKey },
+      );
+      if (cancelled.current) return;
+
       setPhase("requesting-token");
       const token = await issueCheckoutToken({
         slug,
         orderNo: order.orderNo,
         buyerPublicKey: publicKey,
         networkPassphrase,
+        signedChallengeXdr,
+        challengeToken: challenge.challengeToken,
       });
 
       setPhase("creating-escrow");

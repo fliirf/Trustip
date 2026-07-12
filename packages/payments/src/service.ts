@@ -1,4 +1,5 @@
 import {
+  buildWalletChallengeTx,
   contractOrderIdToHex,
   deriveContractOrderId,
   type EscrowGateway,
@@ -6,12 +7,16 @@ import {
   type GatewayOrderView,
   isValidPublicKey,
   OperatorSignerError,
+  verifyWalletChallengeTx,
 } from "@trustip/stellar";
 import { randomBytes } from "node:crypto";
 import { createAttemptToken, verifyAttemptToken } from "./attempt-token.js";
 import {
+  CHECKOUT_CHALLENGE_TOKEN_TTL_MS,
   CHECKOUT_TOKEN_DEFAULT_TTL_MS,
+  createCheckoutChallengeToken,
   createCheckoutToken,
+  verifyCheckoutChallengeToken,
   verifyCheckoutToken,
 } from "./checkout-token.js";
 import { PaymentError } from "./errors.js";
@@ -22,6 +27,7 @@ import type {
   PaymentContext,
   PaymentStore,
 } from "./ports.js";
+import { generateChallengeNonce } from "./wallet-challenge-token.js";
 
 /** Static, network-scoped config injected into the service (server-derived). */
 export interface PaymentConfig {
@@ -44,6 +50,14 @@ export interface PaymentConfig {
    * anonymous callers always fail closed.
    */
   checkoutTokenSecret?: string;
+  /**
+   * Server-only HMAC secret for the checkout wallet-ownership challenge
+   * (SEP-10 hardening). Shared with the seller/release wallet-challenge secret.
+   * When set, `issueCheckoutToken` requires a valid signed challenge proving the
+   * caller controls the buyer key before minting the checkout token. When unset,
+   * the guest checkout path is unavailable (fail closed) — no token is minted.
+   */
+  walletChallengeSecret?: string;
 }
 
 export interface PaymentDeps {
@@ -517,6 +531,30 @@ export interface IssueCheckoutTokenInput {
   /** Buyer wallet public key, known only after the buyer connects a wallet. */
   buyerPublicKey: string;
   networkPassphrase: string;
+  /** SEP-10 proof: the challenge XDR (from `issueCheckoutChallenge`) signed by
+   * the buyer wallet. Proves the caller controls `buyerPublicKey`. */
+  signedChallengeXdr: string;
+  /** The HMAC challenge token returned alongside the challenge XDR. */
+  challengeToken: string;
+}
+
+/** Input for the wallet-ownership challenge that precedes token issuance. */
+export interface IssueCheckoutChallengeInput {
+  slug: string;
+  orderNo: string;
+  buyerPublicKey: string;
+  networkPassphrase: string;
+}
+
+export interface IssueCheckoutChallengeResult {
+  /** Unsigned SEP-10-style challenge for the buyer wallet to sign. */
+  challengeXdr: string;
+  /** HMAC token binding {slug, orderNo, buyerPublicKey, network} + nonce. */
+  challengeToken: string;
+  expiresAt: string;
+  /** Echoed back so the client can confirm the challenge targets its key. */
+  buyerPublicKey: string;
+  networkPassphrase: string;
 }
 
 export interface IssueCheckoutTokenResult {
@@ -533,6 +571,59 @@ export interface IssueCheckoutTokenResult {
 }
 
 /**
+ * ISSUE CHECKOUT CHALLENGE — mint an unsigned wallet-ownership challenge for the
+ * buyer key, plus a short-lived HMAC token binding it to this (slug, orderNo,
+ * key, network). The buyer wallet signs the challenge and passes both back to
+ * `issueCheckoutToken`. Deliberately does NO store read: it reveals nothing
+ * about order existence (the real gate is at token issuance), so it is not an
+ * order_no enumeration oracle. Fails closed when the challenge secret is unset.
+ */
+export async function issueCheckoutChallenge(
+  deps: PaymentDeps,
+  input: IssueCheckoutChallengeInput,
+  now: number = Date.now(),
+): Promise<IssueCheckoutChallengeResult> {
+  requireNetwork(deps, input.networkPassphrase);
+
+  const secret = deps.config.walletChallengeSecret;
+  if (!secret) {
+    throw new PaymentError(
+      "WalletChallengeUnavailable",
+      "checkout wallet-ownership proof is not configured",
+    );
+  }
+  if (!isValidPublicKey(input.buyerPublicKey)) {
+    throw new PaymentError("InvalidBuyerPublicKey", "invalid buyer public key");
+  }
+
+  const nonce = generateChallengeNonce();
+  const challengeXdr = buildWalletChallengeTx({
+    walletPublicKey: input.buyerPublicKey,
+    networkPassphrase: deps.config.networkPassphrase,
+    nonce,
+  });
+  const challengeToken = createCheckoutChallengeToken(
+    secret,
+    {
+      slug: input.slug,
+      orderNo: input.orderNo,
+      buyerPublicKey: input.buyerPublicKey,
+      // Bind the SERVER network (already validated to match the request).
+      networkPassphrase: deps.config.networkPassphrase,
+    },
+    nonce,
+    now,
+  );
+  return {
+    challengeXdr,
+    challengeToken,
+    expiresAt: new Date(now + CHECKOUT_CHALLENGE_TOKEN_TTL_MS).toISOString(),
+    buyerPublicKey: input.buyerPublicKey,
+    networkPassphrase: deps.config.networkPassphrase,
+  };
+}
+
+/**
  * ISSUE CHECKOUT TOKEN — mint the short-lived, server-signed create-order token
  * for guest checkout, from a CHECKOUT-LINK context only. This is the trusted
  * point that vouches "this buyer key belongs to this order": it never accepts a
@@ -541,12 +632,14 @@ export interface IssueCheckoutTokenResult {
  * network}. It performs NO on-chain work — no create_order, no submit, never
  * marks paid — and fails closed when the server secret is absent.
  *
- * Residual risk (documented, not a regression): any holder of a valid
- * (slug, order_no) pair can mint a token for an arbitrary buyer key and later
- * trigger one operator-signed create_order for that (real, payable) order. This
- * is bounded by rate limiting + create_order idempotency (one on-chain order /
- * fee per order) and by order_no entropy. SEP-10 wallet-ownership proof is the
- * planned pre-mainnet hardening; see the Phase 5.0 audit notes.
+ * SEP-10 hardening: the caller must ALSO present a signed wallet-ownership
+ * challenge (`issueCheckoutChallenge` → wallet signs → here) proving they
+ * control `buyerPublicKey`. This closes the Phase 5.0 residual where a holder of
+ * a valid (slug, order_no) pair could mint a token for an arbitrary buyer key
+ * and force one operator-signed create_order (XLM-fee griefing). The proof is
+ * verified BEFORE any store read, so an unproven caller learns nothing about
+ * order existence. create_order and prepare still re-derive + verify amount and
+ * on-chain state regardless of this token.
  */
 export async function issueCheckoutToken(
   deps: PaymentDeps,
@@ -562,9 +655,49 @@ export async function issueCheckoutToken(
       "guest checkout token issuance is not configured",
     );
   }
+  // Wallet-ownership proof secret — fail closed when unset (no unverified mint).
+  const challengeSecret = deps.config.walletChallengeSecret;
+  if (!challengeSecret) {
+    throw new PaymentError(
+      "WalletChallengeUnavailable",
+      "checkout wallet-ownership proof is not configured",
+    );
+  }
 
   if (!isValidPublicKey(input.buyerPublicKey)) {
     throw new PaymentError("InvalidBuyerPublicKey", "invalid buyer public key");
+  }
+
+  // --- SEP-10 proof FIRST: (slug, order_no) possession alone never mints. ---
+  // Verified before any DB read so an unproven caller gets no existence oracle.
+  const nonce = verifyCheckoutChallengeToken(
+    challengeSecret,
+    input.challengeToken,
+    {
+      slug: input.slug,
+      orderNo: input.orderNo,
+      buyerPublicKey: input.buyerPublicKey,
+      networkPassphrase: deps.config.networkPassphrase,
+    },
+  );
+  if (!nonce) {
+    throw new PaymentError(
+      "Forbidden",
+      "missing, expired, or invalid checkout challenge token",
+    );
+  }
+  if (
+    !verifyWalletChallengeTx({
+      signedXdr: input.signedChallengeXdr,
+      walletPublicKey: input.buyerPublicKey,
+      networkPassphrase: deps.config.networkPassphrase,
+      nonce,
+    })
+  ) {
+    throw new PaymentError(
+      "WrongBuyer",
+      "the signature does not prove ownership of this wallet",
+    );
   }
 
   const found = await deps.store.loadCheckoutOrderForIssuance({

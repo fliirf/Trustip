@@ -1,7 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 /**
- * Stateless "checkout / create-order" authorization token. Issued SERVER-SIDE at
+ * Stateless "checkout / create-order" authorization token.  NOTE: this token is
+ * only ever minted AFTER a wallet-ownership proof succeeds (see the checkout
+ * challenge token below + `issueCheckoutToken`), so possession of a valid
+ * (slug, order_no) pair alone no longer mints it. Issued SERVER-SIDE at
  * the trusted point where a buyer opens a checkout (the checkout backend knows
  * this buyer key belongs to this order), and required by the admin/operator
  * `create_order` step (POST /api/escrows/create-order) for guest checkout.
@@ -80,4 +83,74 @@ function safeEqualHex(a: string, b: string): boolean {
   } catch {
     return false;
   }
+}
+
+// ---------------------------------------------------------------------------
+// CHECKOUT WALLET-OWNERSHIP CHALLENGE TOKEN (SEP-10 hardening).
+//
+// Closes the Phase 5.0 residual: before a checkout token is minted for a buyer
+// key, the caller must prove they control that key by signing a server-issued
+// challenge (the SEP-10-style manageData tx built by `@trustip/stellar`). This
+// HMAC token binds {slug, orderNo, buyerPublicKey, network} + nonce for that one
+// proof, short-lived, so a signed challenge cannot be replayed for another
+// order/key/network or after the window closes. Domain-separated
+// (`checkout-verify:v1`) from every other Trustip HMAC token. The nonce inside
+// this token must equal the manageData nonce in the signed challenge.
+// Format: `${exp}.${nonce}.${hmac}` (nonce travels in the token → stateless).
+// ---------------------------------------------------------------------------
+
+/** Challenge lifetime — short by design: signing is one interactive wallet
+ * prompt immediately before token issuance. */
+export const CHECKOUT_CHALLENGE_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export interface CheckoutChallengeClaims {
+  slug: string;
+  orderNo: string;
+  buyerPublicKey: string;
+  networkPassphrase: string;
+}
+
+function challengePayloadFor(
+  claims: CheckoutChallengeClaims,
+  nonce: string,
+  exp: number,
+): string {
+  return [
+    "checkout-verify:v1",
+    claims.slug,
+    claims.orderNo,
+    claims.buyerPublicKey,
+    claims.networkPassphrase,
+    nonce,
+    exp,
+  ].join(":");
+}
+
+export function createCheckoutChallengeToken(
+  secret: string,
+  claims: CheckoutChallengeClaims,
+  nonce: string,
+  now: number = Date.now(),
+  ttlMs: number = CHECKOUT_CHALLENGE_TOKEN_TTL_MS,
+): string {
+  const exp = now + ttlMs;
+  return `${exp}.${nonce}.${sign(secret, challengePayloadFor(claims, nonce, exp))}`;
+}
+
+/** Returns the bound nonce when valid; null for anything malformed / expired /
+ * mismatched (never throws). Constant-time HMAC comparison. */
+export function verifyCheckoutChallengeToken(
+  secret: string,
+  token: string,
+  claims: CheckoutChallengeClaims,
+  now: number = Date.now(),
+): string | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [expStr, nonce, sig] = parts as [string, string, string];
+  const exp = Number(expStr);
+  if (!Number.isFinite(exp) || exp < now) return null;
+  if (!nonce) return null;
+  const expected = sign(secret, challengePayloadFor(claims, nonce, exp));
+  return safeEqualHex(sig, expected) ? nonce : null;
 }

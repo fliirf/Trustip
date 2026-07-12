@@ -10,6 +10,11 @@ import {
   type SubmitResult as GatewaySubmitResult,
   type TxResult,
 } from "@trustip/stellar";
+import {
+  Keypair,
+  type Transaction,
+  TransactionBuilder,
+} from "@stellar/stellar-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { createAttemptToken } from "../src/attempt-token.js";
 import {
@@ -31,6 +36,7 @@ import {
   type EnsureEscrowInput,
   ensureOnChainEscrowOrderCreated,
   getPaymentStatus,
+  issueCheckoutChallenge,
   issueCheckoutToken,
   type PaymentActor,
   type PaymentConfig,
@@ -1598,12 +1604,18 @@ describe("ensureOnChainEscrowOrderCreated", () => {
 
 describe("issueCheckoutToken", () => {
   const CHECKOUT_SECRET = "issue-secret";
+  const CHALLENGE_SECRET = "challenge-secret";
   const CONFIG_AUTH: PaymentConfig = {
     ...CONFIG,
     checkoutTokenSecret: CHECKOUT_SECRET,
+    walletChallengeSecret: CHALLENGE_SECRET,
   };
   const SLUG = "shop-slug";
   const ORDER_NO = "ORD-0001";
+  // The buyer proving wallet ownership — a real keypair so we can sign the
+  // SEP-10 challenge. Substituted for BUYER throughout this suite.
+  const BUYER_KP = Keypair.random();
+  const B = BUYER_KP.publicKey();
 
   function issuanceStore(init: FakeInit = {}) {
     return createFakeStore({
@@ -1620,14 +1632,14 @@ describe("issueCheckoutToken", () => {
     return {
       slug: SLUG,
       orderNo: ORDER_NO,
-      buyerPublicKey: BUYER,
+      buyerPublicKey: B,
       networkPassphrase: TESTNET,
       ...overrides,
     };
   }
 
   // The exact claim set create-order derives from a request, for verify checks.
-  const claimsFor = (orderId: string, buyer = BUYER, network = TESTNET) => ({
+  const claimsFor = (orderId: string, buyer = B, network = TESTNET) => ({
     orderId,
     buyerPublicKey: buyer,
     contractOrderId: contractOrderIdToHex(deriveContractOrderId(orderId)),
@@ -1637,9 +1649,44 @@ describe("issueCheckoutToken", () => {
   const issuer = (store: PaymentStore, config: PaymentConfig = CONFIG_AUTH) =>
     deps(store, createFakeGateway(), config);
 
+  function signChallenge(challengeXdr: string, signer: Keypair): string {
+    const tx = TransactionBuilder.fromXDR(challengeXdr, TESTNET) as Transaction;
+    tx.sign(signer);
+    return tx.toXDR();
+  }
+
+  /** Call issueCheckoutToken with a REAL signed wallet-ownership proof. Falls
+   * back to a dummy proof when the challenge cannot be issued (invalid key /
+   * network / missing secret) — those tests assert an earlier failure that
+   * issueCheckoutToken reaches before the proof check. */
+  async function issue(
+    store: PaymentStore,
+    overrides: Record<string, unknown> = {},
+    config: PaymentConfig = CONFIG_AUTH,
+  ) {
+    const d = issuer(store, config);
+    const input = issueInput(overrides);
+    let proof = { signedChallengeXdr: "x", challengeToken: "x" };
+    try {
+      const ch = await issueCheckoutChallenge(d, {
+        slug: input.slug as string,
+        orderNo: input.orderNo as string,
+        buyerPublicKey: input.buyerPublicKey as string,
+        networkPassphrase: input.networkPassphrase as string,
+      });
+      proof = {
+        signedChallengeXdr: signChallenge(ch.challengeXdr, BUYER_KP),
+        challengeToken: ch.challengeToken,
+      };
+    } catch {
+      // dummy proof — the assertion targets an earlier guard.
+    }
+    return issueCheckoutToken(d, { ...input, ...proof });
+  }
+
   it("issues a token for an active checkout link + payable order", async () => {
     const { store } = issuanceStore();
-    const res = await issueCheckoutToken(issuer(store), issueInput());
+    const res = await issue(store);
     expect(res.orderId).toBe("order-1");
     expect(res.orderNo).toBe(ORDER_NO);
     expect(res.amountUsdc).toBe("10.5");
@@ -1660,19 +1707,24 @@ describe("issueCheckoutToken", () => {
   it("fails closed when no checkout secret is configured", async () => {
     const { store } = issuanceStore();
     await rejectsWith(
-      () => issueCheckoutToken(issuer(store, CONFIG), issueInput()),
+      () => issue(store, {}, CONFIG),
       "CheckoutTokenUnavailable",
+    );
+  });
+
+  it("fails closed when no wallet-challenge secret is configured", async () => {
+    const { store } = issuanceStore();
+    // Checkout secret present, but no proof secret → cannot verify ownership.
+    await rejectsWith(
+      () => issue(store, {}, { ...CONFIG, checkoutTokenSecret: CHECKOUT_SECRET }),
+      "WalletChallengeUnavailable",
     );
   });
 
   it("rejects an invalid buyer public key", async () => {
     const { store } = issuanceStore();
     await rejectsWith(
-      () =>
-        issueCheckoutToken(
-          issuer(store),
-          issueInput({ buyerPublicKey: "not-a-key" }),
-        ),
+      () => issue(store, { buyerPublicKey: "not-a-key" }),
       "InvalidBuyerPublicKey",
     );
   });
@@ -1680,20 +1732,68 @@ describe("issueCheckoutToken", () => {
   it("rejects a missing network and a wrong network (fail closed)", async () => {
     const { store } = issuanceStore();
     await rejectsWith(
-      () =>
-        issueCheckoutToken(
-          issuer(store),
-          issueInput({ networkPassphrase: "" }),
-        ),
+      () => issue(store, { networkPassphrase: "" }),
       "InvalidInput",
     );
     await rejectsWith(
-      () =>
-        issueCheckoutToken(
-          issuer(store),
-          issueInput({ networkPassphrase: MAINNET }),
-        ),
+      () => issue(store, { networkPassphrase: MAINNET }),
       "WrongNetwork",
+    );
+  });
+
+  it("rejects a missing or invalid challenge token (proof required)", async () => {
+    const { store } = issuanceStore();
+    // Valid buyer + network + secrets, but the challenge token is garbage.
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(issuer(store), {
+          ...issueInput(),
+          signedChallengeXdr: "whatever",
+          challengeToken: "not-a-real-token",
+        }),
+      "Forbidden",
+    );
+  });
+
+  it("rejects a signature from the wrong wallet (proof required)", async () => {
+    const { store } = issuanceStore();
+    const d = issuer(store);
+    const ch = await issueCheckoutChallenge(d, {
+      slug: SLUG,
+      orderNo: ORDER_NO,
+      buyerPublicKey: B,
+      networkPassphrase: TESTNET,
+    });
+    // A valid token for B, but signed by a DIFFERENT wallet → ownership unproven.
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(d, {
+          ...issueInput(),
+          signedChallengeXdr: signChallenge(ch.challengeXdr, Keypair.random()),
+          challengeToken: ch.challengeToken,
+        }),
+      "WrongBuyer",
+    );
+  });
+
+  it("rejects a challenge token bound to a different order (no replay)", async () => {
+    const { store } = issuanceStore();
+    const d = issuer(store);
+    // Proof minted for a different order_no cannot be replayed for this one.
+    const ch = await issueCheckoutChallenge(d, {
+      slug: SLUG,
+      orderNo: "OTHER-ORDER",
+      buyerPublicKey: B,
+      networkPassphrase: TESTNET,
+    });
+    await rejectsWith(
+      () =>
+        issueCheckoutToken(d, {
+          ...issueInput(),
+          signedChallengeXdr: signChallenge(ch.challengeXdr, BUYER_KP),
+          challengeToken: ch.challengeToken,
+        }),
+      "Forbidden",
     );
   });
 
@@ -1701,47 +1801,36 @@ describe("issueCheckoutToken", () => {
     const { store } = issuanceStore();
     // Unknown order_no → generic not-found (no raw-orderId path exists).
     await rejectsWith(
-      () =>
-        issueCheckoutToken(issuer(store), issueInput({ orderNo: "NOPE-9" })),
+      () => issue(store, { orderNo: "NOPE-9" }),
       "CheckoutNotFound",
     );
     // Wrong slug → same generic not-found (order not in that link).
     await rejectsWith(
-      () =>
-        issueCheckoutToken(issuer(store), issueInput({ slug: "other-shop" })),
+      () => issue(store, { slug: "other-shop" }),
       "CheckoutNotFound",
     );
   });
 
   it("rejects an inactive checkout link", async () => {
     const { store } = issuanceStore({ linkStatus: "inactive" });
-    await rejectsWith(
-      () => issueCheckoutToken(issuer(store), issueInput()),
-      "CheckoutNotAvailable",
-    );
+    await rejectsWith(() => issue(store), "CheckoutNotAvailable");
   });
 
   it("rejects an expired checkout link", async () => {
     const { store } = issuanceStore({
       linkExpiresAt: new Date(Date.now() - 60_000).toISOString(),
     });
-    await rejectsWith(
-      () => issueCheckoutToken(issuer(store), issueInput()),
-      "CheckoutNotAvailable",
-    );
+    await rejectsWith(() => issue(store), "CheckoutNotAvailable");
   });
 
   it("rejects an order that is not awaiting payment", async () => {
     const { store } = issuanceStore({ order: { status: "shipped" } });
-    await rejectsWith(
-      () => issueCheckoutToken(issuer(store), issueInput()),
-      "OrderNotPayable",
-    );
+    await rejectsWith(() => issue(store), "OrderNotPayable");
   });
 
   it("binds the token to buyer + order + network (cannot be repurposed)", async () => {
     const { store } = issuanceStore();
-    const res = await issueCheckoutToken(issuer(store), issueInput());
+    const res = await issue(store);
     // Different buyer key → invalid.
     expect(
       verifyCheckoutToken(
@@ -1772,10 +1861,10 @@ describe("issueCheckoutToken", () => {
     // The input type has no amount/status/seller field; the server total drives
     // the display amount and the token encodes no amount at all.
     const { store } = issuanceStore({ order: { totalUsdc: "42" } });
-    const res = await issueCheckoutToken(
-      issuer(store),
+    const res = await issue(
+      store,
       // Extra fields a hostile client might send are simply not part of input.
-      issueInput({ amount: "0.01", status: "confirmed", seller: OTHER_BUYER }),
+      { amount: "0.01", status: "confirmed", seller: OTHER_BUYER },
     );
     expect(res.amountUsdc).toBe("42");
     expect(
@@ -1789,7 +1878,7 @@ describe("issueCheckoutToken", () => {
 
   it("mints a token that authorizes guest create_order end to end", async () => {
     const { store, state } = issuanceStore();
-    const issued = await issueCheckoutToken(issuer(store), issueInput());
+    const issued = await issue(store);
 
     // The guest now calls create-order with ONLY the issued token (no session).
     let chain: GatewayOrderView | null = null;
@@ -1822,7 +1911,7 @@ describe("issueCheckoutToken", () => {
       deps(store, gateway, CONFIG_AUTH),
       {
         orderId: issued.orderId,
-        buyerPublicKey: BUYER,
+        buyerPublicKey: B,
         networkPassphrase: issued.networkPassphrase,
         checkoutToken: issued.checkoutToken,
       },
@@ -1831,5 +1920,78 @@ describe("issueCheckoutToken", () => {
     expect(res.alreadyExisted).toBe(false);
     expect(res.escrowStatus).toBe("created");
     expect(state.escrow?.status).toBe("created");
+  });
+});
+
+// --- issueCheckoutChallenge (SEP-10 hardening) ------------------------------
+
+describe("issueCheckoutChallenge", () => {
+  const CONFIG_CH: PaymentConfig = {
+    ...CONFIG,
+    walletChallengeSecret: "challenge-secret",
+  };
+  const KP = Keypair.random();
+  const chDeps = (config: PaymentConfig = CONFIG_CH) =>
+    deps(createFakeStore().store, createFakeGateway(), config);
+  const input = (overrides: Record<string, unknown> = {}) => ({
+    slug: "shop-slug",
+    orderNo: "ORD-0001",
+    buyerPublicKey: KP.publicKey(),
+    networkPassphrase: TESTNET,
+    ...overrides,
+  });
+
+  it("returns a signable challenge bound to the buyer key + server network", async () => {
+    const res = await issueCheckoutChallenge(chDeps(), input());
+    expect(res.buyerPublicKey).toBe(KP.publicKey());
+    expect(res.networkPassphrase).toBe(TESTNET);
+    expect(typeof res.challengeXdr).toBe("string");
+    expect(typeof res.challengeToken).toBe("string");
+    expect(Date.parse(res.expiresAt)).toBeGreaterThan(Date.now());
+  });
+
+  it("fails closed when no wallet-challenge secret is configured", async () => {
+    await rejectsWith(
+      () => issueCheckoutChallenge(chDeps(CONFIG), input()),
+      "WalletChallengeUnavailable",
+    );
+  });
+
+  it("rejects an invalid buyer key and a wrong network", async () => {
+    await rejectsWith(
+      () => issueCheckoutChallenge(chDeps(), input({ buyerPublicKey: "nope" })),
+      "InvalidBuyerPublicKey",
+    );
+    await rejectsWith(
+      () => issueCheckoutChallenge(chDeps(), input({ networkPassphrase: MAINNET })),
+      "WrongNetwork",
+    );
+  });
+
+  it("issues a proof that unlocks issueCheckoutToken end to end", async () => {
+    const { store } = createFakeStore({
+      order: { status: "awaiting_payment", totalUsdc: "3.5" },
+      sellerWalletPublicKey: SELLER,
+      slug: "shop-slug",
+      orderNo: "ORD-0001",
+      linkStatus: "active",
+    });
+    const d = deps(store, createFakeGateway(), {
+      ...CONFIG_CH,
+      checkoutTokenSecret: "issue-secret",
+    });
+    const ch = await issueCheckoutChallenge(d, input());
+    const tx = TransactionBuilder.fromXDR(
+      ch.challengeXdr,
+      TESTNET,
+    ) as Transaction;
+    tx.sign(KP);
+    const res = await issueCheckoutToken(d, {
+      ...input(),
+      signedChallengeXdr: tx.toXDR(),
+      challengeToken: ch.challengeToken,
+    });
+    expect(res.amountUsdc).toBe("3.5");
+    expect(res.orderNo).toBe("ORD-0001");
   });
 });

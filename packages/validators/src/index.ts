@@ -135,11 +135,26 @@ export const orderNoSchema = z
  * accepted (unknown keys are stripped) — all authority is server-derived and
  * verified on-chain downstream.
  */
+/** Wallet-ownership challenge issuance (SEP-10 hardening). SHAPE only — the
+ * challenge is server-built for the given key; no store read happens. */
+export const issueCheckoutChallengeSchema = z.object({
+  slug: checkoutSlugSchema,
+  orderNo: orderNoSchema,
+  buyerPublicKey: stellarPublicKeySchema,
+  networkPassphrase: networkPassphraseSchema,
+});
+export type IssueCheckoutChallengeInput = z.infer<
+  typeof issueCheckoutChallengeSchema
+>;
+
 export const issueCheckoutTokenSchema = z.object({
   slug: checkoutSlugSchema,
   orderNo: orderNoSchema,
   buyerPublicKey: stellarPublicKeySchema,
   networkPassphrase: networkPassphraseSchema,
+  // SEP-10 proof: challenge signed by the buyer wallet + its issuance token.
+  signedChallengeXdr: signedXdrSchema,
+  challengeToken: z.string().min(1).max(1024),
 });
 export type IssueCheckoutTokenInput = z.infer<typeof issueCheckoutTokenSchema>;
 

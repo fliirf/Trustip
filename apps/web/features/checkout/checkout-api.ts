@@ -34,6 +34,14 @@ export interface CreateOrderResponse {
   totalUsdc: string;
 }
 
+export interface CheckoutChallengeResponse {
+  challengeXdr: string;
+  challengeToken: string;
+  expiresAt: string;
+  buyerPublicKey: string;
+  networkPassphrase: string;
+}
+
 export interface CheckoutTokenResponse {
   checkoutToken: string;
   expiresAt: string;
@@ -145,11 +153,23 @@ export function createOrder(
   return post(`/api/checkout/${encodeURIComponent(slug)}/order`, form);
 }
 
+/** SEP-10 step 1 — request a wallet-ownership challenge for the buyer key. */
+export function requestCheckoutChallenge(input: {
+  slug: string;
+  orderNo: string;
+  buyerPublicKey: string;
+  networkPassphrase: string;
+}): Promise<CheckoutChallengeResponse> {
+  return post("/api/checkout/token/challenge", input);
+}
+
 export function issueCheckoutToken(input: {
   slug: string;
   orderNo: string;
   buyerPublicKey: string;
   networkPassphrase: string;
+  signedChallengeXdr: string;
+  challengeToken: string;
 }): Promise<CheckoutTokenResponse> {
   return post("/api/checkout/token", input);
 }
