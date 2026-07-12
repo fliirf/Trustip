@@ -26,12 +26,18 @@ function wsOrigin(origin) {
 // policy is correct per environment (local vs cloud) instead of hardcoded.
 const supabaseOrigin = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const rpcOrigin = originOf(process.env.NEXT_PUBLIC_STELLAR_RPC_URL);
+// SEP-24 on-ramp: the browser fetches the anchor's stellar.toml + SEP-10/SEP-24
+// endpoints directly. The interactive deposit UI opens in a NEW TAB (not an
+// iframe), so only connect-src — not frame-src — needs the anchor origin.
+const anchorDomain = process.env.NEXT_PUBLIC_ANCHOR_DOMAIN;
+const anchorOrigin = anchorDomain ? `https://${anchorDomain}` : null;
 
 const connectSrc = [
   "'self'",
   supabaseOrigin,
   wsOrigin(supabaseOrigin),
   rpcOrigin,
+  anchorOrigin,
   // Dev only: Next.js HMR websocket + dev server on localhost.
   ...(isDev ? ["ws://localhost:*", "ws://127.0.0.1:*", "http://localhost:*"] : []),
 ].filter(Boolean);
