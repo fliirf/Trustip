@@ -2,6 +2,7 @@
 
 import type { WalletAvailability, WalletId } from "@trustip/stellar";
 import { useEffect, useState } from "react";
+import { useDict } from "../i18n/LocaleProvider";
 import { ErrorState } from "../ui/ErrorState";
 
 const INSTALL_URL: Record<string, string> = {
@@ -23,9 +24,10 @@ export function WalletConnect({
   onDetect: () => void;
   onConnect: (id: WalletId) => void;
 }) {
-  // The key the buyer actually pressed. "Menghubungkan…" on both keys claimed a
-  // connection with a wallet nobody had asked for.
+  // The key the buyer actually pressed. A generic "connecting…" on both keys
+  // claimed a connection with a wallet nobody had asked for.
   const [pressedId, setPressedId] = useState<WalletId | null>(null);
+  const d = useDict().checkout.wallet;
 
   useEffect(() => {
     onDetect();
@@ -41,18 +43,15 @@ export function WalletConnect({
     // inside one of its modules.
     <div className="space-y-4">
       {/* One guiding line for the first-timer standing at this step. */}
-      <p className="os-note text-ash">
-        Pilih wallet Stellar kamu untuk melanjutkan. Pesanan kamu sudah
-        tersimpan.
-      </p>
+      <p className="os-note text-ash">{d.guidance}</p>
       {wallets.length > 0 && !anyInstalled && (
         <ErrorState
           surface="checkout"
-          title="Wallet belum terpasang"
-          detail="Trustip tidak menemukan wallet Stellar di browser ini, jadi kamu belum bisa membayar."
+          title={d.notInstalledTitle}
+          detail={d.notInstalledDetail}
           hint={
             <>
-              Pasang{" "}
+              {d.notInstalledHintA}
               <a
                 href={INSTALL_URL.freighter}
                 target="_blank"
@@ -60,8 +59,8 @@ export function WalletConnect({
                 className={linkCls}
               >
                 Freighter
-              </a>{" "}
-              atau{" "}
+              </a>
+              {d.notInstalledHintB}
               <a
                 href={INSTALL_URL.xbull}
                 target="_blank"
@@ -70,10 +69,10 @@ export function WalletConnect({
               >
                 xBull
               </a>
-              , lalu deteksi ulang. Pesanan kamu tetap tersimpan.
+              {d.notInstalledHintC}
             </>
           }
-          action={{ label: "Deteksi Ulang", onClick: onDetect }}
+          action={{ label: d.redetect, onClick: onDetect }}
         />
       )}
       <div className="grid grid-cols-2 gap-4">
@@ -100,9 +99,9 @@ export function WalletConnect({
                 <span className="micro-label mt-1 text-ash">
                   {w.installed
                     ? connecting && pressedId === w.id
-                      ? "Menghubungkan…"
-                      : "Stellar"
-                    : "Pasang wallet"}
+                      ? d.connecting
+                      : d.stellar
+                    : d.installWallet}
                 </span>
               </span>
             </>

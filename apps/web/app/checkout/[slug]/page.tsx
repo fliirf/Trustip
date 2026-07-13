@@ -7,6 +7,7 @@
 import { supabase } from "@trustip/database";
 import { BuyerCheckout } from "../../../features/checkout/BuyerCheckout";
 import { EmptyState } from "../../../features/ui/ErrorState";
+import { getServerLocale, getDict } from "../../../lib/i18n/server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +31,14 @@ function formatUsdc(value: number): string {
 
 /** A powered terminal with nothing to charge: the machine is up, the lock is
  *  dormant, and there is no order to run. Not an error page. */
-function Unavailable() {
+function Unavailable({ d }: { d: ReturnType<typeof getDict> }) {
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-xl items-center px-6 py-16">
       <div className="w-full">
         <EmptyState
           surface="checkout"
-          title="Link checkout tidak tersedia"
-          detail="Link ini tidak ditemukan, sudah tidak aktif, atau sudah kedaluwarsa. Hubungi penjual untuk mendapatkan link terbaru."
+          title={d.checkout.unavailable.title}
+          detail={d.checkout.unavailable.detail}
         />
       </div>
     </main>
@@ -50,6 +51,7 @@ export default async function CheckoutPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const d = getDict(await getServerLocale());
 
   const { data: link } = await supabase
     .from("checkout_links")
@@ -62,7 +64,7 @@ export default async function CheckoutPage({
     link.status !== "active" ||
     (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now())
   ) {
-    return <Unavailable />;
+    return <Unavailable d={d} />;
   }
 
   return (
@@ -73,13 +75,13 @@ export default async function CheckoutPage({
             the metal, at small size, before it states the job. */}
         <header className="engraved-b mb-12 flex flex-wrap items-end justify-between gap-4 pb-5">
           <div>
-            <div className="micro-label text-ash">Trustip · Protected Checkout</div>
+            <div className="micro-label text-ash">{d.checkout.protectedCheckout}</div>
             <h1 className="os-title mt-3 text-bone">
               {link.title}
             </h1>
           </div>
           <p className="max-w-[34ch] text-sm leading-relaxed text-mist/80">
-            Pembayaran kamu ditahan aman sampai pesanan diterima.
+            {d.checkout.headerNote}
           </p>
         </header>
 
