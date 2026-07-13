@@ -4,6 +4,9 @@
 // interactive deposit UI opens in a new tab. No Trustip backend is involved —
 // the anchor JWT is the buyer's session with the anchor, held only in memory.
 
+/** `message` is either a sentinel code (translated at the render site via
+ * `d.anchor.errors`, since this module has no useDict access) or the external
+ * anchor's own error text, passed through unchanged. */
 export class AnchorApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -22,14 +25,14 @@ export interface AnchorInfo {
  * published stellar.toml. */
 export async function fetchAnchorInfo(domain: string): Promise<AnchorInfo> {
   const res = await fetch(`https://${domain}/.well-known/stellar.toml`);
-  if (!res.ok) throw new AnchorApiError("tidak bisa membaca konfigurasi anchor");
+  if (!res.ok) throw new AnchorApiError("ANCHOR_INFO_UNAVAILABLE");
   const toml = await res.text();
   const grab = (key: string): string | undefined =>
     toml.match(new RegExp(`${key}\\s*=\\s*"([^"]+)"`))?.[1];
   const webAuthEndpoint = grab("WEB_AUTH_ENDPOINT");
   const transferServerSep24 = grab("TRANSFER_SERVER_SEP0024");
   if (!webAuthEndpoint || !transferServerSep24) {
-    throw new AnchorApiError("anchor tidak mendukung SEP-10/SEP-24");
+    throw new AnchorApiError("ANCHOR_UNSUPPORTED");
   }
   return { webAuthEndpoint, transferServerSep24 };
 }
@@ -48,7 +51,7 @@ export async function getAnchorChallenge(
     error?: string;
   };
   if (!res.ok || !body.transaction) {
-    throw new AnchorApiError(body.error ?? "anchor menolak permintaan auth");
+    throw new AnchorApiError(body.error ?? "ANCHOR_AUTH_REJECTED");
   }
   return {
     transaction: body.transaction,
@@ -71,7 +74,7 @@ export async function postAnchorToken(
     error?: string;
   };
   if (!res.ok || !body.token) {
-    throw new AnchorApiError(body.error ?? "anchor menolak tanda tangan");
+    throw new AnchorApiError(body.error ?? "ANCHOR_TOKEN_REJECTED");
   }
   return body.token;
 }
@@ -109,7 +112,7 @@ export async function startInteractiveDeposit(
     error?: string;
   };
   if (!res.ok || !body.url || !body.id) {
-    throw new AnchorApiError(body.error ?? "anchor gagal memulai deposit");
+    throw new AnchorApiError(body.error ?? "ANCHOR_DEPOSIT_START_FAILED");
   }
   return { url: body.url, id: body.id };
 }
@@ -142,7 +145,7 @@ export async function getAnchorTransaction(
   };
   const tx = body.transaction;
   if (!res.ok || !tx?.status) {
-    throw new AnchorApiError(body.error ?? "tidak bisa membaca status deposit");
+    throw new AnchorApiError(body.error ?? "ANCHOR_STATUS_UNAVAILABLE");
   }
   return {
     status: tx.status,

@@ -157,6 +157,20 @@ const id = {
       completed: "USDC sudah masuk ke wallet kamu.",
       failed: "Deposit tidak selesai.",
     },
+    /** Sentinel codes thrown by anchor-api.ts/useAnchorTopup.ts (non-component
+     * modules, no useDict access) when the external anchor's own response
+     * carries no error text. Any OTHER message is the anchor's own text,
+     * passed through unchanged — it's third-party and not ours to translate. */
+    errors: {
+      ANCHOR_INFO_UNAVAILABLE: "tidak bisa membaca konfigurasi anchor",
+      ANCHOR_UNSUPPORTED: "anchor tidak mendukung SEP-10/SEP-24",
+      ANCHOR_AUTH_REJECTED: "anchor menolak permintaan auth",
+      ANCHOR_TOKEN_REJECTED: "anchor menolak tanda tangan",
+      ANCHOR_DEPOSIT_START_FAILED: "anchor gagal memulai deposit",
+      ANCHOR_STATUS_UNAVAILABLE: "tidak bisa membaca status deposit",
+      ANCHOR_STILL_PENDING: "deposit masih diproses anchor",
+      depositStatus: (status: string) => `deposit ${status}`,
+    },
   },
   checkout: {
     protectedCheckout: "Trustip · Protected Checkout",
@@ -1053,6 +1067,16 @@ const en: Dict = {
       interactive: "Open the anchor deposit window, then complete it there.",
       completed: "The USDC has arrived in your wallet.",
       failed: "Deposit didn't complete.",
+    },
+    errors: {
+      ANCHOR_INFO_UNAVAILABLE: "couldn't read the anchor's configuration",
+      ANCHOR_UNSUPPORTED: "the anchor doesn't support SEP-10/SEP-24",
+      ANCHOR_AUTH_REJECTED: "the anchor rejected the auth request",
+      ANCHOR_TOKEN_REJECTED: "the anchor rejected the signature",
+      ANCHOR_DEPOSIT_START_FAILED: "the anchor failed to start the deposit",
+      ANCHOR_STATUS_UNAVAILABLE: "couldn't read the deposit status",
+      ANCHOR_STILL_PENDING: "the deposit is still being processed by the anchor",
+      depositStatus: (status: string) => `deposit ${status}`,
     },
   },
   checkout: {

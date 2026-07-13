@@ -44,6 +44,10 @@ export type TopupPhase =
 /** SEP-24 statuses that end polling. */
 const TERMINAL = new Set(["completed", "error", "refunded"]);
 
+/** `message` is a sentinel code (see `anchor-api.ts`), a `depositStatus:<status>`
+ * sentinel, or the external anchor's own error text passed through unchanged —
+ * translated at the render site via `d.anchor.errors` (this hook has no
+ * useDict access). */
 export interface TopupError {
   message: string;
 }
@@ -139,14 +143,16 @@ export function useAnchorTopup() {
           if (tx.status === "completed") {
             setPhase("completed");
           } else {
-            setError({ message: `deposit ${tx.status}` });
+            // Sentinel: `depositStatus:<status>`, mapped to
+            // `d.anchor.errors.depositStatus(status)` at the render site.
+            setError({ message: `depositStatus:${tx.status}` });
             setPhase("failed");
           }
           return;
         }
       }
       // Still pending after the budget — leave it recoverable.
-      setError({ message: "deposit masih diproses anchor" });
+      setError({ message: "ANCHOR_STILL_PENDING" });
       setPhase("failed");
     } catch (e) {
       if (cancelled.current) return;

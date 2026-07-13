@@ -13,6 +13,28 @@ const INSTALL_URL: Record<string, string> = {
 const busy = (p: TopupPhase) =>
   p === "connecting" || p === "authenticating" || p === "starting";
 
+/** Sentinel codes (this hook has no useDict access) → translated copy.
+ * Anything else is the external anchor's own error text — never ours to
+ * translate — so it passes through unchanged. */
+function anchorErrorMessage(
+  d: ReturnType<typeof useDict>["anchor"]["errors"],
+  message: string,
+): string {
+  if (message.startsWith("depositStatus:")) {
+    return d.depositStatus(message.slice("depositStatus:".length));
+  }
+  const sentinels: Record<string, string> = {
+    ANCHOR_INFO_UNAVAILABLE: d.ANCHOR_INFO_UNAVAILABLE,
+    ANCHOR_UNSUPPORTED: d.ANCHOR_UNSUPPORTED,
+    ANCHOR_AUTH_REJECTED: d.ANCHOR_AUTH_REJECTED,
+    ANCHOR_TOKEN_REJECTED: d.ANCHOR_TOKEN_REJECTED,
+    ANCHOR_DEPOSIT_START_FAILED: d.ANCHOR_DEPOSIT_START_FAILED,
+    ANCHOR_STATUS_UNAVAILABLE: d.ANCHOR_STATUS_UNAVAILABLE,
+    ANCHOR_STILL_PENDING: d.ANCHOR_STILL_PENDING,
+  };
+  return sentinels[message] ?? message;
+}
+
 export function AnchorTopup() {
   const t = useAnchorTopup();
   const d = useDict().anchor;
@@ -157,7 +179,9 @@ export function AnchorTopup() {
           {t.phase === "failed" && (
             <div className="space-y-3">
               {t.error && (
-                <p className="os-note text-blood">{t.error.message}</p>
+                <p className="os-note text-blood">
+                  {anchorErrorMessage(d.errors, t.error.message)}
+                </p>
               )}
               <button
                 type="button"
