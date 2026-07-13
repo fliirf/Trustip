@@ -12,18 +12,16 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useDict } from "../i18n/LocaleProvider";
 import { normalizeOrderNo, parseBuyerInput, targetUrl } from "./entry-utils";
-
-const ERROR_COPY =
-  "Link atau kode tidak dikenali. Periksa kembali link dari seller kamu.";
-const ERROR_NEED_ORDER =
-  "Masukkan nomor pesanan (contoh: TRP-…) untuk cek status.";
 
 const fieldCls =
   "terminal-control w-full bg-transparent px-4 py-3 text-[14px] text-bone placeholder:text-ash focus:outline-none";
 
 export function BuyerEntryPage() {
   const router = useRouter();
+  const d = useDict();
+  const t = d.entry;
   const [input, setInput] = useState("");
   const [orderNo, setOrderNo] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +37,7 @@ export function BuyerEntryPage() {
   const openCheckout = () => {
     const target = parseBuyerInput(input);
     if (!target) {
-      setError(ERROR_COPY);
+      setError(t.errorUnknown);
       return;
     }
     router.push(targetUrl({ slug: target.slug }));
@@ -48,11 +46,11 @@ export function BuyerEntryPage() {
   const openStatus = () => {
     const target = resolve();
     if (!target) {
-      setError(ERROR_COPY);
+      setError(t.errorUnknown);
       return;
     }
     if (!target.orderNo) {
-      setError(ERROR_NEED_ORDER);
+      setError(t.errorNeedOrder);
       return;
     }
     router.push(targetUrl(target));
@@ -67,26 +65,21 @@ export function BuyerEntryPage() {
           <Link href="/" className="group flex items-baseline gap-1">
             <span className="text-lg font-semibold tracking-tight text-bone">TRUSTIP</span>
             <span className="text-lg font-semibold text-blood">.</span>
-            <span className="micro-label ml-3 hidden text-ash sm:inline">Pembeli</span>
+            <span className="micro-label ml-3 hidden text-ash sm:inline">{t.tag}</span>
           </Link>
           <Link href="/" className="os-press micro-label py-2 text-ash hover:text-bone">
-            Kembali
+            {d.common.back}
           </Link>
         </header>
 
         <section className="flex flex-1 flex-col justify-center py-16 lg:max-w-[58%]">
-          <h1 className="os-title text-bone">
-            Buka checkout atau cek status pesanan.
-          </h1>
-          <p className="os-body mt-5 max-w-md text-mist">
-            Biasanya link diberikan oleh seller melalui DM, WhatsApp, atau
-            halaman toko.
-          </p>
+          <h1 className="os-title text-bone">{t.title}</h1>
+          <p className="os-body mt-5 max-w-md text-mist">{t.body}</p>
           <Link
             href="/cara-kerja"
             className="os-press micro-label mt-4 inline-block py-2 text-ash hover:text-bone"
           >
-            Baru pertama kali? Lihat Cara Kerja
+            {t.firstTime}
           </Link>
 
           <form
@@ -102,7 +95,7 @@ export function BuyerEntryPage() {
           >
             <div className="flex flex-col gap-2">
               <label htmlFor="buyer-link" className="micro-label text-ash">
-                Link atau kode checkout
+                {t.linkLabel}
               </label>
               <input
                 id="buyer-link"
@@ -112,7 +105,7 @@ export function BuyerEntryPage() {
                   setInput(e.target.value);
                   setError(null);
                 }}
-                placeholder="https://…/checkout/kode-toko atau kode-toko"
+                placeholder={t.linkPlaceholder}
                 autoComplete="off"
                 spellCheck={false}
                 aria-invalid={error !== null || undefined}
@@ -122,7 +115,7 @@ export function BuyerEntryPage() {
 
             <div className="flex flex-col gap-2">
               <label htmlFor="buyer-order" className="micro-label text-ash">
-                Nomor pesanan (untuk cek status)
+                {t.orderLabel}
               </label>
               <input
                 id="buyer-order"
@@ -132,7 +125,7 @@ export function BuyerEntryPage() {
                   setOrderNo(e.target.value);
                   setError(null);
                 }}
-                placeholder="TRP-…"
+                placeholder={t.orderPlaceholder}
                 autoComplete="off"
                 spellCheck={false}
                 className={`${fieldCls} font-mono`}
@@ -159,7 +152,7 @@ export function BuyerEntryPage() {
                 type="submit"
                 className="mat-illuminated os-press micro-label px-6 py-3.5 text-void hover:text-bone"
               >
-                {normalizeOrderNo(orderNo) ? "Cek Status" : "Buka Checkout"}
+                {normalizeOrderNo(orderNo) ? t.checkStatus : t.openCheckout}
               </button>
               {!normalizeOrderNo(orderNo) && (
                 <button
@@ -167,7 +160,7 @@ export function BuyerEntryPage() {
                   onClick={openStatus}
                   className="mat-key os-press micro-label border border-hairline px-6 py-3.5 text-mist hover:text-bone"
                 >
-                  Cek Status
+                  {t.checkStatus}
                 </button>
               )}
             </div>

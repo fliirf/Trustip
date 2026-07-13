@@ -15,6 +15,8 @@
 
 import { useState, type FormEvent } from "react";
 import { EscrowCore } from "../escrow/EscrowCore";
+import { useDict } from "../i18n/LocaleProvider";
+import type { Dict } from "../../lib/i18n/dictionaries";
 import { CheckoutStatus } from "./CheckoutStatus";
 import { OrderSummary, type CheckoutLinkView } from "./OrderSummary";
 import { WalletConnect } from "./WalletConnect";
@@ -22,25 +24,16 @@ import { ErrorState } from "../ui/ErrorState";
 import { errorHint, errorLabel, isRetryable } from "./labels";
 import { useCheckoutFlow } from "./useCheckoutFlow";
 
-/** The three stages of the machine, in the order the buyer walks them. Copy is
- *  unchanged: these are the exact section labels the flow used before, moved out
- *  of the centre column and into the chassis where progression belongs. */
-const STAGES = [
-  { n: "01", label: "Data Pesanan" },
-  { n: "02", label: "Hubungkan Wallet" },
-  { n: "03", label: "Pembayaran" },
-] as const;
-
 /** Progression rail. A channel milled down the chassis; the stage the buyer is
  *  standing on lights its wall. Purely derived from `activeStage` — it can never
  *  run ahead of the flow. */
-function TerminalRail({ active }: { active: number }) {
+function TerminalRail({ active, d }: { active: number; d: Dict }) {
   return (
     <ol
-      aria-label="Tahap checkout"
+      aria-label={d.checkout.stagesAriaLabel}
       className="terminal-rail flex gap-6 pr-5 md:sticky md:top-12 md:h-fit md:flex-col md:gap-0"
     >
-      {STAGES.map((s, i) => {
+      {d.checkout.stages.map((s, i) => {
         const done = i < active;
         const current = i === active;
         return (
@@ -81,14 +74,18 @@ function AmountReadout({
   unitPrice,
   totalUsdc,
   quantity,
+  d,
 }: {
   unitPrice: string;
   totalUsdc: string | null;
   quantity: number;
+  d: Dict;
 }) {
   return (
     <div className="terminal-panel px-6 py-7 md:px-8 md:py-9">
-      <div className="micro-label text-ash">{totalUsdc ? "Total Tagihan" : "Harga Satuan"}</div>
+      <div className="micro-label text-ash">
+        {totalUsdc ? d.checkout.amount.total : d.checkout.amount.unit}
+      </div>
       <div className="terminal-readout mt-3 flex items-baseline gap-3">
         <span className="text-[clamp(40px,7vw,76px)] leading-[0.9] font-semibold tracking-tighter text-bone">
           {totalUsdc ?? unitPrice}
@@ -97,7 +94,7 @@ function AmountReadout({
       </div>
       {!totalUsdc && (
         <div className="micro-label mt-4 text-ash">
-          × {quantity} · total dihitung saat pesanan dibuat
+          {d.checkout.amount.quantityNote(quantity)}
         </div>
       )}
     </div>
@@ -117,6 +114,7 @@ const ctaCls =
 
 export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
   const flow = useCheckoutFlow(link.slug);
+  const d = useDict();
   const [quantity, setQuantity] = useState(1);
 
   const onSubmitDetails = (e: FormEvent<HTMLFormElement>) => {
@@ -152,7 +150,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
 
   return (
     <div className="grid gap-10 md:grid-cols-[150px_minmax(0,1fr)] lg:grid-cols-[150px_minmax(0,1fr)_300px] lg:gap-12">
-      <TerminalRail active={activeStage} />
+      <TerminalRail active={activeStage} d={d} />
 
       {/* CENTRE — the payment module. The readout is always mounted, so the
           amount is the constant the whole machine is organised around. */}
@@ -161,12 +159,13 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
           unitPrice={link.priceUsdc}
           totalUsdc={flow.order?.totalUsdc ?? null}
           quantity={quantity}
+          d={d}
         />
 
         {inForm && (
           <form onSubmit={onSubmitDetails} className="space-y-5">
             <label className="block space-y-2">
-              <span className={labelCls}>Jumlah</span>
+              <span className={labelCls}>{d.checkout.form.quantity}</span>
               <input
                 type="number"
                 min={1}
@@ -182,30 +181,30 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
               />
             </label>
             <label className="block space-y-2">
-              <span className={labelCls}>Nama</span>
+              <span className={labelCls}>{d.checkout.form.name}</span>
               <input name="buyerName" className={inputCls} required minLength={1} />
             </label>
             <label className="block space-y-2">
-              <span className={labelCls}>Email</span>
+              <span className={labelCls}>{d.checkout.form.email}</span>
               <input name="buyerEmail" type="email" className={inputCls} required />
             </label>
             {link.requiresShipping && (
               <>
                 <label className="block space-y-2">
-                  <span className={labelCls}>No. HP</span>
+                  <span className={labelCls}>{d.checkout.form.phone}</span>
                   <input name="phone" className={inputCls} required minLength={5} />
                 </label>
                 <label className="block space-y-2">
-                  <span className={labelCls}>Alamat</span>
+                  <span className={labelCls}>{d.checkout.form.address}</span>
                   <input name="addressLine1" className={inputCls} required />
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block space-y-2">
-                    <span className={labelCls}>Kota</span>
+                    <span className={labelCls}>{d.checkout.form.city}</span>
                     <input name="city" className={inputCls} required />
                   </label>
                   <label className="block space-y-2">
-                    <span className={labelCls}>Kode pos</span>
+                    <span className={labelCls}>{d.checkout.form.postalCode}</span>
                     <input
                       name="postalCode"
                       className={inputCls}
@@ -215,7 +214,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
                   </label>
                 </div>
                 <label className="block space-y-2">
-                  <span className={labelCls}>Negara (kode 2 huruf)</span>
+                  <span className={labelCls}>{d.checkout.form.country}</span>
                   <input
                     name="country"
                     defaultValue="ID"
@@ -230,8 +229,8 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             {flow.error && (
               <ErrorState
                 surface="checkout"
-                detail={errorLabel(flow.error.code, flow.error.message)}
-                hint={errorHint(flow.error.code)}
+                detail={errorLabel(d, flow.error.code, flow.error.message)}
+                hint={errorHint(d, flow.error.code)}
               />
             )}
 
@@ -241,8 +240,8 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
               className={ctaCls}
             >
               {flow.phase === "creating-order"
-                ? "Membuat pesanan…"
-                : "Lanjut ke Pembayaran"}
+                ? d.checkout.form.creating
+                : d.checkout.form.submit}
             </button>
           </form>
         )}
@@ -258,10 +257,10 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             {flow.error && (
               <ErrorState
                 surface="checkout"
-                detail={errorLabel(flow.error.code, flow.error.message)}
-                hint={errorHint(flow.error.code)}
+                detail={errorLabel(d, flow.error.code, flow.error.message)}
+                hint={errorHint(d, flow.error.code)}
                 action={{
-                  label: "Deteksi Ulang Wallet",
+                  label: d.checkout.wallet.redetectWallet,
                   onClick: flow.detectWallets,
                 }}
               />
@@ -273,7 +272,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
           <div className="space-y-5">
             {/* The connected wallet, read out on the machine's own plate. */}
             <div className="terminal-panel px-4 py-3">
-              <div className="micro-label text-ash">Wallet terhubung</div>
+              <div className="micro-label text-ash">{d.checkout.wallet.connected}</div>
               <div className="os-serial mt-2 font-mono text-mist">
                 {flow.publicKey}
               </div>
@@ -281,19 +280,19 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             {flow.wrongNetwork && (
               <ErrorState
                 surface="checkout"
-                title="Jaringan wallet tidak sesuai"
-                detail="Wallet kamu sedang terhubung ke jaringan Stellar yang berbeda dari pesanan ini, jadi pembayaran tidak bisa dilanjutkan."
-                hint={errorHint("WrongNetwork")}
+                title={d.checkout.pay.wrongNetworkTitle}
+                detail={d.checkout.pay.wrongNetworkDetail}
+                hint={errorHint(d, "WrongNetwork")}
               />
             )}
             {flow.error && (
               <ErrorState
                 surface="checkout"
-                detail={errorLabel(flow.error.code, flow.error.message)}
-                hint={errorHint(flow.error.code)}
+                detail={errorLabel(d, flow.error.code, flow.error.message)}
+                hint={errorHint(d, flow.error.code)}
                 action={
                   isRetryable(flow.error.code)
-                    ? { label: "Coba Lagi", onClick: () => void flow.pay() }
+                    ? { label: d.checkout.pay.retry, onClick: () => void flow.pay() }
                     : undefined
                 }
               />
@@ -304,7 +303,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
               onClick={() => void flow.pay()}
               className={ctaCls}
             >
-              Bayar {flow.order?.totalUsdc} USDC
+              {d.checkout.pay.payButton(flow.order?.totalUsdc ?? "")}
             </button>
           </div>
         )}
@@ -327,7 +326,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             href={`/checkout/${link.slug}/status/${flow.order.orderNo}`}
             className={`${ctaCls} block text-center`}
           >
-            Lihat Status Pesanan
+            {d.checkout.pay.viewStatus}
           </a>
         )}
       </div>
@@ -339,6 +338,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
           hasOrder={flow.order !== null}
           hasTx={flow.txHash !== null}
           confirmed={flow.phase === "confirmed"}
+          d={d}
         />
         <OrderSummary
           link={link}
@@ -361,17 +361,19 @@ function ProtocolReadout({
   hasOrder,
   hasTx,
   confirmed,
+  d,
 }: {
   hasOrder: boolean;
   hasTx: boolean;
   confirmed: boolean;
+  d: Dict;
 }) {
   const facts = [
-    { n: "01", label: "Pesanan Disiapkan", done: hasOrder },
-    { n: "02", label: "Pembayaran Dikirim", done: hasTx },
+    { n: "01", label: d.checkout.protocol.orderPrepared, done: hasOrder },
+    { n: "02", label: d.checkout.protocol.paymentSent, done: hasTx },
     // The one buyer-visible "escrow" headline. The mechanism keeps its name in
     // metadata; the fact reads as what it means to the buyer.
-    { n: "03", label: "Dana Dilindungi", done: confirmed },
+    { n: "03", label: d.checkout.protocol.fundsProtected, done: confirmed },
   ];
   return (
     <div className="terminal-panel px-5 py-6">
@@ -397,8 +399,8 @@ function ProtocolReadout({
       </ol>
       <p className="os-note mt-5 text-ash">
         {confirmed
-          ? "Dana kamu terkunci dengan aman sampai pesanan diterima."
-          : "Dana kamu akan terkunci dengan aman setelah pembayaran terverifikasi di jaringan."}
+          ? d.checkout.protocol.confirmedNote
+          : d.checkout.protocol.pendingNote}
       </p>
     </div>
   );

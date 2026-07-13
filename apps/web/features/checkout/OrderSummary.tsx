@@ -1,5 +1,7 @@
 "use client";
 
+import { useDict } from "../i18n/LocaleProvider";
+
 // Order summary panel. The TOTAL is not here: it is the terminal's readout, and
 // printing it twice would give the machine two largest objects. This panel is
 // compact protocol context only — what was ordered, and under which order number.
@@ -36,9 +38,10 @@ export function OrderSummary({
   orderNo: string | null;
   quantity: number;
 }) {
+  const d = useDict().checkout.summary;
   return (
     <aside className="h-fit">
-      <div className="micro-label text-ash">Ringkasan Pesanan</div>
+      <div className="micro-label text-ash">{d.title}</div>
       <div className="mt-3 text-base font-semibold tracking-tight text-bone">
         {link.title}
       </div>
@@ -48,15 +51,12 @@ export function OrderSummary({
         </p>
       )}
       <dl className="mt-5">
-        <Row label="Harga satuan" value={`${link.priceUsdc} USDC`} />
-        <Row label="Jumlah" value={String(quantity)} />
-        {orderNo && <Row label="No. pesanan" value={orderNo} mono />}
+        <Row label={d.unitPrice} value={`${link.priceUsdc} USDC`} />
+        <Row label={d.quantity} value={String(quantity)} />
+        {orderNo && <Row label={d.orderNo} value={orderNo} mono />}
       </dl>
       {/* Reassurance first, mechanism second. */}
-      <p className="os-note mt-5 text-ash">
-        Dana kamu ditahan aman sampai pesanan diterima. Pembayaran menggunakan
-        USDC di jaringan Stellar.
-      </p>
+      <p className="os-note mt-5 text-ash">{d.note}</p>
     </aside>
   );
 }

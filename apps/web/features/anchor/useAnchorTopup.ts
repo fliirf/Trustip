@@ -114,10 +114,10 @@ export function useAnchorTopup() {
         { assetCode: ASSET_CODE, account },
       );
       if (cancelled.current) return;
+      // Don't auto-open: window.open() after awaits runs outside the click
+      // gesture and popup blockers eat it. We surface a button the buyer
+      // clicks (that click IS a gesture → never blocked).
       setInteractiveUrl(deposit.url);
-      // Open the anchor-hosted interactive flow in a new tab (not an iframe).
-      window.open(deposit.url, "_blank", "noopener,noreferrer");
-
       setPhase("interactive");
       for (let i = 0; i < POLL_MAX_ATTEMPTS; i++) {
         if (cancelled.current) return;

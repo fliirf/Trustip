@@ -3,15 +3,16 @@
 // Payment progress timeline + status banner. Text reflects backend truth only.
 
 import { explorerTxUrl, networkName } from "@trustip/stellar";
+import { useDict } from "../i18n/LocaleProvider";
 import { ErrorState } from "../ui/ErrorState";
 import type { CheckoutError, CheckoutPhase } from "./useCheckoutFlow";
 import {
   errorHint,
   errorLabel,
   isRetryable,
-  PHASE_DETAIL,
-  PHASE_LABEL,
-  TIMELINE_STEPS,
+  phaseDetail,
+  phaseLabel,
+  timelineSteps,
 } from "./labels";
 
 /** How far along the timeline each phase has progressed (index into steps). */
@@ -51,6 +52,7 @@ export function CheckoutStatus({
   txHash: string | null;
   onRetry: (() => void) | null;
 }) {
+  const d = useDict();
   const active = stepIndex(phase);
   const busy =
     phase !== "confirmed" &&
@@ -65,8 +67,8 @@ export function CheckoutStatus({
       {/* The payment channel. Horizontal, milled, and segmented: each step is a
           length of channel that lights when the backend says it is lit. This is
           the machine's own progress bar, not a row of cards. */}
-      <ol aria-label="Progres pembayaran" className="flex items-start gap-1.5">
-        {TIMELINE_STEPS.map((step, i) => {
+      <ol aria-label={d.checkout.status.progressAriaLabel} className="flex items-start gap-1.5">
+        {timelineSteps(d).map((step, i) => {
           const done = i < active || confirmed;
           const current = i === active && !confirmed;
           return (
@@ -101,16 +103,16 @@ export function CheckoutStatus({
       {error ? (
         <ErrorState
           surface="checkout"
-          title={PHASE_LABEL.failed}
-          detail={errorLabel(error.code, error.message)}
+          title={phaseLabel(d, "failed")}
+          detail={errorLabel(d, error.code, error.message)}
           hint={
             error.retryAfterSeconds != null
-              ? `Coba lagi dalam ±${error.retryAfterSeconds} detik.`
-              : errorHint(error.code)
+              ? d.checkout.status.retryAfter(error.retryAfterSeconds)
+              : errorHint(d, error.code)
           }
           action={
             onRetry && isRetryable(error.code)
-              ? { label: "Coba Lagi", onClick: onRetry }
+              ? { label: d.checkout.pay.retry, onClick: onRetry }
               : undefined
           }
         />
@@ -128,14 +130,14 @@ export function CheckoutStatus({
             }`}
           />
           <div className={`font-medium ${confirmed ? "text-bone" : "text-mist"}`}>
-            {PHASE_LABEL[phase]}
+            {phaseLabel(d, phase)}
           </div>
           {busy && (
             <>
               <div className="os-note mt-2 text-mist/80">
-                {PHASE_DETAIL[phase] ?? "Menunggu jaringan Stellar"}
+                {phaseDetail(d, phase) ?? d.checkout.status.waitingNetwork}
               </div>
-              <div className="micro-label mt-2 text-ash">Jangan tutup halaman ini</div>
+              <div className="micro-label mt-2 text-ash">{d.checkout.status.dontClose}</div>
               <div aria-hidden className="mt-4 h-[2px] w-full overflow-hidden bg-hairline">
                 <span className="boot-bar block h-full w-full origin-left bg-blood" />
               </div>
@@ -143,9 +145,7 @@ export function CheckoutStatus({
           )}
           {confirmed && (
             <div className="os-note mt-2 text-mist/80">
-              Dana kamu ditahan aman sampai pesanan diterima. Selanjutnya
-              penjual menyiapkan pesanan kamu; pantau perkembangannya di halaman
-              status.
+              {d.checkout.status.confirmedNote}
             </div>
           )}
         </div>
@@ -154,7 +154,7 @@ export function CheckoutStatus({
       {txHash && (
         <div>
           <p className="os-serial font-mono text-ash">
-            <span className="micro-label text-ash">Bukti transaksi</span>
+            <span className="micro-label text-ash">{d.checkout.status.txProof}</span>
             <br />
             {txHash}
           </p>
@@ -167,7 +167,7 @@ export function CheckoutStatus({
             rel="noreferrer"
             className="terminal-control os-press micro-label mt-4 inline-block px-4 py-2.5 text-bone"
           >
-            Lihat di Explorer
+            {d.checkout.status.viewExplorer}
           </a>
         </div>
       )}

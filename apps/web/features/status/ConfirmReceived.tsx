@@ -15,16 +15,10 @@
 
 import type { WalletId } from "@trustip/stellar";
 import { useEffect, useRef } from "react";
+import { useDict } from "../i18n/LocaleProvider";
 import { confirmErrorLabel, isConfirmRetryable } from "./labels";
 import type { PublicOrderStatus } from "./status-api";
 import { type ConfirmPhase, useConfirmReceived } from "./useConfirmReceived";
-
-const PROGRESS_LABEL: Partial<Record<ConfirmPhase, string>> = {
-  connecting: "Menghubungkan wallet…",
-  preparing: "Menyiapkan konfirmasi…",
-  "awaiting-signature": "Buka jendela wallet kamu dan setujui permintaan tanda tangan…",
-  releasing: "Meneruskan dana ke penjual…",
-};
 
 function truncateKey(k: string): string {
   return `${k.slice(0, 6)}…${k.slice(-6)}`;
@@ -65,6 +59,14 @@ export function ConfirmReceived({
   const flow = useConfirmReceived(slug, order.orderNo);
   const busy = BUSY.includes(flow.phase);
   const panel = useRef<HTMLDivElement | null>(null);
+  const dict = useDict();
+  const d = dict.status.confirmReceived;
+  const PROGRESS_LABEL: Partial<Record<ConfirmPhase, string>> = {
+    connecting: d.progress.connecting,
+    preparing: d.progress.preparing,
+    "awaiting-signature": d.progress.awaitingSignature,
+    releasing: d.progress.releasing,
+  };
 
   // Detect wallets once the panel opens.
   useEffect(() => {
@@ -139,17 +141,14 @@ export function ConfirmReceived({
     <>
       {/* The trigger is a station on the spine, not a bordered card. */}
       <div>
-        <div className="micro-label text-blood">Pesanan Sudah Dikirim</div>
-        <p className="os-body mt-4 max-w-[52ch] text-mist/80">
-          Kalau barang sudah kamu terima, konfirmasi penerimaan untuk meneruskan
-          dana ke penjual. Pastikan barang benar-benar sudah sampai.
-        </p>
+        <div className="micro-label text-blood">{d.stationTag}</div>
+        <p className="os-body mt-4 max-w-[52ch] text-mist/80">{d.prompt}</p>
         <button
           type="button"
           onClick={onOpen}
           className="mat-illuminated os-press mt-7 inline-block px-6 py-3 text-sm font-semibold tracking-tight text-void hover:text-bone"
         >
-          Saya Sudah Terima Pesanan
+          {d.cta}
         </button>
       </div>
 
@@ -165,47 +164,38 @@ export function ConfirmReceived({
             tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="Konfirmasi penerimaan pesanan"
+            aria-label={d.dialogAriaLabel}
             className="dialog-mission max-h-[92dvh] w-full overflow-y-auto py-7 pr-6 pl-8 focus:outline-none md:max-h-none md:w-[440px] md:py-12 md:pr-10 md:pl-12"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="micro-label text-ash">Konfirmasi Penerimaan</div>
+            <div className="micro-label text-ash">{d.dialogEyebrow}</div>
 
             {/* Telemetry: what is about to move, and where from. */}
             <dl className="mt-8">
-              <Row label="Pesanan" value={order.orderNo} mono />
-              {tracking && <Row label="Resi" value={tracking} />}
-              <Row label="Total" value={`${order.totalUsdc} USDC`} />
+              <Row label={d.rowOrder} value={order.orderNo} mono />
+              {tracking && <Row label={d.rowTracking} value={tracking} />}
+              <Row label={d.rowTotal} value={`${order.totalUsdc} USDC`} />
             </dl>
 
             {/* The one irreversible fact on the page. A lit edge, not a red box:
                 mission control states, it does not shout. */}
             <div className="relative mt-8 pl-5">
               <span aria-hidden className="absolute inset-y-0 left-0 w-[2px] bg-blood" />
-              <p className="os-body text-mist">
-                Pastikan barang sudah kamu terima sebelum melanjutkan. Dana akan
-                diteruskan ke seller setelah kamu menandatangani konfirmasi, dan
-                langkah ini tidak bisa dibatalkan.
-              </p>
+              <p className="os-body text-mist">{d.warning}</p>
             </div>
 
             {flow.phase === "done" ? (
               <div className="mt-10">
-                <div className="os-reading text-bone">Pesanan Selesai</div>
-                <p className="os-note mt-2 text-mist/70">
-                  Dana sudah diteruskan ke penjual. Terima kasih!
-                </p>
+                <div className="os-reading text-bone">{d.doneTitle}</div>
+                <p className="os-note mt-2 text-mist/70">{d.doneBody}</p>
               </div>
             ) : (
               <div className="mt-10 space-y-6">
                 {!flow.publicKey ? (
                   <div className="space-y-4">
-                    <div className="micro-label text-mist">Hubungkan wallet pembayar</div>
+                    <div className="micro-label text-mist">{d.connectWalletLabel}</div>
                     {flow.wallets.length > 0 && !flow.wallets.some((w) => w.installed) && (
-                      <p className="os-note text-mist/80">
-                        Wallet belum terpasang. Pasang Freighter atau xBull, lalu
-                        muat ulang halaman ini.
-                      </p>
+                      <p className="os-note text-mist/80">{d.noWalletNote}</p>
                     )}
                     <div className="grid grid-cols-2 gap-3">
                       {flow.wallets.map((w) => (
@@ -227,7 +217,7 @@ export function ConfirmReceived({
                           <span className="flex flex-col leading-tight">
                             <span className="text-sm font-medium text-bone">{w.name}</span>
                             <span className="micro-label mt-1 text-ash">
-                              {w.installed ? "Stellar" : "Belum terpasang"}
+                              {w.installed ? d.walletInstalled : d.walletNotInstalled}
                             </span>
                           </span>
                         </button>
@@ -237,13 +227,10 @@ export function ConfirmReceived({
                 ) : (
                   <div className="space-y-5">
                     <dl>
-                      <Row label="Wallet" value={truncateKey(flow.publicKey)} mono />
+                      <Row label={d.walletRowLabel} value={truncateKey(flow.publicKey)} mono />
                     </dl>
                     {flow.wrongNetwork && (
-                      <p className="micro-label text-blood">
-                        Wallet berada di jaringan berbeda. Ganti ke jaringan yang
-                        benar sebelum menandatangani.
-                      </p>
+                      <p className="micro-label text-blood">{d.wrongNetworkNote}</p>
                     )}
                     <button
                       type="button"
@@ -251,7 +238,7 @@ export function ConfirmReceived({
                       onClick={() => flow.confirm()}
                       className="mat-illuminated os-press w-full px-6 py-3.5 text-sm font-semibold tracking-tight text-void hover:text-bone"
                     >
-                      Tandatangani Konfirmasi
+                      {d.signButton}
                     </button>
                   </div>
                 )}
@@ -270,7 +257,7 @@ export function ConfirmReceived({
                       className="control-node absolute top-[0.45em] -left-[3px] size-[6px]"
                     />
                     <p className="os-body text-blood">
-                      {confirmErrorLabel(flow.error.code, flow.error.message)}
+                      {confirmErrorLabel(dict, flow.error.code, flow.error.message)}
                     </p>
                     {isConfirmRetryable(flow.error.code) && flow.publicKey && (
                       <button
@@ -279,7 +266,7 @@ export function ConfirmReceived({
                         onClick={() => flow.confirm()}
                         className="os-press micro-label mt-4 inline-block border-b border-blood/50 pb-1 text-bone hover:text-blood"
                       >
-                        Coba Lagi
+                        {d.retry}
                       </button>
                     )}
                   </div>
@@ -293,7 +280,7 @@ export function ConfirmReceived({
               onClick={onClose}
               className="os-press micro-label mt-10 text-ash hover:text-mist"
             >
-              {flow.phase === "done" ? "Tutup" : "Batal"}
+              {flow.phase === "done" ? d.close : d.cancel}
             </button>
           </div>
         </div>

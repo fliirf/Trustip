@@ -28,21 +28,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { Dict } from "../../lib/i18n/dictionaries";
 import { EscrowCore } from "../escrow/EscrowCore";
+import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { ConfirmReceived } from "./ConfirmReceived";
 import {
   awaitingShipment,
   canConfirmReceived,
   escrowCoreState,
-  ESCROW_STATUS_LABEL,
   isProtected,
   isReleased,
   isTerminalBad,
   lifecycleRail,
-  ORDER_STATUS_LABEL,
-  PAYMENT_STATUS_LABEL,
-  SHIPMENT_STATUS_LABEL,
   shipmentProgress,
   statusLabel,
 } from "./labels";
@@ -187,7 +185,8 @@ const explorerCls =
  * printer, or share this page's own URL. Existing data only — nothing here
  * invents a field. Feedback never lies: the copy label only flips when the
  * clipboard write actually resolved. */
-function ReceiptActions({ txHash }: { txHash: string }) {
+function ReceiptActions({ txHash, d }: { txHash: string; d: Dict }) {
+  const p = d.status.proof;
   const [note, setNote] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -202,20 +201,20 @@ function ReceiptActions({ txHash }: { txHash: string }) {
   const copyText = (text: string, okNote: string) =>
     navigator.clipboard.writeText(text).then(
       () => flash(okNote),
-      () => flash("Gagal menyalin. Salin manual dari halaman ini."),
+      () => flash(p.copyFailed),
     );
 
   return (
     <>
       <button
         type="button"
-        onClick={() => void copyText(txHash, "Bukti transaksi tersalin.")}
+        onClick={() => void copyText(txHash, p.copiedProof)}
         className={explorerCls}
       >
-        Salin Bukti
+        {p.copyProof}
       </button>
       <button type="button" onClick={() => window.print()} className={explorerCls}>
-        Cetak Bukti
+        {p.printProof}
       </button>
       <button
         type="button"
@@ -227,12 +226,12 @@ function ReceiptActions({ txHash }: { txHash: string }) {
                 /* the buyer dismissed the share sheet — nothing to report */
               });
           } else {
-            void copyText(window.location.href, "Link status tersalin.");
+            void copyText(window.location.href, p.copiedLink);
           }
         }}
         className={explorerCls}
       >
-        Bagikan
+        {p.share}
       </button>
       {note && (
         <span role="status" className="micro-label text-mist">
@@ -249,27 +248,23 @@ function ReceiptActions({ txHash }: { txHash: string }) {
 function ShipmentSection({
   order,
   locked,
+  d,
 }: {
   order: PublicOrderStatus;
   locked: boolean;
+  d: Dict;
 }) {
+  const s = d.status.shipmentSection;
+
   if (!order.requiresShipping) {
     const delivered = order.status === "delivered" || order.status === "completed";
     return (
       <>
         <Reading
-          value={delivered ? "Pesanan Terkirim" : "Pesanan Sedang Diproses"}
-          note={
-            delivered
-              ? "Penjual sudah menandai pesanan digital ini terkirim."
-              : "Produk digital ini tidak memakai resi pengiriman fisik."
-          }
+          value={delivered ? s.noShippingDeliveredTitle : s.noShippingProcessingTitle}
+          note={delivered ? s.noShippingDeliveredNote : s.noShippingProcessingNote}
         />
-        {locked && (
-          <p className="micro-label mt-6 text-ash">
-            Dana tetap terkunci sampai fase penyelesaian berikutnya.
-          </p>
-        )}
+        {locked && <p className="micro-label mt-6 text-ash">{s.lockedNote}</p>}
       </>
     );
   }
@@ -279,9 +274,7 @@ function ShipmentSection({
   if (progress === 0) {
     return (
       <p className="max-w-[52ch] os-body text-mist/70">
-        {locked
-          ? "Menunggu proses seller. Pelacakan pengiriman muncul di sini setelah penjual mulai memproses pesanan kamu."
-          : "Pelacakan pengiriman akan muncul di sini setelah penjual memproses pesanan kamu."}
+        {locked ? s.noneLocked : s.noneUnlocked}
       </p>
     );
   }
@@ -289,13 +282,13 @@ function ShipmentSection({
   const shipment = order.shipment;
   const statusKey =
     progress >= 3 ? "shipped" : progress === 2 ? "packed" : "processing";
-  const headline = statusLabel(SHIPMENT_STATUS_LABEL, statusKey);
+  const headline = statusLabel(d.status.shipmentStatusLabel, statusKey);
   const sub =
     statusKey === "shipped"
-      ? "Pesanan sudah dikirim oleh penjual."
+      ? s.subShipped
       : statusKey === "packed"
-        ? "Pesanan sudah dikemas dan siap dikirim."
-        : "Pesanan sedang diproses seller.";
+        ? s.subPacked
+        : s.subProcessing;
 
   return (
     <>
@@ -306,9 +299,9 @@ function ShipmentSection({
       <ol className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3">
         {(
           [
-            ["Diproses", 1],
-            ["Dikemas", 2],
-            ["Dikirim", 3],
+            [s.chipProcessing, 1],
+            [s.chipPacked, 2],
+            [s.chipShipped, 3],
           ] as const
         ).map(([label, rank]) => (
           <li key={label} className="flex items-center gap-2.5">
@@ -335,23 +328,19 @@ function ShipmentSection({
       {statusKey === "shipped" && shipment?.trackingNumber && (
         <div className="mt-6 max-w-md">
           <DetailRow
-            label="Resi Pengiriman"
+            label={s.trackingLabel}
             value={[shipment.courier, shipment.trackingNumber].filter(Boolean).join(" · ")}
           />
           {shipment.shippedAt && (
             <DetailRow
-              label="Dikirim"
+              label={s.shippedAtLabel}
               value={new Date(shipment.shippedAt).toLocaleString("id-ID")}
             />
           )}
         </div>
       )}
 
-      {locked && (
-        <p className="micro-label mt-6 text-ash">
-          Dana tetap terkunci sampai fase penyelesaian berikutnya.
-        </p>
-      )}
+      {locked && <p className="micro-label mt-6 text-ash">{s.lockedNote}</p>}
     </>
   );
 }
@@ -364,64 +353,78 @@ interface StatusFailure {
   retryable: boolean;
 }
 
+/** Serializable failure reason extracted from the caught error at fetch time.
+ * Kept locale-independent so it can sit in state without baking in translated
+ * strings — `describeStatusFailure` derives the display copy from this at
+ * RENDER time, so it always reflects the current locale even if the buyer
+ * toggles language after a failed read (no refetch needed either). */
+interface FailureReason {
+  code?: string;
+  status?: number;
+  retryAfterSeconds?: number | null;
+}
+
+function toFailureReason(e: unknown): FailureReason {
+  if (e instanceof StatusApiError) {
+    return { code: e.code, status: e.status, retryAfterSeconds: e.retryAfterSeconds };
+  }
+  return {};
+}
+
 /** Distinguish "this order does not exist" from "we could not reach the server".
  * Collapsing the two tells a paying buyer their order is gone because a fetch
  * timed out. A failed READ never changes escrow state, so every message here
  * says so explicitly. */
-function describeStatusFailure(e: unknown): StatusFailure {
-  if (e instanceof StatusApiError) {
-    if (e.code === "CheckoutNotFound" || e.status === 404) {
-      return {
-        title: "Pesanan tidak ditemukan",
-        detail: "Link status ini tidak cocok dengan pesanan mana pun.",
-        hint: "Periksa kembali link dari halaman pembayaran kamu, atau hubungi penjual.",
-        retryable: false,
-      };
-    }
-    if (e.code === "CheckoutNotAvailable" || e.status === 410) {
-      return {
-        title: "Link status sudah tidak aktif",
-        detail: "Penjual sudah menonaktifkan link checkout ini.",
-        hint: "Hubungi penjual untuk mendapatkan link status pesanan yang baru.",
-        retryable: false,
-      };
-    }
-    if (e.status === 429) {
-      return {
-        title: "Terlalu banyak percobaan",
-        detail: "Halaman ini dimuat terlalu sering dalam waktu singkat.",
-        hint: e.retryAfterSeconds
-          ? `Tunggu ±${e.retryAfterSeconds} detik, lalu coba lagi.`
-          : "Tunggu sebentar, lalu coba lagi.",
-        retryable: true,
-      };
-    }
-    // 503: a dependency did not answer. Before Phase 10B this arrived as a 404
-    // and told a paying buyer their order did not exist.
-    if (e.code === "ServiceUnavailable" || e.status === 503) {
-      return {
-        title: "Trustip sedang mengalami gangguan sementara",
-        detail:
-          "Kami tidak bisa membaca status pesanan kamu saat ini. Pesanan dan dana kamu tidak terpengaruh.",
-        hint: "Tunggu sebentar, lalu coba lagi.",
-        retryable: true,
-      };
-    }
-    if (e.code === "InternalError" || e.status === 500) {
-      return {
-        title: "Terjadi kesalahan",
-        detail:
-          "Ada masalah di sistem kami saat memuat status pesanan ini. Pesanan dan dana kamu tidak terpengaruh.",
-        hint: "Coba lagi. Kalau masih gagal, hubungi penjual.",
-        retryable: true,
-      };
-    }
+function describeStatusFailure(e: FailureReason, d: Dict): StatusFailure {
+  const f = d.status.failure;
+  if (e.code === "CheckoutNotFound" || e.status === 404) {
+    return {
+      title: f.notFoundTitle,
+      detail: f.notFoundDetail,
+      hint: f.notFoundHint,
+      retryable: false,
+    };
+  }
+  if (e.code === "CheckoutNotAvailable" || e.status === 410) {
+    return {
+      title: f.inactiveTitle,
+      detail: f.inactiveDetail,
+      hint: f.inactiveHint,
+      retryable: false,
+    };
+  }
+  if (e.status === 429) {
+    return {
+      title: f.rateLimitTitle,
+      detail: f.rateLimitDetail,
+      hint: e.retryAfterSeconds
+        ? f.rateLimitHintWithSeconds(e.retryAfterSeconds)
+        : f.rateLimitHint,
+      retryable: true,
+    };
+  }
+  // 503: a dependency did not answer. Before Phase 10B this arrived as a 404
+  // and told a paying buyer their order did not exist.
+  if (e.code === "ServiceUnavailable" || e.status === 503) {
+    return {
+      title: f.serviceDownTitle,
+      detail: f.serviceDownDetail,
+      hint: f.serviceDownHint,
+      retryable: true,
+    };
+  }
+  if (e.code === "InternalError" || e.status === 500) {
+    return {
+      title: f.internalErrorTitle,
+      detail: f.internalErrorDetail,
+      hint: f.internalErrorHint,
+      retryable: true,
+    };
   }
   return {
-    title: "Status pesanan belum bisa dimuat",
-    detail:
-      "Trustip tidak bisa membaca status pesanan kamu saat ini. Pesanan dan dana kamu tidak terpengaruh.",
-    hint: "Periksa koneksi internet kamu, lalu coba lagi.",
+    title: f.genericTitle,
+    detail: f.genericDetail,
+    hint: f.genericHint,
     retryable: true,
   };
 }
@@ -454,8 +457,12 @@ export function OrderStatusPage({
   slug: string;
   orderNo: string;
 }) {
+  const d = useDict();
   const [order, setOrder] = useState<PublicOrderStatus | null>(null);
-  const [failure, setFailure] = useState<StatusFailure | null>(null);
+  // Stores the locale-independent REASON, not translated strings — so a
+  // language toggle updates the displayed failure instantly without a refetch.
+  const [failureReason, setFailureReason] = useState<FailureReason | null>(null);
+  const failure = failureReason ? describeStatusFailure(failureReason, d) : null;
   /** Bumped by the retry action to re-run the initial load. */
   const [attempt, setAttempt] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -478,10 +485,10 @@ export function OrderStatusPage({
       (res) => {
         if (cancelled) return;
         setOrder(res);
-        setFailure(null);
+        setFailureReason(null);
       },
       (e) => {
-        if (!cancelled) setFailure(describeStatusFailure(e));
+        if (!cancelled) setFailureReason(toFailureReason(e));
       },
     );
     return () => {
@@ -531,7 +538,7 @@ export function OrderStatusPage({
         title={failure.title}
         detail={failure.detail}
         hint={failure.hint}
-        action={{ label: "Coba Lagi", onClick: () => setAttempt((n) => n + 1) }}
+        action={{ label: d.status.failure.retry, onClick: () => setAttempt((n) => n + 1) }}
       />
     );
   }
@@ -545,8 +552,8 @@ export function OrderStatusPage({
           <div aria-hidden className="h-44 w-44 shrink-0 lg:h-56 lg:w-56" />
           <ProtocolState
             surface="status"
-            label="Memuat status pesanan"
-            detail="Membaca data terbaru dari jaringan Stellar"
+            label={d.status.loadingLabel}
+            detail={d.status.loadingDetail}
           />
         </header>
       </main>
@@ -556,17 +563,17 @@ export function OrderStatusPage({
   const locked = isProtected(order);
   const bad = isTerminalBad(order);
   const released = isReleased(order);
-  const rail = lifecycleRail(order);
+  const rail = lifecycleRail(order, false, d.status.rail);
   const txHash = order.payment?.txHash ?? order.escrow?.fundedTxHash ?? null;
   const releaseTxHash = order.escrow?.releaseTxHash ?? releaseOverride;
   const completedAt = order.completedAt;
   const headline = bad
-    ? statusLabel(ORDER_STATUS_LABEL, order.status)
+    ? statusLabel(d.status.orderStatusLabel, order.status)
     : released
-      ? "Pesanan selesai"
+      ? d.status.headline.released
       : locked
-        ? "Pesanan kamu sedang dilindungi"
-        : "Menunggu pembayaran kamu";
+        ? d.status.headline.locked
+        : d.status.headline.waiting;
 
   return (
     <>
@@ -587,7 +594,7 @@ export function OrderStatusPage({
               className="boot-line micro-label text-ash"
               style={{ animationDelay: "0.05s" }}
             >
-              Trustip · Status Pesanan
+              {d.status.eyebrow}
             </div>
             <h1
               className="boot-line mt-4 max-w-[18ch] text-balance text-[clamp(28px,4.2vw,52px)] leading-[1.02] font-semibold tracking-tight text-bone"
@@ -600,12 +607,12 @@ export function OrderStatusPage({
               style={{ animationDelay: "0.5s" }}
             >
               {bad
-                ? "Lihat detail di bawah untuk status terakhir pesanan ini."
+                ? d.status.subline.bad
                 : released
-                  ? "Kamu sudah mengonfirmasi penerimaan. Dana diteruskan ke penjual dan transaksi selesai."
+                  ? d.status.subline.released
                   : locked
-                    ? "Dana kamu terkunci aman dan hanya diteruskan ke penjual setelah pesanan diterima."
-                    : "Selesaikan pembayaran di halaman checkout untuk mengaktifkan perlindungan dana."}
+                    ? d.status.subline.locked
+                    : d.status.subline.waiting}
             </p>
             <div
               className="boot-line micro-label mt-7 font-mono text-ash"
@@ -668,10 +675,9 @@ export function OrderStatusPage({
                 only appears when a confirm would actually be accepted. */}
             {released ? (
               <Reveal>
-                <Station label="Pesanan Selesai">
+                <Station label={d.status.released.stationLabel}>
                   <p className="max-w-[52ch] os-body text-mist/80">
-                    Kamu sudah mengonfirmasi penerimaan pesanan ini. Transaksi
-                    selesai dan dana sudah diteruskan ke penjual.
+                    {d.status.released.body}
                   </p>
                 </Station>
               </Reveal>
@@ -693,19 +699,20 @@ export function OrderStatusPage({
               <Reveal>
                 <Station
                   label={
-                    order.requiresShipping ? "Menunggu Pengiriman" : "Menunggu Penjual"
+                    order.requiresShipping
+                      ? d.status.awaitingShipment.stationLabel
+                      : d.status.awaitingShipment.stationLabelNoShipping
                   }
                 >
                   <p className="max-w-[52ch] os-body text-mist/80">
                     {order.requiresShipping
-                      ? "Menunggu seller mengirim pesanan. Setelah barang dikirim dan kamu terima, kamu bisa mengonfirmasi penerimaan di sini."
-                      : "Menunggu penjual memproses pesanan digital kamu. Setelah selesai, kamu bisa mengonfirmasi penerimaan di sini."}
+                      ? d.status.awaitingShipment.body
+                      : d.status.awaitingShipment.bodyNoShipping}
                   </p>
                   {/* Answers "can I leave?" — and both claims are true: the
                       45s auto-refresh above, and the stateless public link. */}
                   <p className="micro-label mt-4 text-ash">
-                    Status di halaman ini diperbarui otomatis. Kamu boleh
-                    menutupnya dan kembali kapan saja lewat link yang sama.
+                    {d.status.awaitingShipment.autoRefreshNote}
                   </p>
                 </Station>
               </Reveal>
@@ -714,77 +721,77 @@ export function OrderStatusPage({
             {/* 01–03 render statically. Only the three PROOF sections below
                 animate, so the reveal means something instead of every block
                 moving at once. */}
-            <Station label="01 · Status Pembayaran" live={order.payment?.status === "confirmed"}>
+            <Station label={d.status.station01.label} live={order.payment?.status === "confirmed"}>
               <Reading
-                value={statusLabel(PAYMENT_STATUS_LABEL, order.payment?.status)}
+                value={statusLabel(d.status.paymentStatusLabel, order.payment?.status)}
                 note={
                   order.payment?.status === "confirmed"
                     ? // Answers "what happens next" without ever running ahead
                       // of the recorded state.
                       released
-                      ? "Pembayaran kamu sudah diterima dan terverifikasi."
+                      ? d.status.station01.noteConfirmedReleased
                       : order.requiresShipping && shipmentProgress(order) >= 3
-                        ? "Pembayaran kamu sudah diterima dan terverifikasi. Pesanan sedang dalam pengiriman."
-                        : "Pembayaran kamu sudah diterima dan terverifikasi. Selanjutnya penjual menyiapkan pesanan kamu."
-                    : "Pembayaran belum selesai. Buka kembali halaman checkout untuk melanjutkan."
+                        ? d.status.station01.noteConfirmedShipped
+                        : d.status.station01.noteConfirmedProcessing
+                    : d.status.station01.noteUnpaid
                 }
               />
             </Station>
 
-            <Station label="02 · Perlindungan Dana" live={locked}>
+            <Station label={d.status.station02.label} live={locked}>
               <Reading
-                value={statusLabel(ESCROW_STATUS_LABEL, order.escrow?.status)}
+                value={statusLabel(d.status.escrowStatusLabel, order.escrow?.status)}
                 note={
                   released
-                    ? "Dana sudah diteruskan ke penjual setelah kamu mengonfirmasi penerimaan pesanan."
+                    ? d.status.station02.noteReleased
                     : locked
-                      ? "Dana ditahan oleh sistem perlindungan otomatis, bukan oleh penjual, sampai pesanan kamu diterima."
-                      : "Perlindungan dana aktif setelah pembayaran kamu terkonfirmasi."
+                      ? d.status.station02.noteLocked
+                      : d.status.station02.noteWaiting
                 }
               />
             </Station>
 
-            <Station label="03 · Detail Pesanan">
+            <Station label={d.status.station03.label}>
               <Reading value={order.link.title} note={order.link.description ?? undefined} />
               <dl className="mt-6 max-w-md">
-                {order.storeName && <DetailRow label="Penjual" value={order.storeName} />}
+                {order.storeName && <DetailRow label={d.status.station03.seller} value={order.storeName} />}
                 <DetailRow
-                  label="Status"
-                  value={statusLabel(ORDER_STATUS_LABEL, order.status)}
+                  label={d.status.station03.status}
+                  value={statusLabel(d.status.orderStatusLabel, order.status)}
                 />
                 {order.quantity != null && (
-                  <DetailRow label="Jumlah" value={String(order.quantity)} />
+                  <DetailRow label={d.status.station03.quantity} value={String(order.quantity)} />
                 )}
                 <DetailRow
-                  label="Total"
+                  label={d.status.station03.total}
                   value={
                     <span className="font-semibold text-bone">{order.totalUsdc} USDC</span>
                   }
                 />
                 <DetailRow
-                  label="Dibuat"
+                  label={d.status.station03.created}
                   value={new Date(order.createdAt).toLocaleString("id-ID")}
                 />
                 {order.buyer?.city && (
                   <DetailRow
-                    label="Dikirim ke"
+                    label={d.status.station03.shippedTo}
                     value={[order.buyer.name, order.buyer.city].filter(Boolean).join(" · ")}
                   />
                 )}
               </dl>
             </Station>
 
-            {/* 04 · PROGRESS PENGIRIMAN — real shipment truth only (Phase 8A
+            {/* 04 · SHIPPING PROGRESS — real shipment truth only (Phase 8A
                 data). No delivered/completed/release step exists here yet. */}
             <Reveal mask>
-              <Station label="04 · Progress Pengiriman">
-                <ShipmentSection order={order} locked={locked} />
+              <Station label={d.status.shipmentSection.label}>
+                <ShipmentSection order={order} locked={locked} d={d} />
               </Station>
             </Reveal>
 
-            {/* 05 · BUKTI TRANSAKSI */}
+            {/* 05 · TRANSACTION PROOF */}
             <Reveal mask delay={0.06}>
-              <Station label="05 · Bukti Transaksi">
+              <Station label={d.status.proof.label}>
                 {txHash ? (
                   <>
                     <p className="max-w-[52ch] os-serial font-mono text-mist">
@@ -793,7 +800,7 @@ export function OrderStatusPage({
                     {/* The receipt states its own network: a proof that does not
                         say which ledger it lives on is not a proof. */}
                     <p className="micro-label mt-3 text-ash">
-                      USDC · Stellar {networkName()}
+                      {d.status.proof.networkLine(networkName())}
                     </p>
                     <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
                       <a
@@ -802,36 +809,34 @@ export function OrderStatusPage({
                         rel="noreferrer"
                         className={explorerCls}
                       >
-                        Lihat di Explorer
+                        {d.status.proof.viewExplorer}
                       </a>
-                      <ReceiptActions txHash={txHash} />
+                      <ReceiptActions txHash={txHash} d={d} />
                     </div>
                   </>
                 ) : (
-                  <p className="text-sm text-mist/70">
-                    Bukti transaksi akan muncul setelah pembayaran dikonfirmasi.
-                  </p>
+                  <p className="text-sm text-mist/70">{d.status.proof.pending}</p>
                 )}
               </Station>
             </Reveal>
 
-            {/* 06 · BUKTI PENYELESAIAN — completion proof, shown ONLY once the
-                backend has recorded the buyer-confirmed release. Buyer-safe: no
-                internal IDs, no operator wallet, no contract detail. */}
+            {/* 06 · COMPLETION PROOF — shown ONLY once the backend has recorded
+                the buyer-confirmed release. Buyer-safe: no internal IDs, no
+                operator wallet, no contract detail. */}
             {released && (
               <Reveal mask delay={0.12}>
-                <Station label="06 · Bukti Penyelesaian">
+                <Station label={d.status.completion.label}>
                   <p className="max-w-[52ch] os-body text-mist/80">
-                    Dana telah diteruskan ke wallet seller.
+                    {d.status.completion.body}
                   </p>
                   {completedAt && (
                     <p className="micro-label mt-3 text-ash">
-                      Diselesaikan {new Date(completedAt).toLocaleString("id-ID")}
+                      {d.status.completion.completedAtPrefix} {new Date(completedAt).toLocaleString("id-ID")}
                     </p>
                   )}
                   {releaseTxHash && (
                     <div className="mt-6">
-                      <div className="micro-label text-ash">Transaksi Penerusan Dana</div>
+                      <div className="micro-label text-ash">{d.status.completion.releaseTxLabel}</div>
                       <p className="mt-2 max-w-[52ch] os-serial font-mono text-mist">
                         {releaseTxHash}
                       </p>
@@ -841,7 +846,7 @@ export function OrderStatusPage({
                         rel="noreferrer"
                         className={`${explorerCls} mt-4`}
                       >
-                        Lihat di Explorer
+                        {d.status.completion.viewExplorer}
                       </a>
                     </div>
                   )}
@@ -857,7 +862,7 @@ export function OrderStatusPage({
                     href={`/checkout/${order.link.slug}`}
                     className="mat-illuminated os-press inline-block px-6 py-3 text-sm font-semibold tracking-tight text-void hover:text-bone"
                   >
-                    Lanjutkan Pembayaran
+                    {d.status.continuePayment}
                   </Link>
                 </div>
               </Reveal>
