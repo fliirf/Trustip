@@ -27,6 +27,32 @@ export interface RailStep {
   state: RailStepState;
 }
 
+/** Labels for each rail step, keyed the same as the `key` values below.
+ * Defaults to Indonesian so existing callers (seller dashboard, not yet
+ * converted) keep working unchanged; the buyer status page passes its own
+ * locale-resolved labels. */
+export interface RailLabels {
+  created: string;
+  paid: string;
+  protectedStep: string;
+  processing: string;
+  packed: string;
+  shipped: string;
+  received: string;
+  completed: string;
+}
+
+export const RAIL_LABELS_ID: RailLabels = {
+  created: "Pesanan Dibuat",
+  paid: "Pembayaran",
+  protectedStep: "Dana Dilindungi",
+  processing: "Diproses Seller",
+  packed: "Dikemas",
+  shipped: "Dikirim",
+  received: "Diterima",
+  completed: "Selesai",
+};
+
 const PROCESSING_DONE = [
   "processing",
   "packed",
@@ -110,6 +136,7 @@ export function awaitingShipment(order: LifecycleOrder): boolean {
 export function lifecycleRail(
   order: LifecycleOrder,
   withPacked = false,
+  labels: RailLabels = RAIL_LABELS_ID,
 ): RailStep[] {
   const paid =
     order.payment?.status === "confirmed" ||
@@ -140,22 +167,22 @@ export function lifecycleRail(
   });
 
   const rail: RailStep[] = [
-    { key: "created", label: "Pesanan Dibuat", state: "done" },
-    step("paid", "Pembayaran", paid, true),
-    step("protected", "Dana Dilindungi", protectedNow, paid),
-    step("processing", "Diproses Seller", processing, protectedNow),
+    { key: "created", label: labels.created, state: "done" },
+    step("paid", labels.paid, paid, true),
+    step("protected", labels.protectedStep, protectedNow, paid),
+    step("processing", labels.processing, processing, protectedNow),
   ];
 
-  if (withPacked) rail.push(step("packed", "Dikemas", packed, processing));
+  if (withPacked) rail.push(step("packed", labels.packed, packed, processing));
 
-  rail.push(step("shipped", "Dikirim", shipped, withPacked ? packed : processing));
+  rail.push(step("shipped", labels.shipped, shipped, withPacked ? packed : processing));
 
   // Only extend to the completion steps once the backend confirms delivery/
   // release. Non-completed orders keep the exact rail they had before.
   if (delivered) {
     rail.push(
-      step("received", "Diterima", delivered, shipped),
-      step("completed", "Selesai", released, delivered),
+      step("received", labels.received, delivered, shipped),
+      step("completed", labels.completed, released, delivered),
     );
   }
 
