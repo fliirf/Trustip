@@ -781,7 +781,9 @@ export interface CreateCheckoutOrderInput {
   quantity: number;
   buyerEmail: string;
   buyerName: string;
-  shippingAddress: {
+  /** Required when the link `requiresShipping` (enforced below); omitted for
+   * a no-shipping (digital goods) link. */
+  shippingAddress?: {
     name: string;
     phone: string;
     addressLine1: string;
@@ -866,6 +868,12 @@ export async function createOrderFromCheckout(
   if (link.expiresAt !== null && Date.parse(link.expiresAt) <= Date.now()) {
     throw new PaymentError("CheckoutNotAvailable", "checkout link has expired");
   }
+  if (link.requiresShipping && !input.shippingAddress) {
+    throw new PaymentError(
+      "InvalidInput",
+      "shippingAddress is required for this checkout link",
+    );
+  }
 
   // Resolve the seller's payout wallet up front (server network, verified,
   // primary — fail closed). An order without seller_wallet_id can never pass
@@ -896,6 +904,7 @@ export async function createOrderFromCheckout(
       checkoutLinkId: link.id,
       sellerProfileId: link.sellerProfileId,
       sellerWalletId,
+      requiresShipping: link.requiresShipping,
       totalUsdc,
       totalIdrReference,
       item: {
@@ -906,7 +915,9 @@ export async function createOrderFromCheckout(
         metadata: {
           buyerEmail: input.buyerEmail,
           buyerName: input.buyerName,
-          shippingAddress: input.shippingAddress,
+          ...(input.shippingAddress
+            ? { shippingAddress: input.shippingAddress }
+            : {}),
         },
       },
     });

@@ -273,6 +273,7 @@ export type Database = {
           id: string
           price_idr_reference: number | null
           price_usdc: number
+          requires_shipping: boolean
           seller_profile_id: string
           slug: string
           status: Database["public"]["Enums"]["checkout_link_status"]
@@ -286,6 +287,7 @@ export type Database = {
           id?: string
           price_idr_reference?: number | null
           price_usdc: number
+          requires_shipping?: boolean
           seller_profile_id: string
           slug: string
           status?: Database["public"]["Enums"]["checkout_link_status"]
@@ -299,6 +301,7 @@ export type Database = {
           id?: string
           price_idr_reference?: number | null
           price_usdc?: number
+          requires_shipping?: boolean
           seller_profile_id?: string
           slug?: string
           status?: Database["public"]["Enums"]["checkout_link_status"]
@@ -644,6 +647,7 @@ export type Database = {
           id: string
           order_no: string
           paid_at: string | null
+          requires_shipping: boolean
           selected_payout_method_id: string | null
           seller_profile_id: string
           seller_wallet_id: string | null
@@ -661,6 +665,7 @@ export type Database = {
           id?: string
           order_no: string
           paid_at?: string | null
+          requires_shipping?: boolean
           selected_payout_method_id?: string | null
           seller_profile_id: string
           seller_wallet_id?: string | null
@@ -678,6 +683,7 @@ export type Database = {
           id?: string
           order_no?: string
           paid_at?: string | null
+          requires_shipping?: boolean
           selected_payout_method_id?: string | null
           seller_profile_id?: string
           seller_wallet_id?: string | null

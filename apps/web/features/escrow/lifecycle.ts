@@ -17,6 +17,9 @@ export interface LifecycleOrder {
   payment: { status: string } | null;
   escrow: { status: string } | null;
   shipment: { status: string } | null;
+  /** False for a no-shipping (digital goods) order — the rail skips the
+   * processing/packed/shipped steps entirely. */
+  requiresShipping: boolean;
 }
 
 export type RailStepState = "done" | "current" | "locked";
@@ -116,10 +119,6 @@ export function lifecycleRail(
     POST_PROTECTION.includes(order.status);
   const protectedNow =
     isProtected(order) || POST_PROTECTION.includes(order.status);
-  const progress = shipmentProgress(order);
-  const processing = progress >= 1;
-  const packed = progress >= 2;
-  const shipped = progress >= 3;
   const released = isReleased(order);
   // Backend truth: the buyer-confirmed release (or an explicit delivered
   // state) is the only signal that the order was received.
@@ -138,6 +137,29 @@ export function lifecycleRail(
     label,
     state: done ? "done" : prevDone ? "current" : "locked",
   });
+
+  // Digital goods: no processing/packed/shipped concept at all — the seller's
+  // one-click "delivered" is the only fulfillment step, so the rail goes
+  // straight from "protected" to the completion steps.
+  if (!order.requiresShipping) {
+    const rail: RailStep[] = [
+      { key: "created", label: "Pesanan Dibuat", state: "done" },
+      step("paid", "Pembayaran", paid, true),
+      step("protected", "Dana Dilindungi", protectedNow, paid),
+    ];
+    if (delivered) {
+      rail.push(
+        step("received", "Diterima", delivered, protectedNow),
+        step("completed", "Selesai", released, delivered),
+      );
+    }
+    return rail;
+  }
+
+  const progress = shipmentProgress(order);
+  const processing = progress >= 1;
+  const packed = progress >= 2;
+  const shipped = progress >= 3;
 
   const rail: RailStep[] = [
     { key: "created", label: "Pesanan Dibuat", state: "done" },

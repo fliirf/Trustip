@@ -46,6 +46,7 @@ function makeFixture(init: {
   orderStatus: string;
   escrowStatus?: string | null;
   applied?: boolean;
+  requiresShipping?: boolean;
 }) {
   const profileByUser = new Map<string, SellerProfileRecord>([
     [
@@ -75,6 +76,7 @@ function makeFixture(init: {
     status: init.orderStatus,
     escrowStatus:
       init.escrowStatus === undefined ? "funded" : init.escrowStatus,
+    requiresShipping: init.requiresShipping ?? true,
   };
   const writes: Array<Record<string, unknown>> = [];
 
@@ -306,9 +308,11 @@ describe("updateSellerShipment — guards", () => {
 
 describe("updateSellerShipment — payment/escrow state is out of reach", () => {
   it("the transition map only targets seller shipment states", () => {
-    // Arbitrary/elevated statuses are impossible by type + by this map:
-    // there is no path to paid/funded/released/completed/delivered.
+    // Arbitrary/elevated statuses are impossible by type + by this map: there
+    // is no path to paid/funded/released/completed. `delivered` is a direct
+    // target too, but ONLY reachable for a no-shipping order (guarded below).
     expect(Object.keys(SHIPMENT_TRANSITION_FROM).sort()).toEqual([
+      "delivered",
       "packed",
       "processing",
       "shipped",
@@ -333,5 +337,55 @@ describe("updateSellerShipment — payment/escrow state is out of reach", () => 
       "toStatus",
       "trackingNumber",
     ]);
+  });
+});
+
+describe("updateSellerShipment — no-shipping (digital goods) orders", () => {
+  it("owner moves escrow_locked → delivered directly, no courier/tracking needed", async () => {
+    const { deps, writes } = makeFixture({
+      orderStatus: "escrow_locked",
+      requiresShipping: false,
+    });
+    const result = await updateSellerShipment(deps, owner, {
+      orderNo: ORDER_NO,
+      status: "delivered",
+    });
+    expect(result.orderStatus).toBe("delivered");
+    expect(result.shipment.status).toBe("delivered");
+    expect(result.shipment.shippedAt).toBeNull();
+    expect(writes[0]).toMatchObject({
+      fromStatus: "escrow_locked",
+      toStatus: "delivered",
+    });
+  });
+
+  it("rejects delivered for an order that requires shipping", async () => {
+    const { deps, writes } = makeFixture({
+      orderStatus: "escrow_locked",
+      requiresShipping: true,
+    });
+    await rejectsWith(
+      () =>
+        updateSellerShipment(deps, owner, {
+          orderNo: ORDER_NO,
+          status: "delivered",
+        }),
+      "Conflict",
+    );
+    expect(writes).toHaveLength(0);
+  });
+
+  it("rejects processing/packed/shipped for a no-shipping order", async () => {
+    for (const status of ["processing", "packed", "shipped"] as const) {
+      const { deps, writes } = makeFixture({
+        orderStatus: "escrow_locked",
+        requiresShipping: false,
+      });
+      await rejectsWith(
+        () => updateSellerShipment(deps, owner, { orderNo: ORDER_NO, status }),
+        "Conflict",
+      );
+      expect(writes).toHaveLength(0);
+    }
   });
 });

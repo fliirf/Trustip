@@ -104,7 +104,8 @@ export interface OrderFormFields {
   quantity: number;
   buyerEmail: string;
   buyerName: string;
-  shippingAddress: {
+  /** Omitted for a no-shipping (digital goods) checkout link. */
+  shippingAddress?: {
     name: string;
     phone: string;
     addressLine1: string;

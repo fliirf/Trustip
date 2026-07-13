@@ -162,6 +162,7 @@ export interface SellerCheckoutLink {
   priceUsdc: string;
   status: string;
   createdAt: string;
+  requiresShipping: boolean;
 }
 
 export function listCheckoutLinks(
@@ -210,6 +211,7 @@ export interface SellerOrder {
     releaseTxHash: string | null;
   } | null;
   shipment: SellerShipment | null;
+  requiresShipping: boolean;
 }
 
 export function listSellerOrders(
@@ -225,7 +227,7 @@ export function updateShipment(
   token: string,
   orderNo: string,
   input: {
-    status: "processing" | "packed" | "shipped";
+    status: "processing" | "packed" | "shipped" | "delivered";
     courier?: string;
     trackingNumber?: string;
     note?: string;
@@ -245,7 +247,12 @@ export function updateShipment(
 
 export function createCheckoutLink(
   token: string,
-  input: { title: string; description?: string; priceUsdc: string },
+  input: {
+    title: string;
+    description?: string;
+    priceUsdc: string;
+    requiresShipping?: boolean;
+  },
 ): Promise<SellerCheckoutLink> {
   return request<SellerCheckoutLink>("/api/seller/checkout-links", token, {
     method: "POST",

@@ -5,14 +5,18 @@ export const createOrderSchema = z.object({
   buyerEmail: z.string().email(),
   buyerName: z.string().min(1),
   quantity: z.number().int().positive(),
-  shippingAddress: z.object({
-    name: z.string().min(1),
-    phone: z.string().min(5),
-    addressLine1: z.string().min(1),
-    city: z.string().min(1),
-    postalCode: z.string().min(3),
-    country: z.string().length(2),
-  }),
+  /** Omitted for a no-shipping (digital goods) checkout link; the service
+   * enforces presence when the link actually requires shipping. */
+  shippingAddress: z
+    .object({
+      name: z.string().min(1),
+      phone: z.string().min(5),
+      addressLine1: z.string().min(1),
+      city: z.string().min(1),
+      postalCode: z.string().min(3),
+      country: z.string().length(2),
+    })
+    .optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
@@ -241,17 +245,24 @@ export const createSellerCheckoutLinkSchema = z.object({
     .toLowerCase()
     .regex(/^[a-z0-9-]{3,60}$/, "slug may use a-z, 0-9 and dashes (3-60)")
     .optional(),
+  /** False for digital goods with no physical delivery (game top-ups, etc.) —
+   * skips the processing/packed/shipped lifecycle entirely. Defaults true. */
+  requiresShipping: z.boolean().optional(),
 });
 export type CreateSellerCheckoutLinkInput = z.infer<
   typeof createSellerCheckoutLinkSchema
 >;
 
-/** Seller shipment lifecycle statuses (Phase 8A). Strictly the seller-settable
- * forward states — delivered/completed/release are later guarded phases. */
+/** Seller shipment lifecycle statuses (Phase 8A + no-shipping use case).
+ * `processing`/`packed`/`shipped` are the physical-goods forward states.
+ * `delivered` is a direct seller-settable target ONLY for a no-shipping
+ * (digital goods) order — enforced server-side, not by this schema.
+ * `completed`/`release` are never seller-settable (buyer-confirmed only). */
 export const SHIPMENT_UPDATE_STATUSES = [
   "processing",
   "packed",
   "shipped",
+  "delivered",
 ] as const;
 export type ShipmentUpdateStatus = (typeof SHIPMENT_UPDATE_STATUSES)[number];
 

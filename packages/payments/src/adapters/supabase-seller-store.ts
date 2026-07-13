@@ -71,7 +71,7 @@ function toShipmentSummary(
 }
 
 const LINK_COLUMNS =
-  "id, seller_profile_id, slug, title, description, price_usdc, status, created_at";
+  "id, seller_profile_id, slug, title, description, price_usdc, status, created_at, requires_shipping";
 
 type LinkRow = {
   id: string;
@@ -82,6 +82,7 @@ type LinkRow = {
   price_usdc: number;
   status: string;
   created_at: string;
+  requires_shipping: boolean;
 };
 
 function toLinkRecord(row: LinkRow): SellerCheckoutLinkRecord {
@@ -94,6 +95,7 @@ function toLinkRecord(row: LinkRow): SellerCheckoutLinkRecord {
     priceUsdc: usdcAmountToString(row.price_usdc),
     status: row.status,
     createdAt: row.created_at,
+    requiresShipping: row.requires_shipping,
   };
 }
 
@@ -270,6 +272,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           // Canonical decimal string into numeric — never Number() float math.
           price_usdc: usdcAmountToString(input.priceUsdc) as unknown as number,
           status: "active",
+          requires_shipping: input.requiresShipping,
         })
         .select(LINK_COLUMNS)
         .single();
@@ -287,7 +290,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
       const { data, error } = await client
         .from("orders")
         .select(
-          `id, order_no, status, total_usdc, created_at, completed_at,
+          `id, order_no, status, total_usdc, created_at, completed_at, requires_shipping,
            checkout_links ( title, slug ),
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
@@ -307,6 +310,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         total_usdc: number;
         created_at: string;
         completed_at: string | null;
+        requires_shipping: boolean;
         checkout_links: { title: string; slug: string } | null;
         order_items: Array<{ quantity: number; metadata: unknown }> | null;
         payments: { status: string; tx_hash: string | null } | null;
@@ -329,6 +333,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           quantity: item?.quantity ?? null,
           createdAt: row.created_at,
           completedAt: row.completed_at,
+          requiresShipping: row.requires_shipping,
           link: row.checkout_links
             ? { title: row.checkout_links.title, slug: row.checkout_links.slug }
             : null,
@@ -365,7 +370,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         await client
           .from("orders")
           .select(
-            `order_no, status, total_usdc, created_at, completed_at, checkout_link_id,
+            `order_no, status, total_usdc, created_at, completed_at, checkout_link_id, requires_shipping,
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
            escrows ( status, funded_tx_hash, release_tx_hash ),
@@ -383,6 +388,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         total_usdc: number;
         created_at: string;
         completed_at: string | null;
+        requires_shipping: boolean;
         order_items: Array<{ quantity: number; metadata: unknown }> | null;
         payments: { status: string; tx_hash: string | null } | null;
         escrows: {
@@ -404,6 +410,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         quantity: item?.quantity ?? null,
         createdAt: row.created_at,
         completedAt: row.completed_at,
+        requiresShipping: row.requires_shipping,
         link: {
           title: link.title,
           description: link.description,
@@ -432,7 +439,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
       const data = unwrap(
         await client
           .from("orders")
-          .select(`id, order_no, status, escrows ( status )`)
+          .select(`id, order_no, status, requires_shipping, escrows ( status )`)
           .eq("order_no", orderNo)
           .eq("seller_profile_id", sellerProfileId)
           .maybeSingle(),
@@ -442,6 +449,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         id: string;
         order_no: string;
         status: string;
+        requires_shipping: boolean;
         escrows: { status: string } | null;
       };
       return {
@@ -449,6 +457,7 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
         orderNo: row.order_no,
         status: row.status,
         escrowStatus: row.escrows?.status ?? null,
+        requiresShipping: row.requires_shipping,
       };
     },
 

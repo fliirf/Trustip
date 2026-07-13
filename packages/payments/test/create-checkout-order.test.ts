@@ -55,6 +55,7 @@ function makeStore(init: FakeInit = {}) {
           priceIdrReference: "150000.00",
           status: "active",
           expiresAt: null,
+          requiresShipping: true,
           ...init.link,
         };
   const inserts: InsertInput[] = [];

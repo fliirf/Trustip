@@ -68,13 +68,19 @@ export function statusLabel(
 }
 
 /** Eligible to show the "Saya Sudah Terima Pesanan" CTA. Mirrors the backend
- * release preconditions exactly so the button never appears when a confirm
- * would be rejected: shipped, shipment shipped, escrow funded, payment
- * confirmed, and not already released. */
+ * release preconditions in `confirmOrderReceivedAndRelease` exactly, so the
+ * button never appears when a confirm would be rejected: order shipped OR
+ * delivered (the latter covers both a no-shipping digital order and a
+ * physical-order retry after a partial release failure) — shipment must
+ * itself be "shipped" ONLY when order.status is "shipped" — escrow funded,
+ * payment confirmed, and not already released. */
 export function canConfirmReceived(order: PublicOrderStatus): boolean {
+  const eligibleStatus = order.status === "shipped" || order.status === "delivered";
+  const shipmentOk =
+    order.status !== "shipped" || order.shipment?.status === "shipped";
   return (
-    order.status === "shipped" &&
-    order.shipment?.status === "shipped" &&
+    eligibleStatus &&
+    shipmentOk &&
     order.escrow?.status === "funded" &&
     order.payment?.status === "confirmed" &&
     !isReleased(order)

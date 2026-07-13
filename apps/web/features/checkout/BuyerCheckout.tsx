@@ -127,14 +127,18 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
       quantity,
       buyerEmail: get("buyerEmail"),
       buyerName: get("buyerName"),
-      shippingAddress: {
-        name: get("buyerName"),
-        phone: get("phone"),
-        addressLine1: get("addressLine1"),
-        city: get("city"),
-        postalCode: get("postalCode"),
-        country: get("country") || "ID",
-      },
+      ...(link.requiresShipping
+        ? {
+            shippingAddress: {
+              name: get("buyerName"),
+              phone: get("phone"),
+              addressLine1: get("addressLine1"),
+              city: get("city"),
+              postalCode: get("postalCode"),
+              country: get("country") || "ID",
+            },
+          }
+        : {}),
     });
   };
 
@@ -185,34 +189,43 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
               <span className={labelCls}>Email</span>
               <input name="buyerEmail" type="email" className={inputCls} required />
             </label>
-            <label className="block space-y-2">
-              <span className={labelCls}>No. HP</span>
-              <input name="phone" className={inputCls} required minLength={5} />
-            </label>
-            <label className="block space-y-2">
-              <span className={labelCls}>Alamat</span>
-              <input name="addressLine1" className={inputCls} required />
-            </label>
-            <div className="grid grid-cols-2 gap-4">
-              <label className="block space-y-2">
-                <span className={labelCls}>Kota</span>
-                <input name="city" className={inputCls} required />
-              </label>
-              <label className="block space-y-2">
-                <span className={labelCls}>Kode pos</span>
-                <input name="postalCode" className={inputCls} required minLength={3} />
-              </label>
-            </div>
-            <label className="block space-y-2">
-              <span className={labelCls}>Negara (kode 2 huruf)</span>
-              <input
-                name="country"
-                defaultValue="ID"
-                maxLength={2}
-                className={inputCls}
-                required
-              />
-            </label>
+            {link.requiresShipping && (
+              <>
+                <label className="block space-y-2">
+                  <span className={labelCls}>No. HP</span>
+                  <input name="phone" className={inputCls} required minLength={5} />
+                </label>
+                <label className="block space-y-2">
+                  <span className={labelCls}>Alamat</span>
+                  <input name="addressLine1" className={inputCls} required />
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="block space-y-2">
+                    <span className={labelCls}>Kota</span>
+                    <input name="city" className={inputCls} required />
+                  </label>
+                  <label className="block space-y-2">
+                    <span className={labelCls}>Kode pos</span>
+                    <input
+                      name="postalCode"
+                      className={inputCls}
+                      required
+                      minLength={3}
+                    />
+                  </label>
+                </div>
+                <label className="block space-y-2">
+                  <span className={labelCls}>Negara (kode 2 huruf)</span>
+                  <input
+                    name="country"
+                    defaultValue="ID"
+                    maxLength={2}
+                    className={inputCls}
+                    required
+                  />
+                </label>
+              </>
+            )}
 
             {flow.error && (
               <ErrorState

@@ -251,7 +251,7 @@ export function createSupabasePaymentStore(
         await client
           .from("checkout_links")
           .select(
-            "id, seller_profile_id, title, price_usdc, price_idr_reference, status, expires_at",
+            "id, seller_profile_id, title, price_usdc, price_idr_reference, status, expires_at, requires_shipping",
           )
           .eq("slug", slug)
           .maybeSingle(),
@@ -269,6 +269,7 @@ export function createSupabasePaymentStore(
             : link.price_idr_reference.toFixed(2),
         status: link.status,
         expiresAt: link.expires_at,
+        requiresShipping: link.requires_shipping,
       };
     },
 
@@ -299,6 +300,7 @@ export function createSupabasePaymentStore(
         checkout_link_id: input.checkoutLinkId,
         seller_profile_id: input.sellerProfileId,
         seller_wallet_id: input.sellerWalletId,
+        requires_shipping: input.requiresShipping,
         status: "awaiting_payment",
         total_usdc: moneyValue(input.totalUsdc),
         total_idr_reference:

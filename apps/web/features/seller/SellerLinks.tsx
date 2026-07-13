@@ -64,7 +64,12 @@ function ManifestRow({ link }: { link: SellerCheckoutLink }) {
             {active ? "Aktif" : link.status}
           </span>
         </div>
-        <div className="mt-1.5 font-mono text-[11px] text-ash">/checkout/{link.slug}</div>
+        <div className="mt-1.5 flex items-center gap-2 font-mono text-[11px] text-ash">
+          <span>/checkout/{link.slug}</span>
+          {!link.requiresShipping && (
+            <span className="micro-label text-blood">Digital · Tanpa Resi</span>
+          )}
+        </div>
         {link.description && (
           <p className="os-note mt-2 max-w-[52ch] text-mist/70">{link.description}</p>
         )}
@@ -131,12 +136,14 @@ export function SellerLinks() {
     const title = String(f.get("title") ?? "").trim();
     const description = String(f.get("description") ?? "").trim();
     const priceUsdc = String(f.get("priceUsdc") ?? "").trim();
+    const requiresShipping = f.get("requiresShipping") === "on";
     if (!token) return;
     setBusy(true);
     setError(null);
     createCheckoutLink(token, {
       title,
       priceUsdc,
+      requiresShipping,
       ...(description ? { description } : {}),
     })
       .then(async () => {
@@ -252,6 +259,21 @@ export function SellerLinks() {
                 required
               />
             </label>
+            <label className="flex items-center gap-2.5">
+              <input
+                type="checkbox"
+                name="requiresShipping"
+                defaultChecked
+                className="size-4 accent-blood"
+              />
+              <span className="micro-label text-ash">
+                Produk fisik (perlu resi pengiriman)
+              </span>
+            </label>
+            <p className="os-note -mt-2 text-mist/60">
+              Uncheck untuk produk digital (top-up game, voucher, dll) —
+              tanpa resi, seller cukup tandai terkirim.
+            </p>
             {error && <ErrorState surface="seller" detail={error} />}
             <button
               type="submit"

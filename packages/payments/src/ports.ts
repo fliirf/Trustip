@@ -86,6 +86,9 @@ export interface CheckoutLinkForOrder {
   priceIdrReference: string | null;
   status: CheckoutLinkStatus;
   expiresAt: string | null;
+  /** False for digital goods with no physical delivery — the order skips the
+   * shipment lifecycle and shippingAddress is not required at order-create. */
+  requiresShipping: boolean;
 }
 
 /**
@@ -133,6 +136,9 @@ export interface PaymentStore {
     /** Seller payout wallet resolved via `resolveSellerWalletId` — the escrow
      * step reads `orders.seller_wallet_id` to derive the on-chain seller. */
     sellerWalletId: string;
+    /** Copied from the checkout link at creation time so a later link edit
+     * never changes an in-flight order's shipment rules. */
+    requiresShipping: boolean;
     totalUsdc: string;
     totalIdrReference: string | null;
     item: {

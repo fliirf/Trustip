@@ -79,13 +79,15 @@ export function ShipmentControls({
   const [error, setError] = useState<ShipmentError | null>(null);
   const [courier, setCourier] = useState("");
   const [tracking, setTracking] = useState("");
+  const [note, setNote] = useState("");
 
   const funded = order.escrow?.status === "funded";
 
   async function transition(input: {
-    status: "processing" | "packed" | "shipped";
+    status: "processing" | "packed" | "shipped" | "delivered";
     courier?: string;
     trackingNumber?: string;
+    note?: string;
   }) {
     setBusy(true);
     setError(null);
@@ -110,6 +112,68 @@ export function ShipmentControls({
 
   // Any state without a funded escrow gets no mutation surface.
   if (!funded) return null;
+
+  // Digital goods (no resi): one-click delivery, no processing/packed/shipped
+  // steps and no courier/tracking form.
+  if (!order.requiresShipping) {
+    const delivered = order.status === "delivered" || order.status === "completed";
+    return (
+      <div className="engraved-t mt-8 pt-6">
+        <div className="micro-label text-mist">Pengiriman Digital</div>
+
+        {error && (
+          <div className="mt-4 max-w-md">
+            <ErrorState
+              surface="seller"
+              detail={error.message}
+              hint={shipmentHint(error.code)}
+              action={
+                error.code === "Conflict" || error.code === "OrderNotFound"
+                  ? { label: "Muat Ulang", onClick: () => void onUpdated() }
+                  : error.code === "Forbidden"
+                    ? { label: "Masuk Lagi", href: "/seller/login" }
+                    : undefined
+              }
+            />
+          </div>
+        )}
+
+        {!delivered && order.status === "escrow_locked" && (
+          <form
+            className="mt-4 max-w-sm space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void transition({
+                status: "delivered",
+                ...(note.trim() ? { note: note.trim() } : {}),
+              });
+            }}
+          >
+            <label className="block">
+              <span className="micro-label text-ash">Catatan (opsional)</span>
+              <input
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Kode voucher / referensi pengiriman"
+                maxLength={500}
+                className={`mt-1 ${inputCls}`}
+              />
+            </label>
+            <button type="submit" disabled={busy} className={actionCls}>
+              {busy ? "Memperbarui status…" : "Tandai Terkirim"}
+            </button>
+          </form>
+        )}
+
+        {delivered && (
+          <p className="desk-stamp micro-label mt-5 inline-block px-3 py-2 text-ash">
+            Pesanan sudah ditandai terkirim. Menunggu konfirmasi penerimaan
+            pembeli.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const next =
     order.status === "escrow_locked"

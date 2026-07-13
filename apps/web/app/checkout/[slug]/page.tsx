@@ -53,7 +53,9 @@ export default async function CheckoutPage({
 
   const { data: link } = await supabase
     .from("checkout_links")
-    .select("slug, title, description, price_usdc, status, expires_at")
+    .select(
+      "slug, title, description, price_usdc, status, expires_at, requires_shipping",
+    )
     .eq("slug", slug)
     .maybeSingle();
 
@@ -89,6 +91,7 @@ export default async function CheckoutPage({
             title: link.title,
             description: link.description,
             priceUsdc: formatUsdc(link.price_usdc),
+            requiresShipping: link.requires_shipping,
           }}
         />
       </main>

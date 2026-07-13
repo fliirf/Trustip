@@ -62,6 +62,9 @@ export interface PublicOrderStatus {
     trackingNumber: string | null;
     shippedAt: string | null;
   } | null;
+  /** False for a no-shipping (digital goods) order — the rail/UI skip the
+   * processing/packed/shipped lifecycle entirely. */
+  requiresShipping: boolean;
 }
 
 /** Server-signed challenge the buyer's funding wallet must sign to confirm

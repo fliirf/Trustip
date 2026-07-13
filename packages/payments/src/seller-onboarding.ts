@@ -56,6 +56,9 @@ export interface ShipmentOrderContext {
   orderNo: string;
   status: string;
   escrowStatus: string | null;
+  /** False for a no-shipping (digital goods) order — the only legal seller
+   * transition is a direct escrow_locked -> delivered. */
+  requiresShipping: boolean;
 }
 
 /** Read-only shipment view (Phase 8A). Safe fulfillment metadata only. */
@@ -88,6 +91,9 @@ export interface PublicOrderStatusRecord {
   } | null;
   /** Real shipment progress only — null until the seller records it. */
   shipment: ShipmentSummary | null;
+  /** False for a no-shipping (digital goods) order — the buyer/seller UI
+   * skips the processing/packed/shipped lifecycle entirely. */
+  requiresShipping: boolean;
 }
 
 export interface SellerOrderRecord {
@@ -110,6 +116,7 @@ export interface SellerOrderRecord {
     releaseTxHash: string | null;
   } | null;
   shipment: ShipmentSummary | null;
+  requiresShipping: boolean;
 }
 
 /** Extract the fulfillment contact from order_items.metadata, tolerating any
@@ -147,6 +154,7 @@ export interface SellerCheckoutLinkRecord {
   priceUsdc: string;
   status: string;
   createdAt: string;
+  requiresShipping: boolean;
 }
 
 export interface SellerWalletRecord {
@@ -217,6 +225,7 @@ export interface SellerStore {
     title: string;
     description: string | null;
     priceUsdc: string;
+    requiresShipping: boolean;
   }): Promise<SellerCheckoutLinkRecord | null>;
 
   /** READ-ONLY: orders belonging to a seller profile, newest first, with safe
@@ -674,6 +683,8 @@ export interface CreateSellerCheckoutLinkInput {
   priceUsdc: string;
   /** Optional custom slug (strictly validated); omitted = server-generated. */
   slug?: string;
+  /** False for digital goods with no physical delivery. Defaults true. */
+  requiresShipping?: boolean;
 }
 
 export async function createSellerCheckoutLink(
@@ -704,6 +715,7 @@ export async function createSellerCheckoutLink(
       title: input.title,
       description: input.description ?? null,
       priceUsdc,
+      requiresShipping: input.requiresShipping ?? true,
     });
     if (created) return created;
   }
@@ -720,7 +732,8 @@ export async function createSellerCheckoutLink(
 /** Strict single-step forward transitions. Keys are the REQUIRED current
  * orders.status for each seller-settable target. Everything else — backward
  * moves, skips, terminal/refund states, pre-funding states — is rejected.
- * delivered/completed/release are NOT here by design (later guarded phases). */
+ * `delivered` is a direct target ONLY for a no-shipping order (guarded below,
+ * not by this map) — `completed`/release stay backend-only (buyer-confirmed). */
 export const SHIPMENT_TRANSITION_FROM: Record<
   ShipmentUpdateStatus,
   ShipmentTransitionFrom
@@ -728,6 +741,7 @@ export const SHIPMENT_TRANSITION_FROM: Record<
   processing: "escrow_locked",
   packed: "processing",
   shipped: "packed",
+  delivered: "escrow_locked",
 };
 
 export interface UpdateSellerShipmentInput {
@@ -783,6 +797,21 @@ export async function updateSellerShipment(
     throw new PaymentError(
       "Conflict",
       `cannot move order from '${order.status}' to '${input.status}'`,
+    );
+  }
+  // `delivered` is the ONLY legal target for a no-shipping order, and is
+  // illegal for one that requires shipping (that path goes through
+  // shipped, then the buyer-confirmed release records delivery itself).
+  if (input.status === "delivered" && order.requiresShipping) {
+    throw new PaymentError(
+      "Conflict",
+      "this order requires shipping; use processing/packed/shipped instead",
+    );
+  }
+  if (input.status !== "delivered" && !order.requiresShipping) {
+    throw new PaymentError(
+      "Conflict",
+      "this order does not require shipping; mark it delivered directly",
     );
   }
 

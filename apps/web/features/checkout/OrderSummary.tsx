@@ -12,6 +12,7 @@ export interface CheckoutLinkView {
   title: string;
   description: string | null;
   priceUsdc: string;
+  requiresShipping: boolean;
 }
 
 /** One engraved row. No borders: a milled rule under each fact. */

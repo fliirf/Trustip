@@ -253,6 +253,27 @@ function ShipmentSection({
   order: PublicOrderStatus;
   locked: boolean;
 }) {
+  if (!order.requiresShipping) {
+    const delivered = order.status === "delivered" || order.status === "completed";
+    return (
+      <>
+        <Reading
+          value={delivered ? "Pesanan Terkirim" : "Pesanan Sedang Diproses"}
+          note={
+            delivered
+              ? "Penjual sudah menandai pesanan digital ini terkirim."
+              : "Produk digital ini tidak memakai resi pengiriman fisik."
+          }
+        />
+        {locked && (
+          <p className="micro-label mt-6 text-ash">
+            Dana tetap terkunci sampai fase penyelesaian berikutnya.
+          </p>
+        )}
+      </>
+    );
+  }
+
   const progress = shipmentProgress(order);
 
   if (progress === 0) {
@@ -670,10 +691,15 @@ export function OrderStatusPage({
               </Reveal>
             ) : awaitingShipment(order) ? (
               <Reveal>
-                <Station label="Menunggu Pengiriman">
+                <Station
+                  label={
+                    order.requiresShipping ? "Menunggu Pengiriman" : "Menunggu Penjual"
+                  }
+                >
                   <p className="max-w-[52ch] os-body text-mist/80">
-                    Menunggu seller mengirim pesanan. Setelah barang dikirim dan
-                    kamu terima, kamu bisa mengonfirmasi penerimaan di sini.
+                    {order.requiresShipping
+                      ? "Menunggu seller mengirim pesanan. Setelah barang dikirim dan kamu terima, kamu bisa mengonfirmasi penerimaan di sini."
+                      : "Menunggu penjual memproses pesanan digital kamu. Setelah selesai, kamu bisa mengonfirmasi penerimaan di sini."}
                   </p>
                   {/* Answers "can I leave?" — and both claims are true: the
                       45s auto-refresh above, and the stateless public link. */}
@@ -697,7 +723,7 @@ export function OrderStatusPage({
                       // of the recorded state.
                       released
                       ? "Pembayaran kamu sudah diterima dan terverifikasi."
-                      : shipmentProgress(order) >= 3
+                      : order.requiresShipping && shipmentProgress(order) >= 3
                         ? "Pembayaran kamu sudah diterima dan terverifikasi. Pesanan sedang dalam pengiriman."
                         : "Pembayaran kamu sudah diterima dan terverifikasi. Selanjutnya penjual menyiapkan pesanan kamu."
                     : "Pembayaran belum selesai. Buka kembali halaman checkout untuk melanjutkan."
