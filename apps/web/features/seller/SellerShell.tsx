@@ -11,6 +11,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useDict } from "../i18n/LocaleProvider";
 
 export function SellerShell({
   active,
@@ -23,6 +24,8 @@ export function SellerShell({
   email?: string | null;
   children: ReactNode;
 }) {
+  const d = useDict();
+  const nav = d.seller.nav;
   return (
     <>
       <div className="grain-overlay" aria-hidden />
@@ -40,7 +43,7 @@ export function SellerShell({
             </span>
             <span className="text-lg font-semibold text-blood">.</span>
             <span className="micro-label ml-3 hidden text-ash sm:inline">
-              Seller
+              {nav.badge}
             </span>
           </Link>
           <nav className="flex items-center gap-5">
@@ -50,7 +53,7 @@ export function SellerShell({
                 active === "dashboard" ? "text-bone" : "text-ash"
               }`}
             >
-              Ringkasan
+              {nav.dashboard}
             </Link>
             <Link
               href="/seller/onboarding"
@@ -58,7 +61,7 @@ export function SellerShell({
                 active === "onboarding" ? "text-bone" : "text-ash"
               }`}
             >
-              Persiapan
+              {nav.onboarding}
             </Link>
             <Link
               href="/seller/links"
@@ -66,7 +69,7 @@ export function SellerShell({
                 active === "links" ? "text-bone" : "text-ash"
               }`}
             >
-              Link Checkout
+              {nav.links}
             </Link>
             <Link
               href="/seller/orders"
@@ -74,7 +77,7 @@ export function SellerShell({
                 active === "orders" ? "text-bone" : "text-ash"
               }`}
             >
-              Pesanan
+              {nav.orders}
             </Link>
             {onSignOut && (
               <button
@@ -83,7 +86,7 @@ export function SellerShell({
                 className="desk-stamp os-press micro-label px-3 py-1.5 text-mist hover:text-bone"
                 title={email ?? undefined}
               >
-                Keluar
+                {nav.signOut}
               </button>
             )}
           </nav>

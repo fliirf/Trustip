@@ -5,8 +5,13 @@
 // when the escrow is funded. There is deliberately no delivered/completed/
 // release/refund control here — those are later guarded phases, and every
 // state shown comes from the backend response, never optimistic.
+//
+// No-shipping (digital goods) orders take a separate one-click branch:
+// escrow_locked -> delivered directly, no courier/tracking form.
 
 import { useState } from "react";
+import type { Dict } from "../../lib/i18n/dictionaries";
+import { useDict } from "../i18n/LocaleProvider";
 import { ErrorState } from "../ui/ErrorState";
 import { sellerErrorLabel } from "./labels";
 import { SellerApiError, updateShipment, type SellerOrder } from "./seller-api";
@@ -24,43 +29,37 @@ const inputCls =
 const actionCls =
   "mat-illuminated os-press micro-label px-4 py-2.5 text-void hover:text-bone";
 
-function shipmentError(e: unknown): ShipmentError {
+function shipmentError(d: Dict, e: unknown): ShipmentError {
+  const s = d.seller.shipment;
   if (e instanceof SellerApiError) {
     if (e.code === "Conflict") {
-      return {
-        code: e.code,
-        message:
-          "Status pesanan sudah berubah sejak halaman ini dimuat. Perubahan kamu tidak disimpan.",
-      };
+      return { code: e.code, message: s.conflictDetail };
     }
     if (e.code === "OrderNotFound") {
-      return { code: e.code, message: "Pesanan tidak ditemukan." };
+      return { code: e.code, message: s.orderNotFoundDetail };
     }
     if (e.code === "InvalidInput") {
-      return {
-        code: e.code,
-        message:
-          "Kurir dan nomor resi wajib diisi untuk menandai pesanan dikirim.",
-      };
+      return { code: e.code, message: s.invalidInputDetail };
     }
-    return { code: e.code, message: sellerErrorLabel(e.code, e.message) };
+    return { code: e.code, message: sellerErrorLabel(d, e.code, e.message) };
   }
   return {
     code: "InternalError",
-    message: "Status pesanan gagal diperbarui. Silakan coba lagi.",
+    message: sellerErrorLabel(d, "InternalError", ""),
   };
 }
 
 /** What the seller should do next. The message says what happened. */
-function shipmentHint(code: string): string | undefined {
+function shipmentHint(d: Dict, code: string): string | undefined {
+  const s = d.seller.shipment;
   switch (code) {
     case "Conflict":
-      return "Muat ulang untuk melihat status terbaru, lalu ulangi kalau masih perlu.";
+      return s.reloadHint;
     case "Forbidden":
-      return "Status pesanan dan dana yang dilindungi tidak terpengaruh.";
+      return s.forbiddenHint;
     case "SellerNotReady":
     case "SellerPayoutWalletNotReady":
-      return "Selesaikan persiapan wallet di halaman Onboarding dulu.";
+      return s.sellerNotReadyHint;
     default:
       return undefined;
   }
@@ -75,6 +74,8 @@ export function ShipmentControls({
   token: string;
   onUpdated: () => Promise<void>;
 }) {
+  const d = useDict();
+  const s = d.seller.shipment;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ShipmentError | null>(null);
   const [courier, setCourier] = useState("");
@@ -95,7 +96,7 @@ export function ShipmentControls({
       await updateShipment(token, order.orderNo, input);
       await onUpdated();
     } catch (e) {
-      setError(shipmentError(e));
+      setError(shipmentError(d, e));
     } finally {
       setBusy(false);
     }
@@ -105,7 +106,7 @@ export function ShipmentControls({
   if (order.status === "awaiting_payment") {
     return (
       <p className="desk-stamp micro-label mt-8 inline-block px-3 py-2 text-ash">
-        Menunggu pembayaran pembeli.
+        {s.waitingPayment}
       </p>
     );
   }
@@ -113,27 +114,28 @@ export function ShipmentControls({
   // Any state without a funded escrow gets no mutation surface.
   if (!funded) return null;
 
+  const errorAction = (code: string) =>
+    code === "Conflict" || code === "OrderNotFound"
+      ? { label: s.reload, onClick: () => void onUpdated() }
+      : code === "Forbidden"
+        ? { label: s.signInAgain, href: "/seller/login" }
+        : undefined;
+
   // Digital goods (no resi): one-click delivery, no processing/packed/shipped
   // steps and no courier/tracking form.
   if (!order.requiresShipping) {
     const delivered = order.status === "delivered" || order.status === "completed";
     return (
       <div className="engraved-t mt-8 pt-6">
-        <div className="micro-label text-mist">Pengiriman Digital</div>
+        <div className="micro-label text-mist">{s.digitalSectionLabel}</div>
 
         {error && (
           <div className="mt-4 max-w-md">
             <ErrorState
               surface="seller"
               detail={error.message}
-              hint={shipmentHint(error.code)}
-              action={
-                error.code === "Conflict" || error.code === "OrderNotFound"
-                  ? { label: "Muat Ulang", onClick: () => void onUpdated() }
-                  : error.code === "Forbidden"
-                    ? { label: "Masuk Lagi", href: "/seller/login" }
-                    : undefined
-              }
+              hint={shipmentHint(d, error.code)}
+              action={errorAction(error.code)}
             />
           </div>
         )}
@@ -150,25 +152,24 @@ export function ShipmentControls({
             }}
           >
             <label className="block">
-              <span className="micro-label text-ash">Catatan (opsional)</span>
+              <span className="micro-label text-ash">{s.noteOptional}</span>
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Kode voucher / referensi pengiriman"
+                placeholder={s.notePlaceholder}
                 maxLength={500}
                 className={`mt-1 ${inputCls}`}
               />
             </label>
             <button type="submit" disabled={busy} className={actionCls}>
-              {busy ? "Memperbarui status…" : "Tandai Terkirim"}
+              {busy ? s.updating : s.markDelivered}
             </button>
           </form>
         )}
 
         {delivered && (
           <p className="desk-stamp micro-label mt-5 inline-block px-3 py-2 text-ash">
-            Pesanan sudah ditandai terkirim. Menunggu konfirmasi penerimaan
-            pembeli.
+            {s.deliveredNote}
           </p>
         )}
       </div>
@@ -190,15 +191,15 @@ export function ShipmentControls({
   return (
     // A control block bolted to the sheet: engraved above, no box around it.
     <div className="engraved-t mt-8 pt-6">
-      <div className="micro-label text-mist">Pengiriman</div>
+      <div className="micro-label text-mist">{s.sectionLabel}</div>
 
       {/* Packing marks — compact lifecycle stamps, backend-state only */}
       <ol className="mt-4 flex flex-wrap items-center gap-2">
         {(
           [
-            ["processing", "Diproses"],
-            ["packed", "Dikemas"],
-            ["shipped", "Dikirim"],
+            ["processing", s.stepProcessing],
+            ["packed", s.stepPacked],
+            ["shipped", s.stepShipped],
           ] as const
         ).map(([key, label], i) => {
           const reached =
@@ -230,7 +231,7 @@ export function ShipmentControls({
       {/* Recorded courier/tracking — shown once real data exists */}
       {order.shipment?.trackingNumber && (
         <p className="mt-3 text-sm text-mist">
-          <span className="micro-label text-ash">Resi</span>
+          <span className="micro-label text-ash">{s.trackingLabel}</span>
           <br />
           {[order.shipment.courier, order.shipment.trackingNumber]
             .filter(Boolean)
@@ -249,14 +250,8 @@ export function ShipmentControls({
           <ErrorState
             surface="seller"
             detail={error.message}
-            hint={shipmentHint(error.code)}
-            action={
-              error.code === "Conflict" || error.code === "OrderNotFound"
-                ? { label: "Muat Ulang", onClick: () => void onUpdated() }
-                : error.code === "Forbidden"
-                  ? { label: "Masuk Lagi", href: "/seller/login" }
-                  : undefined
-            }
+            hint={shipmentHint(d, error.code)}
+            action={errorAction(error.code)}
           />
         </div>
       )}
@@ -268,7 +263,7 @@ export function ShipmentControls({
           onClick={() => void transition({ status: "processing" })}
           className={`mt-4 ${actionCls}`}
         >
-          {busy ? "Memperbarui status…" : "Mulai Proses Pesanan"}
+          {busy ? s.updating : s.startProcessing}
         </button>
       )}
 
@@ -279,7 +274,7 @@ export function ShipmentControls({
           onClick={() => void transition({ status: "packed" })}
           className={`mt-4 ${actionCls}`}
         >
-          {busy ? "Memperbarui status…" : "Tandai Dikemas"}
+          {busy ? s.updating : s.markPacked}
         </button>
       )}
 
@@ -289,11 +284,7 @@ export function ShipmentControls({
           onSubmit={(e) => {
             e.preventDefault();
             if (!courier.trim() || tracking.trim().length < 3) {
-              setError({
-                code: "InvalidInput",
-                message:
-                  "Kurir dan nomor resi wajib diisi untuk menandai pesanan dikirim.",
-              });
+              setError({ code: "InvalidInput", message: s.invalidInputDetail });
               return;
             }
             void transition({
@@ -304,34 +295,34 @@ export function ShipmentControls({
           }}
         >
           <label className="block">
-            <span className="micro-label text-ash">Kurir</span>
+            <span className="micro-label text-ash">{s.courierLabel}</span>
             <input
               value={courier}
               onChange={(e) => setCourier(e.target.value)}
-              placeholder="JNE REG / SiCepat / …"
+              placeholder={s.courierPlaceholder}
               maxLength={60}
               className={`mt-1 ${inputCls}`}
             />
           </label>
           <label className="block">
-            <span className="micro-label text-ash">Nomor resi</span>
+            <span className="micro-label text-ash">{s.trackingNumberLabel}</span>
             <input
               value={tracking}
               onChange={(e) => setTracking(e.target.value)}
-              placeholder="Nomor resi pengiriman"
+              placeholder={s.trackingPlaceholder}
               maxLength={80}
               className={`mt-1 ${inputCls}`}
             />
           </label>
           <button type="submit" disabled={busy} className={actionCls}>
-            {busy ? "Memperbarui status…" : "Tandai Dikirim"}
+            {busy ? s.updating : s.markShipped}
           </button>
         </form>
       )}
 
       {shipped && (
         <p className="desk-stamp micro-label mt-5 inline-block px-3 py-2 text-ash">
-          Pesanan sudah dikirim. Menunggu konfirmasi penerimaan pembeli.
+          {s.shippedNote}
         </p>
       )}
     </div>

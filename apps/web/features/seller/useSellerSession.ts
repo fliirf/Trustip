@@ -55,8 +55,10 @@ export function useSellerSession(): SellerSession {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
     // Local/dev may auto-confirm; if not, the seller must confirm via email.
+    // Sentinel (not a Supabase message) — translated at the render site via
+    // `d.seller.login.confirmEmailNotice` so this hook stays locale-agnostic.
     if (!data.session) {
-      return { error: "Cek email kamu untuk konfirmasi, lalu masuk." };
+      return { error: "CONFIRM_EMAIL_NOTICE" };
     }
     return { error: null };
   }, []);

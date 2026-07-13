@@ -22,6 +22,8 @@ import {
 } from "@trustip/stellar";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import type { Dict } from "../../lib/i18n/dictionaries";
+import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import {
   getOnboarding,
@@ -33,7 +35,7 @@ import {
   verifyWallet,
   type SellerOnboardingStatus,
 } from "./seller-api";
-import { sellerErrorLabel, STEP_LABELS } from "./labels";
+import { sellerErrorLabel, stepLabel, STEP_KEYS } from "./labels";
 import { SellerShell } from "./SellerShell";
 import { useSellerSession } from "./useSellerSession";
 
@@ -46,10 +48,10 @@ const stampCls =
 const keyCls =
   "mat-illuminated os-press px-5 py-2.5 text-sm font-semibold tracking-tight text-void hover:text-bone";
 
-function describeError(e: unknown): string {
-  if (e instanceof SellerApiError) return sellerErrorLabel(e.code, e.message);
-  if (e instanceof WalletError) return sellerErrorLabel(e.code, e.message);
-  return sellerErrorLabel("InternalError", "");
+function describeError(d: Dict, e: unknown): string {
+  if (e instanceof SellerApiError) return sellerErrorLabel(d, e.code, e.message);
+  if (e instanceof WalletError) return sellerErrorLabel(d, e.code, e.message);
+  return sellerErrorLabel(d, "InternalError", "");
 }
 
 /** A numbered station on the board. The label alone marks it; the old trailing
@@ -78,6 +80,8 @@ function shortKey(k: string): string {
 }
 
 export function SellerOnboarding() {
+  const d = useDict();
+  const t = d.seller.onboarding;
   const session = useSellerSession();
   const token = session.accessToken;
 
@@ -99,9 +103,9 @@ export function SellerOnboarding() {
       setStatus(await getOnboarding(token));
       setLoadError(null);
     } catch (e) {
-      setLoadError(describeError(e));
+      setLoadError(describeError(d, e));
     }
-  }, [token]);
+  }, [token, d]);
 
   useEffect(() => {
     void refresh();
@@ -119,12 +123,12 @@ export function SellerOnboarding() {
         await fn();
         await refresh();
       } catch (e) {
-        setActionError(describeError(e));
+        setActionError(describeError(d, e));
       } finally {
         setBusy(null);
       }
     },
-    [refresh],
+    [refresh, d],
   );
 
   const connect = (id: WalletId) =>
@@ -147,7 +151,7 @@ export function SellerOnboarding() {
     return (
       <SellerShell active="onboarding">
         <div className="max-w-md">
-          <ProtocolState surface="seller" label="Memverifikasi sesi" />
+          <ProtocolState surface="seller" label={d.seller.checkingSession} />
         </div>
       </SellerShell>
     );
@@ -158,9 +162,9 @@ export function SellerOnboarding() {
       <SellerShell active="onboarding">
         <EmptyState
           surface="seller"
-          title="Perlu Masuk"
-          detail="Masuk dulu untuk menyiapkan toko dan wallet kamu."
-          action={{ label: "Masuk Seller", href: "/seller/login" }}
+          title={d.seller.needLogin.title}
+          detail={t.needLoginDetail}
+          action={{ label: d.seller.needLogin.cta, href: "/seller/login" }}
         />
       </SellerShell>
     );
@@ -193,25 +197,22 @@ export function SellerOnboarding() {
     >
       <div className="engraved-b flex flex-wrap items-end justify-between gap-4 pb-5">
         <div>
-          <h1 className="os-title text-bone">Persiapan Toko</h1>
-          <p className="os-body mt-3 max-w-[52ch] text-mist/80">
-            Selesaikan langkah berikut supaya link checkout kamu bisa menerima
-            pembayaran yang dilindungi.
-          </p>
+          <h1 className="os-title text-bone">{t.heading}</h1>
+          <p className="os-body mt-3 max-w-[52ch] text-mist/80">{t.subtitle}</p>
         </div>
         <div className="micro-label text-ash tabular-nums">
-          {Object.values(done).filter(Boolean).length} / {STEP_LABELS.length} langkah
+          {Object.values(done).filter(Boolean).length} / {STEP_KEYS.length} {t.stepsSuffix}
         </div>
       </div>
 
       {/* Progress rail — horizontal, the desk's axis. Same marks the order
           sheet's lifecycle uses. */}
       <ol className="mt-10 -mx-1 flex min-w-max items-start gap-0 overflow-x-auto px-1 pb-1 md:min-w-0">
-        {STEP_LABELS.map((step, i) => {
-          const isDone = done[step.key];
-          const last = i === STEP_LABELS.length - 1;
+        {STEP_KEYS.map((key, i) => {
+          const isDone = done[key];
+          const last = i === STEP_KEYS.length - 1;
           return (
-            <li key={step.key} className="flex min-w-[88px] flex-1 flex-col gap-2.5">
+            <li key={key} className="flex min-w-[88px] flex-1 flex-col gap-2.5">
               <div className="flex items-center">
                 <span
                   aria-hidden
@@ -227,7 +228,7 @@ export function SellerOnboarding() {
               <span
                 className={`pr-3 text-[12px] leading-tight ${isDone ? "text-mist" : "text-bone/25"}`}
               >
-                {step.label}
+                {stepLabel(d, key)}
               </span>
             </li>
           );
@@ -242,17 +243,15 @@ export function SellerOnboarding() {
 
       {status?.checkoutReady && (
         <div className="desk-row mt-10 flex flex-wrap items-center justify-between gap-4 py-4">
-          <span className="os-body text-bone">
-            Toko kamu siap menerima pembayaran terlindungi.
-          </span>
+          <span className="os-body text-bone">{t.readyBanner}</span>
           <Link href="/seller" className={stampCls}>
-            Ke Ringkasan
+            {t.goToDashboard}
           </Link>
         </div>
       )}
 
       <div className="space-y-16 pt-14 pb-16">
-        <Station n="01" label="Profil Toko">
+        <Station n="01" label={t.station1}>
           <form
             className="max-w-md space-y-5"
             onSubmit={(e) => {
@@ -272,7 +271,7 @@ export function SellerOnboarding() {
             }}
           >
             <label className="block space-y-2">
-              <span className="micro-label text-ash">Nama toko</span>
+              <span className="micro-label text-ash">{t.storeNameLabel}</span>
               <input
                 name="storeName"
                 defaultValue={profile?.storeName ?? ""}
@@ -283,7 +282,7 @@ export function SellerOnboarding() {
             </label>
             <div className="grid gap-5 sm:grid-cols-2">
               <label className="block space-y-2">
-                <span className="micro-label text-ash">Kategori (opsional)</span>
+                <span className="micro-label text-ash">{t.categoryLabel}</span>
                 <input
                   name="category"
                   defaultValue={profile?.category ?? ""}
@@ -291,7 +290,7 @@ export function SellerOnboarding() {
                 />
               </label>
               <label className="block space-y-2">
-                <span className="micro-label text-ash">Link sosial (opsional)</span>
+                <span className="micro-label text-ash">{t.socialUrlLabel}</span>
                 <input
                   name="socialUrl"
                   type="url"
@@ -304,23 +303,23 @@ export function SellerOnboarding() {
             <div className="flex flex-wrap items-center gap-4">
               <button type="submit" disabled={busy !== null} className={keyCls}>
                 {busy === "profile"
-                  ? "Menyimpan…"
+                  ? t.savingProfile
                   : profile
-                    ? "Perbarui Profil"
-                    : "Simpan Profil"}
+                    ? t.updateProfile
+                    : t.saveProfile}
               </button>
               {profile && (
-                <span className="micro-label text-mist">Tersimpan · {profile.storeName}</span>
+                <span className="micro-label text-mist">
+                  {t.savedPrefix}
+                  {profile.storeName}
+                </span>
               )}
             </div>
           </form>
         </Station>
 
-        <Station n="02" label="Wallet Seller">
-          <p className="os-body max-w-[52ch] text-mist/70">
-            Hubungkan wallet Stellar yang akan menerima pembayaran kamu, lalu
-            daftarkan ke Trustip.
-          </p>
+        <Station n="02" label={t.station2}>
+          <p className="os-body max-w-[52ch] text-mist/70">{t.walletIntro}</p>
           <div className="mt-6 grid max-w-md grid-cols-2 gap-4">
             {wallets.map((w) => (
               <button
@@ -345,9 +344,9 @@ export function SellerOnboarding() {
                   <span className="micro-label mt-1 text-ash">
                     {w.installed
                       ? walletId === w.id
-                        ? "Terhubung"
-                        : "Stellar"
-                      : "Belum terpasang"}
+                        ? t.walletConnected
+                        : t.walletBrand
+                      : t.walletNotInstalled}
                   </span>
                 </span>
               </button>
@@ -355,13 +354,10 @@ export function SellerOnboarding() {
           </div>
           {publicKey && (
             <div className="desk-sheet mt-6 max-w-md px-4 py-4">
-              <div className="micro-label text-ash">Wallet terhubung</div>
+              <div className="micro-label text-ash">{t.connectedWalletLabel}</div>
               <div className="mt-2 break-all font-mono text-xs text-mist">{publicKey}</div>
               {wrongNetwork && (
-                <p className="os-body mt-3 text-blood">
-                  Jaringan wallet tidak sesuai. Pindahkan wallet ke jaringan
-                  Stellar yang benar.
-                </p>
+                <p className="os-body mt-3 text-blood">{t.wrongNetwork}</p>
               )}
               {!connectedRegistered && !wrongNetwork && (
                 <button
@@ -379,25 +375,20 @@ export function SellerOnboarding() {
                   }
                   className={`mt-4 ${stampCls}`}
                 >
-                  {busy === "register" ? "Mendaftarkan…" : "Daftarkan Wallet"}
+                  {busy === "register" ? t.registeringWallet : t.registerWallet}
                 </button>
               )}
               {connectedRegistered && (
-                <p className="micro-label mt-4 text-mist">Terdaftar</p>
+                <p className="micro-label mt-4 text-mist">{t.registered}</p>
               )}
             </div>
           )}
         </Station>
 
-        <Station n="03" label="Verifikasi Kepemilikan">
-          <p className="os-body max-w-[52ch] text-mist/70">
-            Tanda tangani satu permintaan verifikasi di wallet kamu. Ini bukan
-            transaksi dan tidak memindahkan dana, hanya bukti bahwa wallet ini
-            milik kamu. Wallet mungkin menampilkan peringatan karena permintaan
-            berasal dari akun verifikasi Trustip; itu normal.
-          </p>
+        <Station n="03" label={t.station3}>
+          <p className="os-body max-w-[52ch] text-mist/70">{t.verifyIntro}</p>
           {networkWallets.length === 0 ? (
-            <p className="micro-label mt-6 text-ash">Daftarkan wallet dulu di langkah 02.</p>
+            <p className="micro-label mt-6 text-ash">{t.registerWalletFirst}</p>
           ) : (
             <ul className="mt-6 max-w-xl">
               {networkWallets.map((w) => (
@@ -407,7 +398,7 @@ export function SellerOnboarding() {
                 >
                   <span className="font-mono text-xs text-mist">{shortKey(w.publicKey)}</span>
                   {w.verifiedAt ? (
-                    <span className="micro-label text-mist">Terverifikasi</span>
+                    <span className="micro-label text-mist">{t.verified}</span>
                   ) : (
                     <button
                       type="button"
@@ -438,7 +429,7 @@ export function SellerOnboarding() {
                       }
                       className={stampCls}
                     >
-                      {busy === "verify" ? "Menunggu tanda tangan…" : "Verifikasi Sekarang"}
+                      {busy === "verify" ? t.verifying : t.verifyNow}
                     </button>
                   )}
                 </li>
@@ -447,13 +438,10 @@ export function SellerOnboarding() {
           )}
         </Station>
 
-        <Station n="04" label="Wallet Utama">
-          <p className="os-body max-w-[52ch] text-mist/70">
-            Pilih satu wallet utama sebagai tujuan pembayaran untuk link checkout
-            kamu.
-          </p>
+        <Station n="04" label={t.station4}>
+          <p className="os-body max-w-[52ch] text-mist/70">{t.primaryIntro}</p>
           {verifiedWallets.length === 0 ? (
-            <p className="micro-label mt-6 text-ash">Verifikasi wallet dulu di langkah 03.</p>
+            <p className="micro-label mt-6 text-ash">{t.verifyWalletFirst}</p>
           ) : (
             <ul className="mt-6 max-w-xl">
               {verifiedWallets.map((w) => (
@@ -464,7 +452,7 @@ export function SellerOnboarding() {
                   <span className="font-mono text-xs text-mist">{shortKey(w.publicKey)}</span>
                   {w.isPrimary ? (
                     <span className="desk-stamp micro-label px-3 py-1.5 text-blood">
-                      Wallet Utama
+                      {t.primaryStamp}
                     </span>
                   ) : (
                     <button
@@ -478,7 +466,7 @@ export function SellerOnboarding() {
                       }
                       className={stampCls}
                     >
-                      {busy === "primary" ? "Menyimpan…" : "Jadikan Utama"}
+                      {busy === "primary" ? t.savingPrimary : t.makePrimary}
                     </button>
                   )}
                 </li>

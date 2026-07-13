@@ -21,6 +21,7 @@
 
 import { explorerTxUrl, networkName } from "@trustip/stellar";
 import { useCallback, useEffect, useState } from "react";
+import type { Dict } from "../../lib/i18n/dictionaries";
 import { EscrowCore, type EscrowCoreState } from "../escrow/EscrowCore";
 import {
   escrowCoreState,
@@ -28,15 +29,9 @@ import {
   isReleased,
   lifecycleRail,
 } from "../escrow/lifecycle";
+import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
-import {
-  ESCROW_STATUS_LABEL,
-  ORDER_STATUS_LABEL,
-  PAYMENT_STATUS_LABEL,
-  SHIPMENT_STATUS_LABEL,
-  sellerErrorLabel,
-  statusLabel,
-} from "./labels";
+import { sellerErrorLabel, statusLabel } from "./labels";
 import { ShipmentControls } from "./ShipmentControls";
 import {
   listSellerOrders,
@@ -46,34 +41,15 @@ import {
 import { SellerShell } from "./SellerShell";
 import { useSellerSession } from "./useSellerSession";
 
-/** Seller-side reading of the shared escrow artifact. The artifact is identical
- * to the buyer's; only the sentence beneath it changes perspective. */
-const SELLER_ESCROW_COPY: Record<EscrowCoreState, string> = {
-  dormant: "Menunggu pembayaran pembeli",
-  funded: "Anda memiliki dana terlindungi",
-  shipped: "Menunggu konfirmasi pembeli",
-  completed: "Dana telah diteruskan",
-  voided: "Perlindungan tidak aktif",
-};
-
-/** Short protection state for the collapsed card face. */
-const PROTECTION_STATE: Record<EscrowCoreState, string> = {
-  dormant: "Belum Terlindungi",
-  funded: "Dana Terlindungi",
-  shipped: "Menunggu Konfirmasi",
-  completed: "Dana Diteruskan",
-  voided: "Tidak Aktif",
-};
-
 /** Keeps the code alongside the copy so the render can pick a recovery action
  * (re-login on an expired session, retry on anything transient). */
-function describeError(e: unknown): { code: string; message: string } {
+function describeError(d: Dict, e: unknown): { code: string; message: string } {
   if (e instanceof SellerApiError) {
-    return { code: e.code, message: sellerErrorLabel(e.code, e.message) };
+    return { code: e.code, message: sellerErrorLabel(d, e.code, e.message) };
   }
   return {
     code: "InternalError",
-    message: sellerErrorLabel("InternalError", ""),
+    message: sellerErrorLabel(d, "InternalError", ""),
   };
 }
 
@@ -115,8 +91,8 @@ function DetailRow({ label, value }: { label: string; value: string }) {
  *
  * It scrolls inside itself on narrow phones so a long rail can never push the
  * page sideways. */
-function ProtocolTimeline({ order }: { order: SellerOrder }) {
-  const rail = lifecycleRail(order, true);
+function ProtocolTimeline({ order, d }: { order: SellerOrder; d: Dict }) {
+  const rail = lifecycleRail(order, true, d.status.rail);
   return (
     <div className="mt-4 -mx-1 overflow-x-auto px-1 pb-1">
       <ol className="flex min-w-max items-start gap-0 md:min-w-0">
@@ -172,13 +148,13 @@ function ProtocolTimeline({ order }: { order: SellerOrder }) {
  * same geometry as the buyer status page and checkout — but framed as a seal
  * stamped on a package rather than a beacon or a lock. One artifact, one
  * meaning, three rooms. */
-function EscrowReading({ state }: { state: EscrowCoreState }) {
+function EscrowReading({ state, d }: { state: EscrowCoreState; d: Dict }) {
   return (
     <div>
-      <div className="micro-label text-ash">Status Perlindungan</div>
+      <div className="micro-label text-ash">{d.seller.orders.protectionStatusLabel}</div>
       <EscrowCore state={state} context="seal" className="mt-4 h-28 w-28" />
       <p className="mt-4 max-w-[28ch] os-body text-mist">
-        {SELLER_ESCROW_COPY[state]}
+        {d.seller.orders.escrowCopy[state]}
       </p>
     </div>
   );
@@ -189,23 +165,22 @@ function EscrowReading({ state }: { state: EscrowCoreState }) {
  * blood: this is the resting state after protection, not an active alert. The
  * release tx hash is shown strictly from backend data, never before it exists.
  * Motion is a slow fade only — a settlement, not a celebration. */
-function ReleaseProof({ order }: { order: SellerOrder }) {
+function ReleaseProof({ order, d }: { order: SellerOrder; d: Dict }) {
   if (!isReleased(order)) return null;
+  const o = d.seller.orders;
   const releaseTxHash = order.escrow?.releaseTxHash ?? null;
   return (
     <div className="settle-in mt-8">
-      <div className="micro-label text-bone">Pesanan Selesai</div>
-      <p className="mt-2 os-body text-mist/80">
-        Pembayaran telah diteruskan ke wallet seller.
-      </p>
+      <div className="micro-label text-bone">{o.completedTitle}</div>
+      <p className="mt-2 os-body text-mist/80">{o.completedBody}</p>
       {order.completedAt && (
         <p className="micro-label mt-2 text-ash">
-          Selesai {new Date(order.completedAt).toLocaleString("id-ID")}
+          {o.completedAtPrefix} {new Date(order.completedAt).toLocaleString("id-ID")}
         </p>
       )}
       {releaseTxHash && (
         <div className="mt-4">
-          <div className="micro-label text-ash">Bukti Penerusan Dana</div>
+          <div className="micro-label text-ash">{o.releaseProofLabel}</div>
           <p className="mt-1 os-serial font-mono text-mist">
             {releaseTxHash}
           </p>
@@ -215,7 +190,7 @@ function ReleaseProof({ order }: { order: SellerOrder }) {
             rel="noreferrer"
             className="desk-stamp os-press micro-label mt-3 inline-block px-4 py-2 text-bone hover:text-blood"
           >
-            Lihat di Explorer
+            {o.viewExplorer}
           </a>
         </div>
       )}
@@ -233,43 +208,46 @@ function OrderDetail({
   order,
   token,
   onUpdated,
+  d,
 }: {
   order: SellerOrder;
   token: string;
   onUpdated: () => Promise<void>;
+  d: Dict;
 }) {
   const b = order.buyer;
+  const o = d.seller.orders;
   return (
     <div className="desk-sheet grid gap-10 px-4 pt-6 pb-8 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-14">
       {/* ---- OPERATION ---- */}
       <div className="min-w-0">
-        <div className="micro-label text-ash">Lembar Operasi</div>
-        <ProtocolTimeline order={order} />
+        <div className="micro-label text-ash">{o.operationSheet}</div>
+        <ProtocolTimeline order={order} d={d} />
 
         <dl className="mt-8 max-w-md">
           <DetailRow
-            label="Status pesanan"
-            value={statusLabel(ORDER_STATUS_LABEL, order.status)}
+            label={o.orderStatusLabel}
+            value={statusLabel(o.orderStatusValues, order.status)}
           />
           <DetailRow
-            label="Pembayaran"
-            value={statusLabel(PAYMENT_STATUS_LABEL, order.payment?.status)}
+            label={o.paymentLabel}
+            value={statusLabel(o.paymentStatusValues, order.payment?.status)}
           />
           <DetailRow
-            label="Dana pembeli"
-            value={statusLabel(ESCROW_STATUS_LABEL, order.escrow?.status)}
+            label={o.buyerFundsLabel}
+            value={statusLabel(o.escrowStatusValues, order.escrow?.status)}
           />
           {order.shipment && (
             <DetailRow
-              label="Pengiriman"
-              value={statusLabel(SHIPMENT_STATUS_LABEL, order.shipment.status)}
+              label={o.shippingLabel}
+              value={statusLabel(o.shipmentStatusValues, order.shipment.status)}
             />
           )}
         </dl>
 
         {b && (
           <>
-            <div className="micro-label mt-8 text-mist">Pengiriman ke</div>
+            <div className="micro-label mt-8 text-mist">{o.shipTo}</div>
             <p className="mt-2 os-body text-mist/80">
               {[b.name, b.phone].filter(Boolean).join(" · ")}
               <br />
@@ -293,16 +271,16 @@ function OrderDetail({
       {/* The divider is an engraved groove, not a border, and only exists once
           the two halves actually sit side by side. */}
       <aside className="min-w-0 lg:pl-10 lg:shadow-[inset_1px_0_0_var(--mat-groove),inset_2px_0_0_var(--mat-lip)]">
-        <EscrowReading state={escrowCoreState(order)} />
+        <EscrowReading state={escrowCoreState(order)} d={d} />
         {(order.payment?.txHash || order.escrow?.fundedTxHash) && (
           <div className="mt-8">
-            <div className="micro-label text-ash">Bukti transaksi</div>
+            <div className="micro-label text-ash">{o.proofLabel}</div>
             <p className="mt-1 os-serial font-mono text-ash">
               {order.payment?.txHash ?? order.escrow?.fundedTxHash}
             </p>
           </div>
         )}
-        <ReleaseProof order={order} />
+        <ReleaseProof order={order} d={d} />
       </aside>
     </div>
   );
@@ -320,13 +298,16 @@ function OrderCard({
   open,
   onToggle,
   onUpdated,
+  d,
 }: {
   order: SellerOrder;
   token: string;
   open: boolean;
   onToggle: () => void;
   onUpdated: () => Promise<void>;
+  d: Dict;
 }) {
+  const o = d.seller.orders;
   const core = escrowCoreState(order);
   const settled = isReleased(order);
   const bodyId = `order-body-${order.orderId}`;
@@ -344,7 +325,7 @@ function OrderCard({
         <span className="font-mono text-[11px] text-ash">{order.orderNo}</span>
 
         <span className="truncate text-sm font-semibold tracking-tight text-bone">
-          {order.link?.title ?? "Pesanan"}
+          {order.link?.title ?? o.fallbackTitle}
         </span>
 
         <span className="col-start-2 text-sm text-mist md:col-start-3 md:text-right">
@@ -356,7 +337,7 @@ function OrderCard({
 
         <span className="col-span-2 flex flex-wrap items-center gap-3 md:col-span-1 md:col-start-4 md:justify-end">
           <StatusChip
-            label={statusLabel(ORDER_STATUS_LABEL, order.status)}
+            label={statusLabel(o.orderStatusValues, order.status)}
             variant={settled ? "settled" : isProtected(order) ? "protected" : "default"}
           />
           <span
@@ -368,7 +349,7 @@ function OrderCard({
                   : "text-ash"
             }`}
           >
-            {PROTECTION_STATE[core]}
+            {o.protectionState[core]}
           </span>
         </span>
       </button>
@@ -381,7 +362,7 @@ function OrderCard({
         aria-hidden={!open}
       >
         <div className="protocol-body-inner">
-          <OrderDetail order={order} token={token} onUpdated={onUpdated} />
+          <OrderDetail order={order} token={token} onUpdated={onUpdated} d={d} />
           {order.link && (
             <div className="px-4 pb-6">
               <a
@@ -390,7 +371,7 @@ function OrderCard({
                 rel="noreferrer"
                 className="desk-stamp os-press micro-label px-3 py-1.5 text-bone hover:text-blood"
               >
-                Buka Checkout Link
+                {o.openCheckoutLink}
               </a>
             </div>
           )}
@@ -401,6 +382,8 @@ function OrderCard({
 }
 
 export function SellerOrders() {
+  const d = useDict();
+  const o = d.seller.orders;
   const session = useSellerSession();
   const token = session.accessToken;
 
@@ -417,9 +400,9 @@ export function SellerOrders() {
       setOrders(res.orders);
       setError(null);
     } catch (e) {
-      setError(describeError(e));
+      setError(describeError(d, e));
     }
-  }, [token]);
+  }, [token, d]);
 
   useEffect(() => {
     void refresh();
@@ -429,7 +412,7 @@ export function SellerOrders() {
     return (
       <SellerShell active="orders">
         <div className="max-w-md">
-          <ProtocolState surface="seller" label="Memverifikasi sesi" />
+          <ProtocolState surface="seller" label={d.seller.checkingSession} />
         </div>
       </SellerShell>
     );
@@ -440,9 +423,9 @@ export function SellerOrders() {
       <SellerShell active="orders">
         <EmptyState
           surface="seller"
-          title="Perlu Masuk"
-          detail="Masuk untuk melihat pesanan yang masuk dari link checkout kamu."
-          action={{ label: "Masuk Seller", href: "/seller/login" }}
+          title={d.seller.needLogin.title}
+          detail={o.needLoginDetail}
+          action={{ label: d.seller.needLogin.cta, href: "/seller/login" }}
         />
       </SellerShell>
     );
@@ -461,15 +444,12 @@ export function SellerOrders() {
         <div>
           {/* mt-3 under the title: the one masthead that sat a step tighter
               than the other three seller pages. */}
-          <h1 className="os-title text-bone">Pesanan</h1>
-          <p className="mt-3 max-w-[52ch] os-body text-mist/80">
-            Pesanan dari link checkout kamu. Dana pembeli ditahan aman sampai
-            pesanan diterima.
-          </p>
+          <h1 className="os-title text-bone">{o.heading}</h1>
+          <p className="mt-3 max-w-[52ch] os-body text-mist/80">{o.subtitle}</p>
         </div>
         {orders !== null && orders.length > 0 && (
           <div className="micro-label text-ash tabular-nums">
-            {orders.length} pesanan · {protectedCount} dilindungi
+            {o.countSuffix(orders.length, protectedCount)}
           </div>
         )}
       </div>
@@ -479,15 +459,11 @@ export function SellerOrders() {
           <ErrorState
             surface="seller"
             detail={error.message}
-            hint={
-              error.code === "Forbidden"
-                ? "Pesanan dan dana yang sudah dilindungi tidak terpengaruh."
-                : undefined
-            }
+            hint={error.code === "Forbidden" ? o.forbiddenHint : undefined}
             action={
               error.code === "Forbidden"
-                ? { label: "Masuk Lagi", href: "/seller/login" }
-                : { label: "Muat Ulang Pesanan", onClick: () => void refresh() }
+                ? { label: o.signInAgain, href: "/seller/login" }
+                : { label: o.reloadOrders, onClick: () => void refresh() }
             }
           />
         </div>
@@ -498,8 +474,8 @@ export function SellerOrders() {
           <div className="max-w-md">
             <ProtocolState
               surface="seller"
-              label="Memuat pesanan"
-              detail="Membaca status dana terlindungi"
+              label={o.loadingOrders}
+              detail={o.loadingOrdersDetail}
             />
           </div>
         )}
@@ -509,9 +485,9 @@ export function SellerOrders() {
         {orders !== null && orders.length === 0 && (
           <EmptyState
             surface="seller"
-            title="Belum ada transaksi terlindungi"
-            detail="Bagikan link checkout kamu ke pembeli. Setiap pembayaran akan muncul di sini dengan dana yang sudah terlindungi."
-            action={{ label: "Kelola Link Checkout", href: "/seller/links" }}
+            title={o.emptyTitle}
+            detail={o.emptyDetail}
+            action={{ label: o.manageLinks, href: "/seller/links" }}
           />
         )}
 
@@ -527,6 +503,7 @@ export function SellerOrders() {
                   setOpenId(openId === order.orderId ? null : order.orderId)
                 }
                 onUpdated={refresh}
+                d={d}
               />
             ))}
           </ul>

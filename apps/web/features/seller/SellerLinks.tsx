@@ -10,6 +10,8 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import type { Dict } from "../../lib/i18n/dictionaries";
+import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { InspectionList } from "./InspectionList";
 import { sellerErrorLabel } from "./labels";
@@ -30,9 +32,9 @@ const fieldCls =
 const stampCls =
   "desk-stamp os-press micro-label px-3 py-1.5 text-bone hover:text-blood";
 
-function describeError(e: unknown): string {
-  if (e instanceof SellerApiError) return sellerErrorLabel(e.code, e.message);
-  return sellerErrorLabel("InternalError", "");
+function describeError(d: Dict, e: unknown): string {
+  if (e instanceof SellerApiError) return sellerErrorLabel(d, e.code, e.message);
+  return sellerErrorLabel(d, "InternalError", "");
 }
 
 function checkoutUrl(slug: string): string {
@@ -40,10 +42,10 @@ function checkoutUrl(slug: string): string {
 }
 
 /** One line on the manifest. */
-function ManifestRow({ link }: { link: SellerCheckoutLink }) {
-  // "Tersalin" only after the clipboard write actually resolved — the old
-  // handler flipped the label optimistically, so a denied clipboard permission
-  // showed a confirmation for a copy that never happened.
+function ManifestRow({ link, l }: { link: SellerCheckoutLink; l: Dict["seller"]["links"] }) {
+  // The copy label only flips after the clipboard write actually resolved —
+  // the old handler flipped it optimistically, so a denied clipboard
+  // permission showed a confirmation for a copy that never happened.
   const [copied, setCopied] = useState<"ok" | "fail" | null>(null);
   const active = link.status === "active";
   const copy = () => {
@@ -61,13 +63,13 @@ function ManifestRow({ link }: { link: SellerCheckoutLink }) {
             {link.title}
           </span>
           <span className={`micro-label ${active ? "text-blood" : "text-ash"}`}>
-            {active ? "Aktif" : link.status}
+            {active ? l.active : link.status}
           </span>
         </div>
         <div className="mt-1.5 flex items-center gap-2 font-mono text-[11px] text-ash">
           <span>/checkout/{link.slug}</span>
           {!link.requiresShipping && (
-            <span className="micro-label text-blood">Digital · Tanpa Resi</span>
+            <span className="micro-label text-blood">{l.digitalTag}</span>
           )}
         </div>
         {link.description && (
@@ -84,9 +86,9 @@ function ManifestRow({ link }: { link: SellerCheckoutLink }) {
 
       <div className="flex gap-2 md:justify-end">
         <button type="button" onClick={copy} className={stampCls}>
-          {/* The word is the confirmation. A check glyph next to "Tersalin"
-              says the same thing twice, in a typeface that is not ours. */}
-          {copied === "ok" ? "Tersalin" : copied === "fail" ? "Gagal Menyalin" : "Salin Link"}
+          {/* The word is the confirmation. A check glyph next to it would say
+              the same thing twice, in a typeface that is not ours. */}
+          {copied === "ok" ? l.copied : copied === "fail" ? l.copyFailed : l.copy}
         </button>
         <a
           href={`/checkout/${link.slug}`}
@@ -94,7 +96,7 @@ function ManifestRow({ link }: { link: SellerCheckoutLink }) {
           rel="noreferrer"
           className={stampCls}
         >
-          Buka
+          {l.open}
         </a>
       </div>
     </li>
@@ -102,6 +104,8 @@ function ManifestRow({ link }: { link: SellerCheckoutLink }) {
 }
 
 export function SellerLinks() {
+  const d = useDict();
+  const l = d.seller.links;
   const session = useSellerSession();
   const token = session.accessToken;
 
@@ -121,9 +125,9 @@ export function SellerLinks() {
       setLinks(list.links);
       setError(null);
     } catch (e) {
-      setError(describeError(e));
+      setError(describeError(d, e));
     }
-  }, [token]);
+  }, [token, d]);
 
   useEffect(() => {
     void refresh();
@@ -150,7 +154,7 @@ export function SellerLinks() {
         form.reset();
         await refresh();
       })
-      .catch((err) => setError(describeError(err)))
+      .catch((err) => setError(describeError(d, err)))
       .finally(() => setBusy(false));
   };
 
@@ -158,7 +162,7 @@ export function SellerLinks() {
     return (
       <SellerShell active="links">
         <div className="max-w-md">
-          <ProtocolState surface="seller" label="Memverifikasi sesi" />
+          <ProtocolState surface="seller" label={d.seller.checkingSession} />
         </div>
       </SellerShell>
     );
@@ -169,9 +173,9 @@ export function SellerLinks() {
       <SellerShell active="links">
         <EmptyState
           surface="seller"
-          title="Perlu Masuk"
-          detail="Masuk untuk membuat dan mengelola link checkout kamu."
-          action={{ label: "Masuk Seller", href: "/seller/login" }}
+          title={d.seller.needLogin.title}
+          detail={l.needLoginDetail}
+          action={{ label: d.seller.needLogin.cta, href: "/seller/login" }}
         />
       </SellerShell>
     );
@@ -194,11 +198,8 @@ export function SellerLinks() {
         email={session.email}
       >
         <div className="desk-sheet max-w-xl px-6 py-10">
-          <div className="micro-label text-ash">Persiapan Belum Selesai</div>
-          <p className="os-body mt-4 max-w-[48ch] text-mist/80">
-            Link checkout butuh profil toko dan wallet utama yang sudah
-            terverifikasi, supaya setiap pembayaran punya tujuan yang aman.
-          </p>
+          <div className="micro-label text-ash">{l.onboardingGateTitle}</div>
+          <p className="os-body mt-4 max-w-[48ch] text-mist/80">{l.onboardingGateBody}</p>
           <div className="mt-8">
             <InspectionList done={done} />
           </div>
@@ -206,7 +207,7 @@ export function SellerLinks() {
             href="/seller/onboarding"
             className="mat-illuminated os-press mt-8 inline-block px-5 py-2.5 text-sm font-semibold tracking-tight text-void hover:text-bone"
           >
-            Lanjutkan Persiapan
+            {l.continueOnboarding}
           </Link>
         </div>
       </SellerShell>
@@ -221,15 +222,15 @@ export function SellerLinks() {
     >
       <div className="engraved-b flex flex-wrap items-end justify-between gap-4 pb-5">
         <div>
-          <h1 className="os-title text-bone">Link Checkout</h1>
-          <p className="os-body mt-3 max-w-[52ch] text-mist/80">
-            Bagikan link ini ke pembeli. Pembayaran mereka ditahan aman sampai
-            pesanan diterima.
-          </p>
+          <h1 className="os-title text-bone">{l.heading}</h1>
+          <p className="os-body mt-3 max-w-[52ch] text-mist/80">{l.subtitle}</p>
         </div>
         {links !== null && links.length > 0 && (
           <div className="micro-label text-ash tabular-nums">
-            {links.length} link · {links.filter((l) => l.status === "active").length} aktif
+            {l.countSuffix(
+              links.length,
+              links.filter((link) => link.status === "active").length,
+            )}
           </div>
         )}
       </div>
@@ -237,24 +238,24 @@ export function SellerLinks() {
       <div className="grid gap-14 pt-10 pb-16 lg:grid-cols-[320px_minmax(0,1fr)] lg:gap-20">
         {/* The order form, clipped to the left of the board. */}
         <section className="min-w-0">
-          <div className="micro-label text-ash">Link Baru</div>
+          <div className="micro-label text-ash">{l.formHeading}</div>
           <form onSubmit={onCreate} className="mt-6 space-y-5">
             <label className="block space-y-2">
-              <span className="micro-label text-ash">Nama produk</span>
+              <span className="micro-label text-ash">{l.productName}</span>
               <input name="title" className={fieldCls} required minLength={1} />
             </label>
             <label className="block space-y-2">
-              <span className="micro-label text-ash">Deskripsi (opsional)</span>
+              <span className="micro-label text-ash">{l.descriptionOptional}</span>
               <input name="description" className={fieldCls} />
             </label>
             <label className="block space-y-2">
-              <span className="micro-label text-ash">Harga satuan (USDC)</span>
+              <span className="micro-label text-ash">{l.unitPrice}</span>
               <input
                 name="priceUsdc"
                 inputMode="decimal"
                 placeholder="2.5"
                 pattern="^\d{1,13}(\.\d{1,7})?$"
-                title="Angka USDC, maksimal 7 desimal"
+                title={l.unitPriceHint}
                 className={`${fieldCls} tabular-nums`}
                 required
               />
@@ -266,45 +267,36 @@ export function SellerLinks() {
                 defaultChecked
                 className="size-4 accent-blood"
               />
-              <span className="micro-label text-ash">
-                Produk fisik (perlu resi pengiriman)
-              </span>
+              <span className="micro-label text-ash">{l.requiresShippingLabel}</span>
             </label>
-            <p className="os-note -mt-2 text-mist/60">
-              Uncheck untuk produk digital (top-up game, voucher, dll) —
-              tanpa resi, seller cukup tandai terkirim.
-            </p>
+            <p className="os-note -mt-2 text-mist/60">{l.requiresShippingHint}</p>
             {error && <ErrorState surface="seller" detail={error} />}
             <button
               type="submit"
               disabled={busy}
               className="mat-illuminated os-press px-5 py-2.5 text-sm font-semibold tracking-tight text-void hover:text-bone"
             >
-              {busy ? "Membuat…" : "Buat Link Checkout"}
+              {busy ? l.creating : l.createCta}
             </button>
           </form>
         </section>
 
         {/* The manifest. */}
         <section className="min-w-0">
-          <div className="micro-label text-ash">Link Aktif</div>
+          <div className="micro-label text-ash">{l.activeHeading}</div>
           <div className="mt-6">
             {links === null && (
               <div className="max-w-md">
-                <ProtocolState surface="seller" label="Memuat link checkout" />
+                <ProtocolState surface="seller" label={l.loadingLinks} />
               </div>
             )}
             {links !== null && links.length === 0 && (
-              <EmptyState
-                surface="seller"
-                title="Belum ada link checkout"
-                detail="Buat yang pertama di sebelah kiri. Pembeli langsung bisa membayar lewat link itu."
-              />
+              <EmptyState surface="seller" title={l.emptyTitle} detail={l.emptyDetail} />
             )}
             {links !== null && links.length > 0 && (
               <ul>
-                {links.map((l) => (
-                  <ManifestRow key={l.id} link={l} />
+                {links.map((link) => (
+                  <ManifestRow key={link.id} link={link} l={l} />
                 ))}
               </ul>
             )}

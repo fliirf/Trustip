@@ -1,61 +1,22 @@
-// Seller-facing Indonesian copy. Product-first wording; status text always
+// Seller-facing copy, locale-aware via the i18n dictionary. Status text always
 // reflects BACKEND state.
 
-export const STEP_LABELS = [
-  { key: "profile", label: "Profil Toko" },
-  { key: "connect", label: "Wallet Terhubung" },
-  { key: "register", label: "Wallet Terdaftar" },
-  { key: "verify", label: "Kepemilikan Terverifikasi" },
-  { key: "primary", label: "Wallet Utama Dipilih" },
+import type { Dict } from "../../lib/i18n/dictionaries";
+
+/** Stable (non-translated) onboarding step keys — the labels themselves live
+ * in `d.seller.onboarding.stepLabels`. */
+export const STEP_KEYS = [
+  "profile",
+  "connect",
+  "register",
+  "verify",
+  "primary",
 ] as const;
+export type StepKey = (typeof STEP_KEYS)[number];
 
-/** Seller-facing order status copy (only statuses the backend actually has —
- * consistent with the buyer checkout language). */
-export const ORDER_STATUS_LABEL: Record<string, string> = {
-  awaiting_payment: "Menunggu Pembayaran",
-  payment_submitted: "Pembayaran Diproses",
-  payment_confirmed: "Pembayaran Dikonfirmasi",
-  escrow_locked: "Pembayaran Dilindungi",
-  processing: "Pesanan Diproses",
-  packed: "Dikemas",
-  shipped: "Dikirim",
-  delivered: "Pesanan Diterima",
-  completed: "Pesanan Selesai",
-  payout_pending: "Menunggu Pencairan",
-  payout_completed: "Pencairan Selesai",
-  refund_requested: "Refund Diajukan",
-  refund_review: "Refund Ditinjau",
-  refunded: "Dana Dikembalikan",
-  cancelled: "Dibatalkan",
-  failed: "Gagal",
-};
-
-export const PAYMENT_STATUS_LABEL: Record<string, string> = {
-  pending: "Menunggu",
-  awaiting_signature: "Menunggu Tanda Tangan",
-  submitted: "Pembayaran Diproses",
-  confirmed: "Pembayaran Dikonfirmasi",
-  failed: "Gagal",
-  expired: "Kedaluwarsa",
-  refunded: "Dana Dikembalikan",
-};
-
-export const ESCROW_STATUS_LABEL: Record<string, string> = {
-  not_created: "Belum Dibuat",
-  created: "Menunggu Dana",
-  funded: "Dana Terkunci",
-  released: "Dana Diteruskan",
-  refunded: "Dana Dikembalikan",
-  cancelled: "Dibatalkan",
-  paused: "Ditahan Sementara",
-};
-
-export const SHIPMENT_STATUS_LABEL: Record<string, string> = {
-  processing: "Pesanan Diproses",
-  packed: "Dikemas",
-  shipped: "Dikirim",
-  delivered: "Pesanan Diterima",
-};
+export function stepLabel(d: Dict, key: StepKey): string {
+  return d.seller.onboarding.stepLabels[key] ?? key;
+}
 
 export function statusLabel(
   map: Record<string, string>,
@@ -65,41 +26,37 @@ export function statusLabel(
   return map[status] ?? status;
 }
 
-/** Map backend/wallet error codes to seller-friendly Indonesian copy. */
-export function sellerErrorLabel(code: string, fallback: string): string {
+/** Map backend/wallet error codes to seller-friendly copy. */
+export function sellerErrorLabel(d: Dict, code: string, fallback: string): string {
+  const e = d.seller.errors;
   switch (code) {
     case "Forbidden":
-      return "Sesi kamu berakhir. Silakan masuk lagi.";
+      return e.forbidden;
     case "WrongNetwork":
     case "WalletWrongNetwork":
-      return "Jaringan wallet tidak sesuai. Pindahkan wallet ke jaringan Stellar yang benar.";
+      return e.wrongNetwork;
     case "UserRejected":
-      return "Tanda tangan dibatalkan di wallet.";
+      return e.userRejected;
     case "SigningFailed":
-      return "Tanda tangan gagal di wallet. Silakan coba lagi.";
+      return e.signingFailed;
     case "MissingWallet":
     case "WalletNotConnected":
-      return "Wallet belum terpasang atau belum terhubung.";
+      return e.missingWallet;
     case "WalletNotFound":
-      return "Wallet belum terdaftar. Daftarkan wallet dulu.";
+      return e.walletNotFound;
     case "WalletChallengeUnavailable":
-      return "Verifikasi wallet belum dikonfigurasi di server ini.";
+      return e.walletChallengeUnavailable;
     case "SellerNotReady":
-      return "Selesaikan persiapan toko dulu (profil + wallet utama terverifikasi).";
+      return e.sellerNotReady;
     case "SellerPayoutWalletNotReady":
-      return "Wallet seller belum siap menerima USDC. Tambahkan trustline USDC testnet lalu coba lagi.";
+      return e.sellerPayoutWalletNotReady;
     case "Conflict":
-      return fallback.includes("verified")
-        ? "Wallet harus diverifikasi dulu sebelum jadi wallet utama."
-        : "Terjadi bentrok data. Silakan coba lagi.";
+      return fallback.includes("verified") ? e.conflictNotVerified : e.conflictGeneric;
     case "RateLimited":
-      return "Terlalu banyak percobaan. Tunggu sebentar, lalu coba lagi.";
+      return e.rateLimited;
     case "InvalidInput":
-      return (
-        fallback ||
-        "Data tidak valid atau verifikasi gagal. Minta tantangan baru dan tanda tangani dengan wallet yang terdaftar."
-      );
+      return fallback || e.invalidInputFallback;
     default:
-      return fallback || "Terjadi kesalahan. Silakan coba lagi.";
+      return fallback || e.generic;
   }
 }

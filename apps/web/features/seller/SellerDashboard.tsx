@@ -9,10 +9,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { EscrowCore } from "../escrow/EscrowCore";
+import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { InspectionList } from "./InspectionList";
 import { SellerShell } from "./SellerShell";
-import { STEP_LABELS, sellerErrorLabel } from "./labels";
+import { STEP_KEYS, sellerErrorLabel } from "./labels";
 import {
   getOnboarding,
   SellerApiError,
@@ -21,6 +22,8 @@ import {
 import { useSellerSession } from "./useSellerSession";
 
 export function SellerDashboard() {
+  const d = useDict();
+  const t = d.seller.dashboard;
   const session = useSellerSession();
   const [status, setStatus] = useState<SellerOnboardingStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,8 +33,8 @@ export function SellerDashboard() {
     getOnboarding(session.accessToken).then(setStatus, (e) =>
       setError(
         e instanceof SellerApiError
-          ? sellerErrorLabel(e.code, e.message)
-          : sellerErrorLabel("InternalError", ""),
+          ? sellerErrorLabel(d, e.code, e.message)
+          : sellerErrorLabel(d, "InternalError", ""),
       ),
     );
   }, [session.accessToken]);
@@ -40,7 +43,7 @@ export function SellerDashboard() {
     return (
       <SellerShell active="dashboard">
         <div className="max-w-md">
-          <ProtocolState surface="seller" label="Memverifikasi sesi" />
+          <ProtocolState surface="seller" label={d.seller.checkingSession} />
         </div>
       </SellerShell>
     );
@@ -51,9 +54,9 @@ export function SellerDashboard() {
       <SellerShell active="dashboard">
         <EmptyState
           surface="seller"
-          title="Perlu Masuk"
-          detail="Masuk untuk melihat ringkasan toko kamu."
-          action={{ label: "Masuk Seller", href: "/seller/login" }}
+          title={d.seller.needLogin.title}
+          detail={t.needLoginDetail}
+          action={{ label: d.seller.needLogin.cta, href: "/seller/login" }}
         />
       </SellerShell>
     );
@@ -77,16 +80,14 @@ export function SellerDashboard() {
       <div className="engraved-b flex flex-wrap items-end justify-between gap-4 pb-5">
         <div>
           <h1 className="os-title text-bone">
-            {status?.profile?.storeName ?? "Toko Kamu"}
+            {status?.profile?.storeName ?? t.storeNameFallback}
           </h1>
           <p className="os-body mt-3 max-w-[52ch] text-mist/80">
-            {status?.checkoutReady
-              ? "Toko kamu siap menerima pembayaran terlindungi."
-              : "Selesaikan persiapan supaya link checkout kamu bisa menerima pembayaran."}
+            {status?.checkoutReady ? t.readySubtitle : t.notReadySubtitle}
           </p>
         </div>
         <div className="micro-label text-ash tabular-nums">
-          {Object.values(done).filter(Boolean).length} / {STEP_LABELS.length} langkah
+          {Object.values(done).filter(Boolean).length} / {STEP_KEYS.length} {t.stepsSuffix}
         </div>
       </div>
 
@@ -98,7 +99,7 @@ export function SellerDashboard() {
 
       <div className="grid gap-12 pt-10 pb-16 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-20">
         <div className="min-w-0 max-w-lg">
-          <div className="micro-label text-ash">Checklist Persiapan</div>
+          <div className="micro-label text-ash">{t.checklistLabel}</div>
           <div className="mt-5">
             <InspectionList done={done} />
           </div>
@@ -108,20 +109,18 @@ export function SellerDashboard() {
               href="/seller/onboarding"
               className="mat-illuminated os-press mt-8 inline-block px-5 py-2.5 text-sm font-semibold tracking-tight text-void hover:text-bone"
             >
-              Lanjutkan Persiapan
+              {t.continueOnboarding}
             </Link>
           )}
 
           <div className="mt-14">
-            <div className="micro-label text-ash">Link Checkout</div>
-            <p className="os-body mt-3 max-w-[46ch] text-mist/70">
-              Buat link checkout dan bagikan ke pembeli kamu.
-            </p>
+            <div className="micro-label text-ash">{t.linksHeading}</div>
+            <p className="os-body mt-3 max-w-[46ch] text-mist/70">{t.linksBody}</p>
             <Link
               href="/seller/links"
               className="desk-stamp os-press micro-label mt-5 inline-block px-4 py-2 text-bone hover:text-blood"
             >
-              Kelola Link
+              {t.manageLinks}
             </Link>
           </div>
         </div>
