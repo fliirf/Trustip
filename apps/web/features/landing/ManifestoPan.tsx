@@ -19,29 +19,11 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-/* Headlines carry the user's stake, in the user's language. The mechanism
-   (jaringan Stellar, verification) stays in the small body line, which is where
-   metadata lives on this page. */
-const PRINCIPLES = [
-  {
-    numeral: "I",
-    title: "Kepercayaan bukan screenshot.",
-    body: "Bukti chat dan screenshot transfer tidak melindungi siapa pun. Trustip menggantinya dengan bukti yang tercatat permanen.",
-  },
-  {
-    numeral: "II",
-    title: "Bukti bayar tidak bisa dikarang.",
-    body: "Tidak ada tombol “saya sudah bayar”. Pembayaran dikonfirmasi dari jaringan Stellar, bukan dari klik.",
-  },
-  {
-    numeral: "III",
-    title: "Dana cair setelah pesanan diterima.",
-    body: "Dana pindah ke seller hanya setelah pesanan dikonfirmasi diterima, atau setelah peninjauan selesai.",
-  },
-] as const;
+import { useDict } from "../i18n/LocaleProvider";
 
 export function ManifestoPan() {
+  const d = useDict();
+  const principles = d.landing.manifesto;
   const root = useRef<HTMLElement | null>(null);
   const track = useRef<HTMLDivElement | null>(null);
 
@@ -75,7 +57,7 @@ export function ManifestoPan() {
   return (
     <section ref={root} id="thesis" className="relative overflow-hidden">
       <div ref={track} className="flex flex-col md:h-[100dvh] md:flex-row">
-        {PRINCIPLES.map((p) => (
+        {principles.map((p) => (
           <article
             key={p.numeral}
             className="flex shrink-0 flex-col justify-center px-5 py-24 md:h-full md:w-screen md:px-[12vw] md:py-0"

@@ -13,6 +13,7 @@
    payment. The only client islands are the three scenes and the magnetic CTAs. */
 
 import Link from "next/link";
+import { getDict, getServerLocale } from "../../lib/i18n/server";
 import { CameraRig } from "./CameraRig";
 import { ConflictScene } from "./ConflictScene";
 import { HeroMotion } from "./HeroMotion";
@@ -42,16 +43,6 @@ function BootChars({ text, start, step = 0.05 }: { text: string; start: number; 
   );
 }
 
-/* Wayfinding speaks the reader's language; the chapters underneath keep their
-   instrument identity. FAQ is a real route, not an anchor. */
-const NAV = [
-  { href: "#conflict", label: "MASALAH" },
-  { href: "#protocol", label: "CARA KERJA" },
-  { href: "#proof", label: "BUKTI" },
-  { href: "#platform", label: "TEKNOLOGI" },
-  { href: "/faq", label: "FAQ" },
-] as const;
-
 const MARQUEE = [
   "PROTECTED CHECKOUT",
   "USDC ON STELLAR",
@@ -65,29 +56,24 @@ const MARQUEE = [
 
 /* The three real failure cases, set as a staircase rather than a card row: each
    steps further right than the last, so the eye falls down and across instead of
-   scanning three equal boxes. */
-const RISK_CASES = [
-  {
-    platform: "INSTAGRAM",
-    scenario: "Jastip pre-order",
-    risk: "Transfer duluan, chat dihapus. Tidak ada jejak, tidak ada perlindungan.",
-    indent: "md:ml-0",
-  },
-  {
-    platform: "TIKTOK",
-    scenario: "Group buy",
-    risk: "Sepuluh pembeli patungan. Organizer hilang setelah dana terkumpul.",
-    indent: "md:ml-[22%]",
-  },
-  {
-    platform: "WHATSAPP",
-    scenario: "Barang second",
-    risk: "DP 50% dibayar. Barang tidak pernah dikirim. Tanpa tracking.",
-    indent: "md:ml-[44%]",
-  },
+   scanning three equal boxes. Platform names are proper nouns — identical in
+   both locales — so only scenario/risk come from the dictionary. */
+const RISK_PLATFORMS = [
+  { key: "instagram", platform: "INSTAGRAM", indent: "md:ml-0" },
+  { key: "tiktok", platform: "TIKTOK", indent: "md:ml-[22%]" },
+  { key: "whatsapp", platform: "WHATSAPP", indent: "md:ml-[44%]" },
 ] as const;
 
-export function VoidLanding() {
+export async function VoidLanding() {
+  const d = getDict(await getServerLocale());
+  const l = d.landing;
+  const NAV = [
+    { href: "#conflict", label: l.nav.conflict },
+    { href: "#protocol", label: l.nav.protocol },
+    { href: "#proof", label: l.nav.proof },
+    { href: "#platform", label: l.nav.platform },
+    { href: "/faq", label: l.nav.faq },
+  ] as const;
   return (
     <div className={`${displayFont.variable} ${monoFont.variable} landing-root relative bg-void text-bone`}>
       {/* The world: ambient wash, three lights, protocol grid, two dust fields,
@@ -125,13 +111,13 @@ export function VoidLanding() {
             {/* Buyer is the primary funnel (mirrors the hero's illuminated CTA),
                 so it reads at full bone here, not the dimmer mist it was. */}
             <Link href="/buyer" className="micro-label font-mono-jb text-bone transition-colors hover:text-blood">
-              Saya Pembeli
+              {l.buyerCta}
             </Link>
             <Link
               href="/seller/login"
               className="micro-label cta-ghost mat-key border border-hairline px-4 py-2.5 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
             >
-              Mulai Jualan
+              {l.sellerCta}
             </Link>
           </div>
         </div>
@@ -176,13 +162,13 @@ export function VoidLanding() {
                     (tagline B) is still human. The tech stays in the corner
                     micro-labels and the marquee, where metadata belongs. */}
                 <p className="hero-tagline-a font-display text-[clamp(24px,4vw,52px)] leading-[1.06] font-normal tracking-tight text-bone">
-                  Pembayaran kamu tetap aman sampai pesanan diterima.
+                  {l.hero.taglineA}
                 </p>
                 <p
                   aria-hidden
                   className="hero-tagline-b font-display absolute inset-0 text-[clamp(24px,4vw,52px)] leading-[1.06] font-normal tracking-tight text-bone opacity-0"
                 >
-                  Dana berpindah hanya setelah kamu mengonfirmasi.
+                  {l.hero.taglineB}
                 </p>
               </div>
 
@@ -194,13 +180,13 @@ export function VoidLanding() {
                   href="/buyer"
                   className="micro-label cta-primary mat-illuminated inline-block bg-bone px-8 py-4 font-mono-jb text-void transition-colors duration-300 hover:bg-blood hover:text-bone"
                 >
-                  Saya Pembeli
+                  {l.buyerCta}
                 </Link>
                 <Link
                   href="/seller/login"
                   className="micro-label cta-ghost mat-key inline-block border border-hairline px-8 py-4 font-mono-jb text-bone transition-colors duration-300 hover:border-blood hover:text-blood"
                 >
-                  Mulai Jualan
+                  {l.sellerCta}
                 </Link>
               </div>
             </div>
@@ -231,20 +217,23 @@ export function VoidLanding() {
             across. No container, no hairline box, no equal columns. */}
         <section className="px-5 pb-32 md:px-10 md:pb-48">
           <Reveal className="mx-auto w-full max-w-[1400px]">
-            {RISK_CASES.map((c, i) => (
-              <div
-                key={c.platform}
-                className={`max-w-md py-10 md:py-14 ${c.indent}`}
-                data-rv="rise"
-                style={{ transitionDelay: `${i * 140}ms` }}
-              >
-                <span className="micro-label font-mono-jb text-blood/70">{c.platform}</span>
-                <div className="font-display mt-4 text-[clamp(22px,2.6vw,34px)] leading-tight font-normal tracking-tight text-bone">
-                  {c.scenario}
+            {RISK_PLATFORMS.map((c, i) => {
+              const r = l.riskCases[c.key];
+              return (
+                <div
+                  key={c.platform}
+                  className={`max-w-md py-10 md:py-14 ${c.indent}`}
+                  data-rv="rise"
+                  style={{ transitionDelay: `${i * 140}ms` }}
+                >
+                  <span className="micro-label font-mono-jb text-blood/70">{c.platform}</span>
+                  <div className="font-display mt-4 text-[clamp(22px,2.6vw,34px)] leading-tight font-normal tracking-tight text-bone">
+                    {r.scenario}
+                  </div>
+                  <p className="mt-3 text-[14px] leading-relaxed text-mist">{r.risk}</p>
                 </div>
-                <p className="mt-3 text-[14px] leading-relaxed text-mist">{c.risk}</p>
-              </div>
-            ))}
+              );
+            })}
           </Reveal>
         </section>
 
@@ -262,7 +251,7 @@ export function VoidLanding() {
         <div data-spine-wrap className="relative px-5 md:px-10">
           <div className="relative mx-auto max-w-[1400px]">
             <span aria-hidden data-spine className="landing-spine absolute inset-y-0 left-0 w-px bg-hairline" />
-            <ProofDocument />
+            <ProofDocument d={d} />
             <PlatformSplit />
           </div>
         </div>
@@ -294,9 +283,9 @@ export function VoidLanding() {
             />
             <h2
               className="font-display mx-auto max-w-5xl text-[clamp(40px,8vw,120px)] leading-[0.92] font-normal tracking-tight"
-              aria-label="Berhenti transfer ke orang asing."
+              aria-label={l.closingHeadline}
             >
-              <SplitWords text="Berhenti transfer ke orang asing." step={65} />
+              <SplitWords text={l.closingHeadline} step={65} />
             </h2>
 
             <div
@@ -308,13 +297,13 @@ export function VoidLanding() {
                 href="/seller/login"
                 className="micro-label cta-primary mat-illuminated inline-block bg-bone px-10 py-5 font-mono-jb text-void transition-colors duration-300 hover:bg-blood hover:text-bone"
               >
-                Mulai Jualan
+                {l.sellerCta}
               </Link>
               <Link
                 href="/buyer"
                 className="micro-label cta-ghost pb-1 font-mono-jb text-mist transition-colors duration-300 hover:text-bone"
               >
-                Saya Pembeli
+                {l.buyerCta}
               </Link>
             </div>
           </Reveal>
@@ -326,12 +315,12 @@ export function VoidLanding() {
             <span className="font-display font-medium text-blood">.</span>
             <span className="micro-label ml-3 font-mono-jb text-ash">Stellar native · USDC · Soroban escrow</span>
           </div>
-          <nav className="flex items-center gap-5" aria-label="Bantuan">
+          <nav className="flex items-center gap-5" aria-label={l.footerHowItWorks}>
             <Link href="/cara-kerja" className="micro-label font-mono-jb text-ash transition-colors hover:text-bone">
-              Cara Kerja
+              {l.footerHowItWorks}
             </Link>
             <Link href="/faq" className="micro-label font-mono-jb text-ash transition-colors hover:text-bone">
-              FAQ
+              {l.footerFaq}
             </Link>
           </nav>
           <span className="micro-label font-mono-jb text-ash">© {new Date().getFullYear()} TRUSTIP</span>

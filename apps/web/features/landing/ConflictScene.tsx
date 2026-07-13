@@ -27,23 +27,27 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useDict } from "../i18n/LocaleProvider";
 
 /* x / y are percentages of the frame. Deliberately un-gridded: no two share a
-   column or a row, sizes vary, nothing is centred. */
-const FRAGMENTS = [
-  { t: "Transfer duluan", x: "6%", y: "16%", size: "text-2xl md:text-4xl", tone: "text-bone" },
-  { t: "Chat dihapus", x: "64%", y: "11%", size: "text-xl md:text-3xl", tone: "text-mist" },
-  { t: "DP 50%", x: "33%", y: "27%", size: "text-3xl md:text-5xl", tone: "text-bone" },
-  { t: "Organizer hilang", x: "73%", y: "32%", size: "text-2xl md:text-4xl", tone: "text-bone" },
-  { t: "Tanpa resi", x: "11%", y: "40%", size: "text-lg md:text-2xl", tone: "text-ash" },
-  { t: "Barang tidak dikirim", x: "40%", y: "52%", size: "text-2xl md:text-4xl", tone: "text-mist" },
-  { t: "Tidak ada jejak", x: "77%", y: "59%", size: "text-xl md:text-3xl", tone: "text-ash" },
-  { t: "Screenshot palsu", x: "4%", y: "66%", size: "text-2xl md:text-4xl", tone: "text-mist" },
-  { t: "Dana hilang", x: "56%", y: "76%", size: "text-3xl md:text-5xl", tone: "text-blood" },
-  { t: "Tanpa perlindungan", x: "24%", y: "84%", size: "text-xl md:text-3xl", tone: "text-ash" },
+   column or a row, sizes vary, nothing is centred. Text comes from the
+   dictionary (d.landing.conflict.fragments); this layout array only carries
+   position/size/tone, keyed by index. */
+const FRAGMENT_LAYOUT = [
+  { x: "6%", y: "16%", size: "text-2xl md:text-4xl", tone: "text-bone" },
+  { x: "64%", y: "11%", size: "text-xl md:text-3xl", tone: "text-mist" },
+  { x: "33%", y: "27%", size: "text-3xl md:text-5xl", tone: "text-bone" },
+  { x: "73%", y: "32%", size: "text-2xl md:text-4xl", tone: "text-bone" },
+  { x: "11%", y: "40%", size: "text-lg md:text-2xl", tone: "text-ash" },
+  { x: "40%", y: "52%", size: "text-2xl md:text-4xl", tone: "text-mist" },
+  { x: "77%", y: "59%", size: "text-xl md:text-3xl", tone: "text-ash" },
+  { x: "4%", y: "66%", size: "text-2xl md:text-4xl", tone: "text-mist" },
+  { x: "56%", y: "76%", size: "text-3xl md:text-5xl", tone: "text-blood" },
+  { x: "24%", y: "84%", size: "text-xl md:text-3xl", tone: "text-ash" },
 ] as const;
 
 export function ConflictScene() {
+  const d = useDict();
   const root = useRef<HTMLElement | null>(null);
   const field = useRef<HTMLDivElement | null>(null);
 
@@ -120,13 +124,13 @@ export function ConflictScene() {
       {/* On desktop the field IS the frame, so "the centre of the field" and "the
           centre of the viewport" — where the Core sits — are the same point. */}
       <div ref={field} className="relative flex flex-wrap gap-x-8 gap-y-5 md:absolute md:inset-0 md:block">
-        {FRAGMENTS.map((f) => (
+        {FRAGMENT_LAYOUT.map((f, i) => (
           <span
-            key={f.t}
+            key={i}
             className={`scatter-word font-display font-normal tracking-tight ${f.size} ${f.tone}`}
             style={{ ["--x" as string]: f.x, ["--y" as string]: f.y }}
           >
-            {f.t}
+            {d.landing.conflict.fragments[i]}
           </span>
         ))}
 
@@ -134,7 +138,7 @@ export function ConflictScene() {
             scrub timeline, and a word-mask would need a second, competing reveal
             trigger inside a pinned section. */}
         <h2 className="conflict-resolve font-display mt-12 max-w-3xl text-[clamp(32px,5.5vw,76px)] leading-[0.95] font-normal tracking-tight md:mt-0 md:max-w-4xl md:text-center">
-          Social commerce berjalan di atas kepercayaan buta.
+          {d.landing.conflict.resolveHeadline}
         </h2>
       </div>
     </section>

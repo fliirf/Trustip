@@ -1,3 +1,4 @@
+import type { Dict } from "../../lib/i18n/dictionaries";
 import { Reveal } from "./Reveal";
 
 /* CHAPTER 05 — PROOF. Server component apart from one `Reveal` observer.
@@ -11,30 +12,8 @@ import { Reveal } from "./Reveal";
    This chapter is deliberately the densest on the page. It sits between two
    near-empty ones, so the reader feels the pressure change. */
 
-const STATES = [
-  {
-    label: "Menunggu Pembayaran",
-    note: "Order dibuat dari link checkout. Belum ada dana yang bergerak.",
-  },
-  {
-    label: "Pesanan Aman",
-    note: "Pembayaran terverifikasi di jaringan. Dana ditahan aman oleh sistem, bukan dipegang seller.",
-    active: true,
-  },
-  { label: "Dikemas", note: "Seller menandai pesanan sedang disiapkan." },
-  { label: "Dikirim", note: "Nomor resi tercatat. Dana tetap terkunci." },
-  { label: "Pesanan Diterima", note: "Pembeli mengonfirmasi penerimaan dari wallet yang membayar." },
-  { label: "Selesai", note: "Dana diteruskan ke seller. Transaksi tercatat permanen." },
-] as const;
-
-const MARGINALIA = [
-  ["LINK", "Checkout link dengan identitas seller terverifikasi"],
-  ["WALLET", "Wallet seller diverifikasi kepemilikannya sebelum bisa menerima dana"],
-  ["ORDERS", "Riwayat pesanan terlindungi yang selesai"],
-  ["STATUS", "Halaman status publik untuk setiap pesanan"],
-] as const;
-
-export function ProofDocument() {
+export function ProofDocument({ d }: { d: Dict }) {
+  const p = d.landing.proof;
   return (
     /* `mat-paper`: the chapter is printed on an archival sheet. Laid fibre, a
        cross weft, and one crease of light, masked on the diagonal so the sheet
@@ -48,7 +27,7 @@ export function ProofDocument() {
               continues down through the Platform chapter. This rail owns no rule
               of its own. */}
           <ol className="relative">
-            {STATES.map((s, i) => (
+            {p.states.map((s, i) => (
               <li
                 key={s.label}
                 className="relative pb-10 pl-8 last:pb-0 md:pl-12"
@@ -80,12 +59,9 @@ export function ProofDocument() {
 
           {/* Marginalia: sticky, small, unboxed. No ScrollTrigger, just position. */}
           <aside className="md:sticky md:top-28 md:self-start" data-rv="blur" style={{ transitionDelay: "260ms" }}>
-            <p className="text-[14px] leading-relaxed text-mist">
-              Setiap checkout terlindungi yang selesai tercatat. Pembeli melihat riwayat yang nyata, bukan testimoni
-              yang bisa dikarang.
-            </p>
+            <p className="text-[14px] leading-relaxed text-mist">{p.marginaliaIntro}</p>
             <dl className="mt-10 space-y-5">
-              {MARGINALIA.map(([tag, copy]) => (
+              {p.marginalia.map(([tag, copy]) => (
                 <div key={tag}>
                   <dt className="micro-label font-mono-jb text-blood/70">{tag}</dt>
                   <dd className="mt-1.5 text-[13px] leading-relaxed text-ash">{copy}</dd>

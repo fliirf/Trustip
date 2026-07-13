@@ -27,13 +27,7 @@
 import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-
-const BEATS = [
-  "Pembeli membayar USDC dari wallet miliknya sendiri.",
-  "Dana terkunci di escrow. Pesanan Aman.",
-  "Seller mengemas, lalu mengirim pesanan.",
-  "Pesanan Diterima. Dana diteruskan ke seller.",
-] as const;
+import { useDict } from "../i18n/LocaleProvider";
 
 const BONE = "237,234,227";
 const BLOOD = "#FF2D00";
@@ -49,6 +43,8 @@ const OUT_LEN = 870 - CENTRE; // 370
 const BLOOM = LOCK_R / DOT_R;
 
 export function ProtocolScene() {
+  const d = useDict();
+  const BEATS = d.landing.protocol.beats;
   const root = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -162,10 +158,10 @@ export function ProtocolScene() {
           </svg>
 
           <span className="micro-label absolute top-[64%] left-[9%] -translate-x-1/2 font-mono-jb text-mist">
-            Pembeli
+            {d.landing.protocol.buyerLabel}
           </span>
           <span className="micro-label absolute top-[64%] left-[91%] -translate-x-1/2 font-mono-jb text-mist">
-            Seller
+            {d.landing.protocol.sellerLabel}
           </span>
         </div>
       </div>

@@ -773,6 +773,114 @@ const id = {
       generic: "Terjadi kesalahan. Silakan coba lagi.",
     },
   },
+  // Landing ("/"). Only the human-language promise/narrative switches with
+  // locale — the corner micro-labels, marquee, telemetry rails, and the
+  // Platform chapter's code/technical footnote stay in their fixed
+  // technical/English register by design regardless of buyer language.
+  landing: {
+    nav: {
+      conflict: "MASALAH",
+      protocol: "CARA KERJA",
+      proof: "BUKTI",
+      platform: "TEKNOLOGI",
+      faq: "FAQ",
+    },
+    buyerCta: "Saya Pembeli",
+    sellerCta: "Mulai Jualan",
+    hero: {
+      taglineA: "Pembayaran kamu tetap aman sampai pesanan diterima.",
+      taglineB: "Dana berpindah hanya setelah kamu mengonfirmasi.",
+    },
+    riskCases: {
+      instagram: {
+        scenario: "Jastip pre-order",
+        risk: "Transfer duluan, chat dihapus. Tidak ada jejak, tidak ada perlindungan.",
+      },
+      tiktok: {
+        scenario: "Group buy",
+        risk: "Sepuluh pembeli patungan. Organizer hilang setelah dana terkumpul.",
+      },
+      whatsapp: {
+        scenario: "Barang second",
+        risk: "DP 50% dibayar. Barang tidak pernah dikirim. Tanpa tracking.",
+      },
+    },
+    closingHeadline: "Berhenti transfer ke orang asing.",
+    footerHowItWorks: "Cara Kerja",
+    footerFaq: "FAQ",
+    conflict: {
+      fragments: [
+        "Transfer duluan",
+        "Chat dihapus",
+        "DP 50%",
+        "Organizer hilang",
+        "Tanpa resi",
+        "Barang tidak dikirim",
+        "Tidak ada jejak",
+        "Screenshot palsu",
+        "Dana hilang",
+        "Tanpa perlindungan",
+      ] as readonly string[],
+      resolveHeadline: "Social commerce berjalan di atas kepercayaan buta.",
+    },
+    manifesto: [
+      {
+        numeral: "I",
+        title: "Kepercayaan bukan screenshot.",
+        body: "Bukti chat dan screenshot transfer tidak melindungi siapa pun. Trustip menggantinya dengan bukti yang tercatat permanen.",
+      },
+      {
+        numeral: "II",
+        title: "Bukti bayar tidak bisa dikarang.",
+        body: "Tidak ada tombol “saya sudah bayar”. Pembayaran dikonfirmasi dari jaringan Stellar, bukan dari klik.",
+      },
+      {
+        numeral: "III",
+        title: "Dana cair setelah pesanan diterima.",
+        body: "Dana pindah ke seller hanya setelah pesanan dikonfirmasi diterima, atau setelah peninjauan selesai.",
+      },
+    ] as readonly { numeral: string; title: string; body: string }[],
+    protocol: {
+      beats: [
+        "Pembeli membayar USDC dari wallet miliknya sendiri.",
+        "Dana terkunci di escrow. Pesanan Aman.",
+        "Seller mengemas, lalu mengirim pesanan.",
+        "Pesanan Diterima. Dana diteruskan ke seller.",
+      ] as readonly string[],
+      buyerLabel: "Pembeli",
+      sellerLabel: "Seller",
+    },
+    proof: {
+      states: [
+        {
+          label: "Menunggu Pembayaran",
+          note: "Order dibuat dari link checkout. Belum ada dana yang bergerak.",
+        },
+        {
+          label: "Pesanan Aman",
+          note: "Pembayaran terverifikasi di jaringan. Dana ditahan aman oleh sistem, bukan dipegang seller.",
+          active: true,
+        },
+        { label: "Dikemas", note: "Seller menandai pesanan sedang disiapkan." },
+        { label: "Dikirim", note: "Nomor resi tercatat. Dana tetap terkunci." },
+        {
+          label: "Pesanan Diterima",
+          note: "Pembeli mengonfirmasi penerimaan dari wallet yang membayar.",
+        },
+        {
+          label: "Selesai",
+          note: "Dana diteruskan ke seller. Transaksi tercatat permanen.",
+        },
+      ] as readonly { label: string; note: string; active?: boolean }[],
+      marginaliaIntro: "Setiap checkout terlindungi yang selesai tercatat. Pembeli melihat riwayat yang nyata, bukan testimoni yang bisa dikarang.",
+      marginalia: [
+        ["LINK", "Checkout link dengan identitas seller terverifikasi"],
+        ["WALLET", "Wallet seller diverifikasi kepemilikannya sebelum bisa menerima dana"],
+        ["ORDERS", "Riwayat pesanan terlindungi yang selesai"],
+        ["STATUS", "Halaman status publik untuk setiap pesanan"],
+      ] as readonly (readonly [string, string])[],
+    },
+  },
   // Shared low-level UI primitives (ErrorState/ProtocolState/EmptyState),
   // used across all three surfaces (checkout/status/seller). Self-contained —
   // the component calls useDict() itself rather than threading labels through
@@ -1559,6 +1667,110 @@ const en: Dict = {
       rateLimited: "Too many attempts. Wait a moment, then try again.",
       invalidInputFallback: "Invalid data or verification failed. Request a new challenge and sign it with the registered wallet.",
       generic: "Something went wrong. Please try again.",
+    },
+  },
+  landing: {
+    nav: {
+      conflict: "THE PROBLEM",
+      protocol: "HOW IT WORKS",
+      proof: "PROOF",
+      platform: "TECHNOLOGY",
+      faq: "FAQ",
+    },
+    buyerCta: "I'm a Buyer",
+    sellerCta: "Start Selling",
+    hero: {
+      taglineA: "Your payment stays safe until the order is received.",
+      taglineB: "Funds move only after you confirm.",
+    },
+    riskCases: {
+      instagram: {
+        scenario: "Jastip pre-order",
+        risk: "Pay first, chat deleted. No trace, no protection.",
+      },
+      tiktok: {
+        scenario: "Group buy",
+        risk: "Ten buyers pool in. The organizer vanishes once the funds are collected.",
+      },
+      whatsapp: {
+        scenario: "Secondhand item",
+        risk: "50% deposit paid. The item never ships. No tracking.",
+      },
+    },
+    closingHeadline: "Stop wiring money to strangers.",
+    footerHowItWorks: "How It Works",
+    footerFaq: "FAQ",
+    conflict: {
+      fragments: [
+        "Pay first",
+        "Chat deleted",
+        "50% deposit",
+        "Organizer vanishes",
+        "No tracking",
+        "Item never shipped",
+        "No trace",
+        "Fake screenshot",
+        "Funds gone",
+        "No protection",
+      ] as readonly string[],
+      resolveHeadline: "Social commerce runs on blind trust.",
+    },
+    manifesto: [
+      {
+        numeral: "I",
+        title: "Trust isn't a screenshot.",
+        body: "Chat logs and transfer screenshots protect no one. Trustip replaces them with proof recorded permanently.",
+      },
+      {
+        numeral: "II",
+        title: "Proof of payment can't be faked.",
+        body: "There's no “I already paid” button. Payment is confirmed from the Stellar network, not from a click.",
+      },
+      {
+        numeral: "III",
+        title: "Funds release once the order is received.",
+        body: "Funds move to the seller only after the order is confirmed received, or after review is complete.",
+      },
+    ] as readonly { numeral: string; title: string; body: string }[],
+    protocol: {
+      beats: [
+        "The buyer pays USDC from their own wallet.",
+        "Funds lock into escrow. Order Protected.",
+        "The seller packs, then ships the order.",
+        "Order Received. Funds forwarded to the seller.",
+      ] as readonly string[],
+      buyerLabel: "Buyer",
+      sellerLabel: "Seller",
+    },
+    proof: {
+      states: [
+        {
+          label: "Awaiting Payment",
+          note: "Order created from a checkout link. No funds have moved yet.",
+        },
+        {
+          label: "Order Protected",
+          note: "Payment verified on-chain. Funds are held safe by the system, not by the seller.",
+          active: true,
+        },
+        { label: "Packed", note: "The seller marks the order as being prepared." },
+        { label: "Shipped", note: "Tracking number recorded. Funds stay locked." },
+        {
+          label: "Order Received",
+          note: "The buyer confirms receipt from the wallet that paid.",
+        },
+        {
+          label: "Completed",
+          note: "Funds are forwarded to the seller. The transaction is recorded permanently.",
+        },
+      ] as readonly { label: string; note: string; active?: boolean }[],
+      marginaliaIntro: "Every completed protected checkout is recorded. Buyers see a real history, not testimonials that can be made up.",
+      marginalia: [
+        ["LINK", "Checkout link with a verified seller identity"],
+        ["WALLET", "Seller wallet ownership verified before it can receive funds"],
+        ["ORDERS", "History of completed protected orders"],
+        ["STATUS", "Public status page for every order"],
+      ] as readonly (readonly [string, string])[],
     },
   },
   ui: {
