@@ -6,9 +6,16 @@ tidak ada langkah di sini yang butuh perubahan kode.
 ## 0. Scope yang disepakati
 
 - **Seller payout = escrow release langsung ke wallet USDC seller** (sudah live).
-  Multi-route payout (XLM_WALLET / MONEYGRAM_CASHOUT) berstatus **guided/future**
-  — flag `NEXT_PUBLIC_ENABLE_XLM_PAYOUT` dan `NEXT_PUBLIC_ENABLE_MONEYGRAM_ROUTE`
-  tetap `false` di production.
+- **XLM_WALLET route = LIVE (diterima 2026-07-15).** Seller bisa konversi payout
+  USDC→XLM lewat DEX Stellar; konversi **ditandatangani seller sendiri** (operator
+  tidak menyentuh dana), muncul di `/seller/payouts` untuk payout langsung yang
+  sudah selesai. Tidak ada flag — fitur ini aktif di production. Gate: unit +
+  build; **belum di-live-sign di testnet** — jalankan 1 konversi nyata di testnet
+  sebelum go-live (lihat §7).
+- **MONEYGRAM_CASHOUT route = guided/future** (butuh partner agreement + SEP-24
+  anchor). Belum dieksekusi; tidak ada flag runtime (lihat `MAINNET_FEATURE_GAPS.md`).
+- ⚠️ **JANGAN** set variabel `NEXT_PUBLIC_ENABLE_*` apa pun — validator
+  production menolaknya sebagai legacy (lihat §3).
 - Top-up buyer = SEP-24 anchor flow di `/topup` (client-side). Butuh anchor
   mainnet asli di `NEXT_PUBLIC_ANCHOR_DOMAIN` — production **menolak** domain
   yang mengandung "test".
@@ -43,45 +50,70 @@ update users set role = 'admin' where email = '<email-admin-kamu>';
 
 ## 3. Environment variables (production secret store)
 
-Frontend (Vercel, `NEXT_PUBLIC_*`):
+Daftar ini **otoritatif** — persis yang divalidasi `packages/config/src/validate.ts`
+(gate `pnpm verify:env:production`). Set SEMUA yang di bawah, JANGAN set yang ada
+di daftar "ditolak". Ada nilai placeholder (diawali `<`) → verify gagal.
+
+Frontend (Vercel, `NEXT_PUBLIC_*` — semua WAJIB):
 
 ```txt
-NEXT_PUBLIC_APP_ENV=production
 NEXT_PUBLIC_APP_URL=https://<domain-kamu>
 NEXT_PUBLIC_STELLAR_NETWORK=mainnet
-NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Public Global Stellar Network ; September 2015"
 NEXT_PUBLIC_STELLAR_RPC_URL=<rpc mainnet pilihanmu>
 NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon.stellar.org
 NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID=<hasil deploy langkah 4>
-NEXT_PUBLIC_USDC_ASSET_CODE=USDC
 NEXT_PUBLIC_USDC_ISSUER=GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
 NEXT_PUBLIC_USDC_CONTRACT_ID=<USDC SAC mainnet>
 NEXT_PUBLIC_ANCHOR_DOMAIN=<anchor mainnet, TANPA kata "test">
 NEXT_PUBLIC_SUPABASE_URL=<prod supabase url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<prod anon key>
-NEXT_PUBLIC_ENABLE_FREIGHTER=true
-NEXT_PUBLIC_ENABLE_XBULL=true
-NEXT_PUBLIC_ENABLE_BINANCE_TOPUP_GUIDE=false
-NEXT_PUBLIC_ENABLE_BINANCE_PAY=false
-NEXT_PUBLIC_ENABLE_XLM_PAYOUT=false
-NEXT_PUBLIC_ENABLE_MONEYGRAM_ROUTE=false
 ```
 
-Backend/server-only (Vercel + workers):
+Backend/server-only (Vercel + workers — semua WAJIB):
 
 ```txt
+NODE_ENV=production
 STELLAR_NETWORK=mainnet
 SUPABASE_SERVICE_ROLE_KEY=<prod service role — JANGAN pernah ke frontend>
+TRUSTIP_SIGNER_STRATEGY=env
 TRUSTIP_OPERATOR_SECRET_KEY=<seed operator mainnet>
 TRUSTIP_ALLOW_MAINNET_OPERATOR=true
-TRUSTIP_CHECKOUT_TOKEN_SECRET=<random 32+ byte>
-TRUSTIP_WALLET_CHALLENGE_SECRET=<random 32+ byte>
-TRUSTIP_SEP10_JWT_SECRET=<random 32+ byte>
+PAYMENT_ATTEMPT_SECRET=<random ≥32 char>
+TRUSTIP_CHECKOUT_TOKEN_SECRET=<random ≥32 char>
+TRUSTIP_WALLET_CHALLENGE_SECRET=<random ≥32 char>
+TRUSTIP_SEP10_JWT_SECRET=<random ≥32 char>
+UPSTASH_REDIS_REST_URL=<https upstash rest url>
+UPSTASH_REDIS_REST_TOKEN=<upstash rest token>
 ```
 
-Catatan: `TRUSTIP_ALLOW_MAINNET_OPERATOR=true` adalah keputusan eksplisit bahwa
-seed operator boleh hidup di env production. Kalau nanti mau KMS/HSM, seam-nya
-sudah ada (`TRUSTIP_SIGNER_STRATEGY`), tapi belum dibangun.
+Generate 4 secret HMAC (jalankan lokal, jangan pakai nilai contoh siapa pun):
+
+```bash
+for k in PAYMENT_ATTEMPT_SECRET TRUSTIP_CHECKOUT_TOKEN_SECRET \
+         TRUSTIP_WALLET_CHALLENGE_SECRET TRUSTIP_SEP10_JWT_SECRET; do
+  echo "$k=$(openssl rand -base64 32)"
+done
+```
+
+### JANGAN di-set (validator production menolaknya sebagai legacy)
+
+`NEXT_PUBLIC_APP_ENV` (pakai `NODE_ENV`), `NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE`
+(diturunkan dari network), `NEXT_PUBLIC_USDC_ASSET_CODE` (selalu USDC),
+`NEXT_PUBLIC_ENABLE_FREIGHTER`, `NEXT_PUBLIC_ENABLE_XBULL`,
+`NEXT_PUBLIC_ENABLE_BINANCE_TOPUP_GUIDE`, `NEXT_PUBLIC_ENABLE_BINANCE_PAY`,
+`NEXT_PUBLIC_ENABLE_XLM_PAYOUT`, `NEXT_PUBLIC_ENABLE_MONEYGRAM_ROUTE`,
+`SOROBAN_ESCROW_CONTRACT_ID`/`ESCROW_CONTRACT_ID` (pakai
+`NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID`), `SOROBAN_ADMIN_SECRET_KEY`/
+`STELLAR_OPERATOR_SECRET_KEY` (pakai `TRUSTIP_OPERATOR_SECRET_KEY`),
+`SOROBAN_ADMIN_ADDRESS`, `STELLAR_RPC_URL`/`STELLAR_HORIZON_URL`/
+`STELLAR_NETWORK_PASSPHRASE` (pakai varian `NEXT_PUBLIC_*`), `DATABASE_URL`.
+
+Catatan:
+- `TRUSTIP_ALLOW_MAINNET_OPERATOR=true` = keputusan eksplisit bahwa seed operator
+  boleh hidup di env production. Seam KMS/HSM (`TRUSTIP_SIGNER_STRATEGY`) ada tapi
+  belum dibangun; untuk mainnet v1.1 nilainya harus `env`.
+- Upstash Redis WAJIB di production (rate-limit terdistribusi). Tanpa itu verify
+  gagal. Anchor domain tidak boleh mengandung "test" saat network mainnet.
 
 ## 4. Deploy kontrak
 
