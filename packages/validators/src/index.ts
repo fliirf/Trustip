@@ -47,17 +47,45 @@ export function toPayoutMethodDbValue(method: PayoutMethod): string {
   return PAYOUT_METHOD_DB_VALUE[method];
 }
 
-export const addPayoutMethodSchema = z.object({
-  methodType: z.enum(PAYOUT_METHOD_VALUES),
-  label: z.string().min(1),
-  stellarAddress: z.string().optional(),
-  cashoutCountry: z.string().optional(),
-  cashoutCurrency: z.string().optional(),
-  preferredName: z.string().optional(),
-  phone: z.string().optional(),
-});
+/** Payout method types — mirrors the `payout_method_type` DB enum (lowercase). */
+export const payoutMethodTypeSchema = z.enum([
+  "usdc_wallet",
+  "xlm_wallet",
+  "moneygram_cashout",
+]);
+export type PayoutMethodType = z.infer<typeof payoutMethodTypeSchema>;
 
+/** Add a seller payout method (phase 10). SHAPE only — ownership of the wallet
+ * (usdc/xlm) and MoneyGram operational validation are enforced server-side.
+ * USDC/XLM routes reference an already-VERIFIED seller wallet by id rather than
+ * a raw address the seller may not own (a raw destination would be a fund-
+ * redirection vector); MoneyGram carries only country/currency, no raw PII at
+ * the method level (Security spec §11). */
+const payoutDisplayNameSchema = z.string().trim().min(1).max(80);
+export const addPayoutMethodSchema = z.discriminatedUnion("methodType", [
+  z.object({
+    methodType: z.literal("usdc_wallet"),
+    displayName: payoutDisplayNameSchema,
+    walletId: z.string().uuid(),
+    isDefault: z.boolean().optional(),
+  }),
+  z.object({
+    methodType: z.literal("xlm_wallet"),
+    displayName: payoutDisplayNameSchema,
+    walletId: z.string().uuid(),
+    isDefault: z.boolean().optional(),
+  }),
+  z.object({
+    methodType: z.literal("moneygram_cashout"),
+    displayName: payoutDisplayNameSchema,
+    cashoutCountry: z.string().trim().length(2).toUpperCase(),
+    cashoutCurrency: z.string().trim().length(3).toUpperCase(),
+    isDefault: z.boolean().optional(),
+  }),
+]);
 export type AddPayoutMethodInput = z.infer<typeof addPayoutMethodSchema>;
+
+export const payoutMethodIdSchema = z.string().uuid();
 
 // ---------------------------------------------------------------------------
 // Payment API schemas (Phase 4 — payment backend prepare/submit/sync/status).

@@ -294,3 +294,73 @@ export interface SellerTrust {
 export function getSellerTrust(token: string): Promise<SellerTrust> {
   return request<SellerTrust>("/api/seller/trust", token);
 }
+
+export type PayoutMethodType =
+  | "usdc_wallet"
+  | "xlm_wallet"
+  | "moneygram_cashout";
+
+export interface PayoutMethod {
+  id: string;
+  methodType: PayoutMethodType;
+  displayName: string;
+  isDefault: boolean;
+  status: string;
+  stellarAddress: string | null;
+  assetCode: string | null;
+  cashoutCountry: string | null;
+  cashoutCurrency: string | null;
+  createdAt: string;
+}
+
+export function listPayoutMethods(
+  token: string,
+): Promise<{ methods: PayoutMethod[] }> {
+  return request<{ methods: PayoutMethod[] }>("/api/seller/payout-methods", token);
+}
+
+/** Discriminated by methodType. usdc/xlm reference a VERIFIED wallet by id;
+ * moneygram carries country/currency only. */
+export type AddPayoutMethodBody =
+  | {
+      methodType: "usdc_wallet" | "xlm_wallet";
+      displayName: string;
+      walletId: string;
+      isDefault?: boolean;
+    }
+  | {
+      methodType: "moneygram_cashout";
+      displayName: string;
+      cashoutCountry: string;
+      cashoutCurrency: string;
+      isDefault?: boolean;
+    };
+
+export function addPayoutMethod(
+  token: string,
+  body: AddPayoutMethodBody,
+): Promise<PayoutMethod> {
+  return request<PayoutMethod>("/api/seller/payout-methods", token, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function setDefaultPayoutMethod(
+  token: string,
+  id: string,
+): Promise<{ payoutMethodId: string; isDefault: true }> {
+  return request(`/api/seller/payout-methods/${encodeURIComponent(id)}/set-default`, token, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function disablePayoutMethod(
+  token: string,
+  id: string,
+): Promise<{ payoutMethodId: string; status: "disabled" }> {
+  return request(`/api/seller/payout-methods/${encodeURIComponent(id)}`, token, {
+    method: "DELETE",
+  });
+}

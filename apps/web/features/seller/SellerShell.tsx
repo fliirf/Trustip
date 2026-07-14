@@ -19,7 +19,14 @@ export function SellerShell({
   email,
   children,
 }: {
-  active: "dashboard" | "onboarding" | "links" | "orders" | "trust" | "login";
+  active:
+    | "dashboard"
+    | "onboarding"
+    | "links"
+    | "orders"
+    | "trust"
+    | "payouts"
+    | "login";
   onSignOut?: (() => void) | null;
   email?: string | null;
   children: ReactNode;
@@ -86,6 +93,14 @@ export function SellerShell({
               }`}
             >
               {nav.trust}
+            </Link>
+            <Link
+              href="/seller/payouts"
+              className={`os-press micro-label py-2 hover:text-bone ${
+                active === "payouts" ? "text-bone" : "text-ash"
+              }`}
+            >
+              {nav.payouts}
             </Link>
             {onSignOut && (
               <button
