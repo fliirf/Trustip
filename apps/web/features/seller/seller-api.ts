@@ -259,3 +259,38 @@ export function createCheckoutLink(
     body: JSON.stringify(input),
   });
 }
+
+export interface TrustProfile {
+  sellerProfileId: string;
+  totalOrders: number;
+  completedOrders: number;
+  refundedOrders: number;
+  cancelledOrders: number;
+  totalReviews: number;
+  averageRating: string;
+  refundRate: string;
+  trustScore: string;
+  level: string;
+}
+
+export interface TrustReview {
+  rating: number;
+  comment: string | null;
+  createdAt: string;
+}
+
+export interface TrustEvent {
+  eventType: string;
+  scoreDelta: string;
+  createdAt: string;
+}
+
+export interface SellerTrust {
+  profile: TrustProfile;
+  reviews: TrustReview[];
+  events: TrustEvent[];
+}
+
+export function getSellerTrust(token: string): Promise<SellerTrust> {
+  return request<SellerTrust>("/api/seller/trust", token);
+}

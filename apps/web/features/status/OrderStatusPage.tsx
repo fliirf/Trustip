@@ -33,6 +33,7 @@ import { EscrowCore } from "../escrow/EscrowCore";
 import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { ConfirmReceived } from "./ConfirmReceived";
+import { ReviewForm } from "./ReviewForm";
 import {
   canAttachEvidence,
   RefundBanner,
@@ -690,6 +691,13 @@ export function OrderStatusPage({
                   <p className="max-w-[52ch] os-body text-mist/80">
                     {d.status.released.body}
                   </p>
+                  <ReviewForm
+                    slug={order.link.slug}
+                    orderNo={order.orderNo}
+                    review={order.review}
+                    canReview={order.canReview}
+                    onSubmitted={refetch}
+                  />
                 </Station>
               </Reveal>
             ) : canConfirmReceived(order) ? (

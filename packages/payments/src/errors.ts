@@ -36,6 +36,8 @@ export type PaymentErrorCode =
   | "WalletChallengeUnavailable"
   // --- Seller checkout links (Phase 7C) ---
   | "SellerNotReady"
+  // --- Reviews / Trust Profile ---
+  | "AlreadyReviewed"
   // --- Seller payout wallet readiness (PAYOUT-GUARD-1) ---
   | "SellerPayoutWalletNotReady"
   // --- Dependency / unexpected failures (Phase 10B) ---
@@ -77,6 +79,8 @@ const HTTP_STATUS: Record<PaymentErrorCode, number> = {
   WalletChallengeUnavailable: 503,
   // seller checkout links
   SellerNotReady: 409,
+  // reviews / trust profile
+  AlreadyReviewed: 409,
   // seller payout wallet readiness
   SellerPayoutWalletNotReady: 409,
   // dependency / unexpected failures

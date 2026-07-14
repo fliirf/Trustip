@@ -61,6 +61,7 @@ function fakeStore(
     recordReleaseSubmitted: vi.fn(async () => {}),
     findReleaseTxHash: vi.fn(async () => null),
     confirmReleased: vi.fn(async () => ({ applied: true })),
+    recomputeTrustProfile: vi.fn(async () => {}),
     ...overrides,
   };
 }

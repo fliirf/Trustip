@@ -1552,6 +1552,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      recompute_trust_profile: {
+        Args: {
+          p_event_type: Database["public"]["Enums"]["trust_event_type"]
+          p_order_id: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       is_order_buyer: { Args: { p_order: string }; Returns: boolean }
       is_order_party: { Args: { p_order: string }; Returns: boolean }

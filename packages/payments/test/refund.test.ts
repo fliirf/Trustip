@@ -104,6 +104,7 @@ function fakeStore(
     recordRefundSubmitted: vi.fn(async () => {}),
     findRefundTxHash: vi.fn(async () => null),
     confirmRefunded: vi.fn(async () => ({ applied: true })),
+    recomputeTrustProfile: vi.fn(async () => {}),
     ...overrides,
   };
 }

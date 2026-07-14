@@ -375,7 +375,8 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
            payments ( status, tx_hash ),
            escrows ( status, funded_tx_hash, release_tx_hash ),
            shipments ( status, courier_name, tracking_number, shipped_at ),
-           refund_requests ( status, reason_code, created_at, resolved_at )`,
+           refund_requests ( status, reason_code, created_at, resolved_at ),
+           reviews ( rating, comment, created_at )`,
           )
           .eq("order_no", orderNo)
           .maybeSingle(),
@@ -404,6 +405,11 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           created_at: string;
           resolved_at: string | null;
         }> | null;
+        reviews: {
+          rating: number;
+          comment: string | null;
+          created_at: string;
+        } | null;
       };
       const row = order as unknown as OrderRow;
       const latestRefund =
@@ -448,6 +454,14 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
               resolvedAt: latestRefund.resolved_at,
             }
           : null,
+        review: row.reviews
+          ? {
+              rating: row.reviews.rating,
+              comment: row.reviews.comment,
+              createdAt: row.reviews.created_at,
+            }
+          : null,
+        canReview: row.status === "completed" && !row.reviews,
       };
       return record;
     },

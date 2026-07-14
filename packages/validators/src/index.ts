@@ -340,3 +340,12 @@ export const refundEvidenceTypeSchema = z.enum([
   "other",
 ]);
 export type RefundEvidenceTypeInput = z.infer<typeof refundEvidenceTypeSchema>;
+
+/** Buyer review of a completed order (Trust Profile & Reviews). SHAPE only —
+ * eligibility (order completed, one per order) is enforced server-side; the
+ * client can never name the seller or the order's outcome. */
+export const submitReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().min(1).max(500).optional(),
+});
+export type SubmitReviewInput = z.infer<typeof submitReviewSchema>;

@@ -73,6 +73,10 @@ export interface PublicOrderStatus {
     createdAt: string;
     resolvedAt: string | null;
   } | null;
+  /** The buyer's submitted review, if any (one per order). */
+  review: { rating: number; comment: string | null; createdAt: string } | null;
+  /** True when the order is completed and has no review yet. */
+  canReview: boolean;
 }
 
 /** Result of filing a refund request (REFUND-1). */
@@ -193,6 +197,26 @@ export async function requestRefund(
   );
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as RefundRequestResult;
+}
+
+/** Submit a buyer review for a completed order. Possession of (slug, orderNo)
+ * authorizes it; never moves money — records a rating and recomputes the
+ * seller's trust profile. One review per order (409 on the second). */
+export async function submitReview(
+  slug: string,
+  orderNo: string,
+  input: { rating: number; comment?: string },
+): Promise<{ reviewId: string; rating: number }> {
+  const res = await fetch(
+    `/api/checkout/${encodeURIComponent(slug)}/status/${encodeURIComponent(orderNo)}/review`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as { reviewId: string; rating: number };
 }
 
 /** Submit the signed challenge. The backend runs every release guard and only

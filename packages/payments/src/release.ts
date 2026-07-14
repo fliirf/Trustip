@@ -158,6 +158,14 @@ export interface ReleaseStore {
     amountUsdc: string;
     network: NetworkName;
   }): Promise<{ applied: boolean }>;
+
+  /** Recompute the seller's derived trust profile from orders+reviews and
+   * append a trust_events row (recompute_trust_profile RPC). Best-effort,
+   * idempotent, self-healing — reputation data only, never money. */
+  recomputeTrustProfile(
+    orderId: string,
+    eventType: "order_completed" | "order_refunded" | "review_received",
+  ): Promise<void>;
 }
 
 export interface ReleaseDeps {
@@ -548,6 +556,15 @@ export async function confirmOrderReceivedAndRelease(
     amountUsdc: escrow.amountUsdc,
     network: deps.config.networkName,
   });
+
+  // Derived seller reputation. A failure here must NOT fail the release — the
+  // money already moved and the trust profile is a pure recompute that the next
+  // trigger (or a reconcile) re-runs. ponytail: self-healing, so swallow.
+  try {
+    await deps.store.recomputeTrustProfile(ctx.orderId, "order_completed");
+  } catch {
+    // intentionally ignored — see above
+  }
 
   return {
     orderNo: ctx.orderNo,

@@ -103,6 +103,12 @@ export interface PublicOrderStatusRecord {
     createdAt: string;
     resolvedAt: string | null;
   } | null;
+  /** The buyer's submitted review for this order, if any (one per order).
+   * Publicly readable trust signal. */
+  review: { rating: number; comment: string | null; createdAt: string } | null;
+  /** True when the order is completed and has no review yet — the status page
+   * shows the review form. */
+  canReview: boolean;
 }
 
 export interface SellerOrderRecord {

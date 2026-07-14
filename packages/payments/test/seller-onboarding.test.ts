@@ -904,6 +904,8 @@ describe("getPublicOrderStatus", () => {
     escrow: { status: "funded", fundedTxHash: "abc", releaseTxHash: null },
     shipment: null,
     refund: null,
+    review: null,
+    canReview: false,
   };
 
   const COMPLETED_STATUS: PublicOrderStatusRecord = {
@@ -916,6 +918,7 @@ describe("getPublicOrderStatus", () => {
       fundedTxHash: "abc",
       releaseTxHash: "reltxhash",
     },
+    canReview: true,
   };
 
   it("returns the record for a matching (slug, orderNo) pair", async () => {
@@ -941,6 +944,8 @@ describe("getPublicOrderStatus", () => {
       "escrow",
       "shipment",
       "refund",
+      "review",
+      "canReview",
     ]);
   });
 

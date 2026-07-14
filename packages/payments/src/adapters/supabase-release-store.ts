@@ -178,5 +178,13 @@ export function createSupabaseReleaseStore(
       if (error) throw error;
       return { applied: data === true };
     },
+
+    async recomputeTrustProfile(orderId, eventType) {
+      const { error } = await client.rpc("recompute_trust_profile", {
+        p_order_id: orderId,
+        p_event_type: eventType,
+      });
+      if (error) throw error;
+    },
   };
 }

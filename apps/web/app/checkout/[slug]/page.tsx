@@ -56,7 +56,9 @@ export default async function CheckoutPage({
   const { data: link } = await supabase
     .from("checkout_links")
     .select(
-      "slug, title, description, price_usdc, status, expires_at, requires_shipping",
+      `slug, title, description, price_usdc, status, expires_at, requires_shipping,
+       seller_profiles ( store_name,
+         trust_profiles ( level, average_rating, total_reviews, completed_orders ) )`,
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -68,6 +70,22 @@ export default async function CheckoutPage({
   ) {
     return <Unavailable d={d} />;
   }
+
+  // Public trust signal (trust_profiles is publicly readable). Shown only when
+  // the seller has a real track record so a brand-new store isn't flagged as
+  // "0.0". Read-only projection — every number is backend-derived.
+  const seller = link.seller_profiles as unknown as {
+    store_name: string | null;
+    trust_profiles: {
+      level: string;
+      average_rating: number;
+      total_reviews: number;
+      completed_orders: number;
+    } | null;
+  } | null;
+  const trust = seller?.trust_profiles ?? null;
+  const showTrust =
+    !!trust && (trust.completed_orders > 0 || trust.total_reviews > 0);
 
   return (
     <>
@@ -81,6 +99,28 @@ export default async function CheckoutPage({
             <h1 className="os-title mt-3 text-bone">
               {link.title}
             </h1>
+            {showTrust && trust && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <span className="desk-stamp micro-label px-2 py-1 text-bone">
+                  {d.checkout.trust.levels[trust.level] ?? trust.level}
+                </span>
+                {trust.total_reviews > 0 && (
+                  <span className="micro-label text-mist">
+                    <span aria-hidden className="text-blood">★</span>{" "}
+                    {trust.average_rating.toFixed(1)}
+                    <span className="text-ash">
+                      {" "}
+                      · {d.checkout.trust.reviews(trust.total_reviews)}
+                    </span>
+                  </span>
+                )}
+                {trust.completed_orders > 0 && (
+                  <span className="micro-label text-ash">
+                    {d.checkout.trust.completed(trust.completed_orders)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <p className="max-w-[34ch] text-sm leading-relaxed text-mist/80">
             {d.checkout.headerNote}

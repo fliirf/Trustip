@@ -14,3 +14,5 @@ export * from "./release.js";
 export * from "./adapters/supabase-release-store.js";
 export * from "./refund.js";
 export * from "./adapters/supabase-refund-store.js";
+export * from "./reviews.js";
+export * from "./adapters/supabase-review-store.js";

@@ -107,7 +107,7 @@ export interface RefundEvidenceItem {
 }
 
 export interface RefundStore
-  extends Pick<ReleaseStore, "loadReleaseContext"> {
+  extends Pick<ReleaseStore, "loadReleaseContext" | "recomputeTrustProfile"> {
   /** The open (pre-decision) refund request for an order, if any. */
   findOpenRefundForOrder(
     orderId: string,
@@ -543,6 +543,13 @@ export async function resolveRefundRequest(
     amountUsdc: escrow.amountUsdc,
     network: deps.config.networkName,
   });
+
+  // Derived seller reputation — best-effort, self-healing (see release.ts).
+  try {
+    await deps.store.recomputeTrustProfile(ctx.orderId, "order_refunded");
+  } catch {
+    // intentionally ignored — money already moved; recompute re-runs later
+  }
 
   return {
     refundRequestId: ctx.refund.id,

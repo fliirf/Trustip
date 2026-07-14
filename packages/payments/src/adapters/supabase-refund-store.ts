@@ -41,6 +41,7 @@ export function createSupabaseRefundStore(client: TrustipClient): RefundStore {
   return {
     // Same public (slug, order_no) context load as RELEASE-1 — one derivation.
     loadReleaseContext: releaseStore.loadReleaseContext,
+    recomputeTrustProfile: releaseStore.recomputeTrustProfile,
 
     async findOpenRefundForOrder(orderId) {
       const { data, error } = await client
