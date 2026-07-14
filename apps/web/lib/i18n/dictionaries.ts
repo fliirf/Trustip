@@ -787,10 +787,8 @@ const id = {
       generic: "Terjadi kesalahan. Silakan coba lagi.",
     },
   },
-  // Landing ("/"). Only the human-language promise/narrative switches with
-  // locale — the corner micro-labels, marquee, telemetry rails, and the
-  // Platform chapter's code/technical footnote stay in their fixed
-  // technical/English register by design regardless of buyer language.
+  // Landing ("/"). Human-language promises and narrative switch with locale;
+  // telemetry-style decorative labels remain in their fixed technical register.
   landing: {
     nav: {
       conflict: "MASALAH",
@@ -893,6 +891,31 @@ const id = {
         ["ORDERS", "Riwayat pesanan terlindungi yang selesai"],
         ["STATUS", "Halaman status publik untuk setiap pesanan"],
       ] as readonly (readonly [string, string])[],
+    },
+    platform: {
+      kicker: "DANA TERKUNCI",
+      headline: "Dana ditahan, bukan langsung ke seller.",
+      description:
+        "Begitu pembayaran terverifikasi, dana berhenti di ruang aman. Seller tidak bisa mengambilnya sendiri, dan pembeli tidak bisa memindahkannya sesuka hati.",
+      instrumentLabel: "PENGAMAN DANA",
+      liveLabel: "AKTIF",
+      assetLabel: "ASET PEMBAYARAN",
+      asset: "USDC",
+      pendingStatus: "MEMERIKSA PEMBAYARAN",
+      lockedStatus: "PESANAN AMAN",
+      conditionsLabel: "KUNCI AKTIF JIKA",
+      conditions: ["Pembeli cocok", "Jumlah tepat", "Status valid", "Belum diproses"] as readonly string[],
+      outcomesLabel: "DANA HANYA BISA",
+      release: {
+        label: "DITERUSKAN",
+        title: "Pesanan diterima",
+        body: "Ke wallet seller",
+      },
+      refund: {
+        label: "DIKEMBALIKAN",
+        title: "Refund disetujui",
+        body: "Ke wallet pembeli",
+      },
     },
   },
   // Shared low-level UI primitives (ErrorState/ProtocolState/EmptyState),
@@ -1795,6 +1818,31 @@ const en: Dict = {
         ["ORDERS", "History of completed protected orders"],
         ["STATUS", "Public status page for every order"],
       ] as readonly (readonly [string, string])[],
+    },
+    platform: {
+      kicker: "FUNDS LOCKED",
+      headline: "Funds are held, not sent straight to the seller.",
+      description:
+        "Once payment is verified, funds stop in a protected space. The seller cannot take them alone, and the buyer cannot move them at will.",
+      instrumentLabel: "FUND PROTECTION",
+      liveLabel: "ACTIVE",
+      assetLabel: "PAYMENT ASSET",
+      asset: "USDC",
+      pendingStatus: "VERIFYING PAYMENT",
+      lockedStatus: "ORDER PROTECTED",
+      conditionsLabel: "THE LOCK ENGAGES WHEN",
+      conditions: ["Buyer matches", "Amount matches", "Status is valid", "Not processed before"] as readonly string[],
+      outcomesLabel: "FUNDS CAN ONLY BE",
+      release: {
+        label: "FORWARDED",
+        title: "Order received",
+        body: "To the seller's wallet",
+      },
+      refund: {
+        label: "RETURNED",
+        title: "Refund approved",
+        body: "To the buyer's wallet",
+      },
     },
   },
   ui: {

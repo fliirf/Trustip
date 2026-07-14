@@ -40,6 +40,7 @@ const RECONCILE_EVERY = Number(process.env.INDEXER_RECONCILE_EVERY) || 4; // pas
 // startLedger stays inside RPC event retention.
 const START_LOOKBACK = Number(process.env.INDEXER_START_LOOKBACK) || 17_280;
 
+assertProductionConfig(); // validate before constructing network/database clients
 const network = networkName();
 const contractId = getEscrowContractId();
 const server = getRpcServer();
@@ -61,7 +62,10 @@ async function indexPass(client: TrustipClient): Promise<void> {
   let applied = 0;
   for (const event of events) {
     maxLedger = Math.max(maxLedger, event.ledger);
-    if (event.name === "contract_paused" || event.name === "contract_unpaused") {
+    if (
+      event.name === "contract_paused" ||
+      event.name === "contract_unpaused"
+    ) {
       await recordAuditEvent(client, {
         action: "admin.action",
         actorRole: "admin",
@@ -113,7 +117,6 @@ async function reconcilePass(client: TrustipClient): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  assertProductionConfig(); // fail closed on prod misconfig before doing any work
   const client = getServiceClient();
   log.info("indexer starting", {
     route: WORKER,

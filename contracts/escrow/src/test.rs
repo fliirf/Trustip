@@ -1,6 +1,10 @@
 #![cfg(test)]
 
-use super::{Error, EscrowContract, EscrowContractClient, EscrowStatus};
+use super::{
+    DataKey, Error, EscrowContract, EscrowContractArgs, EscrowContractClient, EscrowStatus,
+    TTL_EXTEND_TO, TTL_THRESHOLD,
+};
+use soroban_sdk::testutils::storage::{Instance as _, Persistent as _};
 use soroban_sdk::testutils::{Address as _, AuthorizedFunction, Events as _, Ledger as _};
 use soroban_sdk::token::{StellarAssetClient, TokenClient};
 use soroban_sdk::{Address, BytesN, Env, Symbol, TryIntoVal};
@@ -32,7 +36,7 @@ impl Setup {
     }
 }
 
-/// Build an env with a registered SAC token and an *initialized* escrow contract.
+/// Build an env with a registered SAC token and a constructor-initialized escrow contract.
 fn setup() -> Setup {
     let env = Env::default();
     env.mock_all_auths();
@@ -46,7 +50,10 @@ fn setup() -> Setup {
     let sac = env.register_stellar_asset_contract_v2(token_admin);
     let token = sac.address();
 
-    let contract_id = env.register_contract(None, EscrowContract);
+    let contract_id = env.register(
+        EscrowContract,
+        EscrowContractArgs::__constructor(&admin, &token),
+    );
     let s = Setup {
         env,
         contract_id,
@@ -56,7 +63,6 @@ fn setup() -> Setup {
         recipient,
         token,
     };
-    s.client().initialize(&s.admin, &s.token);
     s
 }
 
@@ -71,41 +77,22 @@ fn create_default(s: &Setup, id: &BytesN<32>) {
 }
 
 // --------------------------------------------------------------------------
-// initialize
+// constructor / legacy initialize guard
 // --------------------------------------------------------------------------
 #[test]
-fn initialize_succeeds() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let admin = Address::generate(&env);
-    let token_admin = Address::generate(&env);
-    let token = env
-        .register_stellar_asset_contract_v2(token_admin)
-        .address();
-    let contract_id = env.register_contract(None, EscrowContract);
-    let client = EscrowContractClient::new(&env, &contract_id);
-
-    // Succeeds and enables admin-authorized actions (proven via create_order).
-    client.initialize(&admin, &token);
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let recipient = Address::generate(&env);
-    client.create_order(
-        &oid(&env, 1),
-        &buyer,
-        &seller,
-        &recipient,
-        &AMOUNT,
-        &EXPIRES_AT,
-    );
+fn constructor_succeeds() {
+    let s = setup();
+    assert_eq!(s.client().get_admin(), s.admin);
+    assert_eq!(s.client().get_usdc_token(), s.token);
+    create_default(&s, &oid(&s.env, 1));
     assert!(matches!(
-        client.get_order(&oid(&env, 1)).status,
+        s.client().get_order(&oid(&s.env, 1)).status,
         EscrowStatus::Created
     ));
 }
 
 #[test]
-fn double_initialize_fails() {
+fn initialize_after_constructor_fails() {
     let s = setup();
     assert_eq!(
         s.client().try_initialize(&s.admin, &s.token),
@@ -168,6 +155,22 @@ fn create_order_same_buyer_seller_fails() {
             &EXPIRES_AT
         ),
         Err(Ok(Error::InvalidParties))
+    );
+}
+
+#[test]
+fn create_order_with_expired_deadline_fails() {
+    let s = setup();
+    assert_eq!(
+        s.client().try_create_order(
+            &oid(&s.env, 1),
+            &s.buyer,
+            &s.seller,
+            &s.recipient,
+            &AMOUNT,
+            &0,
+        ),
+        Err(Ok(Error::InvalidExpiration))
     );
 }
 
@@ -459,8 +462,71 @@ fn pause_unpause_admin_only() {
     );
 }
 
+// --------------------------------------------------------------------------
+// Admin rotation
+// --------------------------------------------------------------------------
+#[test]
+fn admin_rotation_requires_acceptance() {
+    let s = setup();
+    let new_admin = Address::generate(&s.env);
+
+    s.client().propose_admin(&s.admin, &new_admin);
+    assert_eq!(s.client().get_admin(), s.admin);
+    assert_eq!(
+        s.client().try_pause_contract(&new_admin),
+        Err(Ok(Error::NotAuthorized))
+    );
+
+    s.client().accept_admin(&new_admin);
+    assert_eq!(s.client().get_admin(), new_admin);
+    assert_eq!(
+        s.client().try_pause_contract(&s.admin),
+        Err(Ok(Error::NotAuthorized))
+    );
+    s.client().pause_contract(&new_admin);
+}
+
+#[test]
+fn wrong_pending_admin_cannot_accept() {
+    let s = setup();
+    let pending = Address::generate(&s.env);
+    let other = Address::generate(&s.env);
+    s.client().propose_admin(&s.admin, &pending);
+
+    assert_eq!(
+        s.client().try_accept_admin(&other),
+        Err(Ok(Error::NotAuthorized))
+    );
+    assert_eq!(s.client().get_admin(), s.admin);
+}
+
+#[test]
+fn accept_admin_without_proposal_fails() {
+    let s = setup();
+    let new_admin = Address::generate(&s.env);
+    assert_eq!(
+        s.client().try_accept_admin(&new_admin),
+        Err(Ok(Error::NoPendingAdmin))
+    );
+}
+
+#[test]
+fn admin_rotation_rejected_without_signatures() {
+    let s = setup();
+    let new_admin = Address::generate(&s.env);
+
+    s.env.mock_auths(&[]);
+    assert!(s.client().try_propose_admin(&s.admin, &new_admin).is_err());
+
+    s.env.mock_all_auths();
+    s.client().propose_admin(&s.admin, &new_admin);
+    s.env.mock_auths(&[]);
+    assert!(s.client().try_accept_admin(&new_admin).is_err());
+    assert_eq!(s.client().get_admin(), s.admin);
+}
+
 // ==========================================================================
-// Phase 2.6 — auth enforcement, expiry, NotInitialized, events
+// Phase 2.6 — auth enforcement, expiry, TTL, events
 // ==========================================================================
 
 /// Assert that `expected_addr` was required to authorize a contract call to
@@ -602,6 +668,43 @@ fn fund_after_expiry_fails() {
 }
 
 // --------------------------------------------------------------------------
+// State archival protection
+// --------------------------------------------------------------------------
+#[test]
+fn contract_and_order_ttl_are_renewed_on_access() {
+    let s = setup();
+    let id = oid(&s.env, 1);
+    create_default(&s, &id);
+
+    s.env.as_contract(&s.contract_id, || {
+        assert_eq!(s.env.storage().instance().get_ttl(), TTL_EXTEND_TO);
+        assert_eq!(
+            s.env
+                .storage()
+                .persistent()
+                .get_ttl(&DataKey::Order(id.clone())),
+            TTL_EXTEND_TO
+        );
+    });
+
+    s.env.ledger().with_mut(|ledger| {
+        ledger.sequence_number += TTL_EXTEND_TO - TTL_THRESHOLD + 1;
+    });
+    s.client().get_order(&id);
+
+    s.env.as_contract(&s.contract_id, || {
+        assert_eq!(s.env.storage().instance().get_ttl(), TTL_EXTEND_TO);
+        assert_eq!(
+            s.env
+                .storage()
+                .persistent()
+                .get_ttl(&DataKey::Order(id.clone())),
+            TTL_EXTEND_TO
+        );
+    });
+}
+
+// --------------------------------------------------------------------------
 // Wrong buyer (authorized, but not the stored buyer)
 // --------------------------------------------------------------------------
 #[test]
@@ -619,48 +722,6 @@ fn fund_with_wrong_buyer_fails() {
     );
 }
 
-// --------------------------------------------------------------------------
-// NotInitialized — methods that read admin before acting
-// --------------------------------------------------------------------------
-fn uninitialized() -> (Env, Address) {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register_contract(None, EscrowContract);
-    (env, contract_id)
-}
-
-#[test]
-fn create_order_before_initialize_fails() {
-    let (env, contract_id) = uninitialized();
-    let client = EscrowContractClient::new(&env, &contract_id);
-    let buyer = Address::generate(&env);
-    let seller = Address::generate(&env);
-    let recipient = Address::generate(&env);
-    assert_eq!(
-        client.try_create_order(
-            &oid(&env, 1),
-            &buyer,
-            &seller,
-            &recipient,
-            &AMOUNT,
-            &EXPIRES_AT
-        ),
-        Err(Ok(Error::NotInitialized))
-    );
-}
-
-#[test]
-fn pause_before_initialize_fails() {
-    let (env, contract_id) = uninitialized();
-    let client = EscrowContractClient::new(&env, &contract_id);
-    let someone = Address::generate(&env);
-    assert_eq!(
-        client.try_pause_contract(&someone),
-        Err(Ok(Error::NotInitialized))
-    );
-}
-
-// --------------------------------------------------------------------------
 // Cancel coverage
 // --------------------------------------------------------------------------
 #[test]

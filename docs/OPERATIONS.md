@@ -9,37 +9,50 @@ validation, key management, and disaster recovery.
 
 ## 1. Components
 
-| Component | Where | Runtime |
-|---|---|---|
-| Web / API | `apps/web` | Next.js (Node route handlers + edge middleware) |
-| Escrow Event Indexer + Reconciliation | `workers/escrow-event-indexer` | long-running Node process |
-| Refund Review Worker | `workers/refund-review-sync` | disabled framework (v1.1) |
-| Payout Sync Worker | `workers/payout-sync` | disabled framework (future) |
-| Escrow contract | `contracts/escrow` | Soroban (Rust) |
-| Database | Supabase Postgres | — |
-| Rate-limit / queue store | Upstash Redis (REST) | — |
+| Component                             | Where                          | Runtime                                         |
+| ------------------------------------- | ------------------------------ | ----------------------------------------------- |
+| Web / API                             | `apps/web`                     | Next.js (Node route handlers + edge middleware) |
+| Escrow Event Indexer + Reconciliation | `workers/escrow-event-indexer` | long-running Node process                       |
+| Refund Review Worker                  | `workers/refund-review-sync`   | disabled framework (v1.1)                       |
+| Payout Sync Worker                    | `workers/payout-sync`          | disabled framework (future)                     |
+| Escrow contract                       | `contracts/escrow`             | Soroban (Rust)                                  |
+| Database                              | Supabase Postgres              | —                                               |
+| Rate-limit / queue store              | Upstash Redis (REST)           | —                                               |
 
 ---
 
 ## 2. Configuration & Secrets
 
-Config validation (`@trustip/config` → `validate.ts`) runs at worker start
-(`assertProductionConfig()`) and is reported by `GET /api/ready`. **Development
-is permissive; production fails closed.**
+Runtime validation (`@trustip/config` → `validate.ts`) runs at worker start and
+is reported by `GET /api/ready`. The deployment gate is
+`pnpm verify:env:production`; it performs exact Stellar StrKey and USDC SAC
+checks without network access. **Development is permissive; production fails
+closed.**
 
-Required in production (any network):
+Canonical public production variables:
 
+- `NEXT_PUBLIC_APP_URL`.
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- `NEXT_PUBLIC_STELLAR_NETWORK`, `NEXT_PUBLIC_STELLAR_RPC_URL`,
+  `NEXT_PUBLIC_STELLAR_HORIZON_URL`.
+- `NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID`, `NEXT_PUBLIC_USDC_CONTRACT_ID`,
+  `NEXT_PUBLIC_USDC_ISSUER`.
+- `NEXT_PUBLIC_ANCHOR_DOMAIN`.
+
+Canonical server-only production variables:
+
+- `STELLAR_NETWORK` (must equal `NEXT_PUBLIC_STELLAR_NETWORK`).
 - `SUPABASE_SERVICE_ROLE_KEY` — server/worker DB writes (bypasses RLS).
-- `NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID` (or `SOROBAN_ESCROW_CONTRACT_ID`).
-- `TRUSTIP_CHECKOUT_TOKEN_SECRET`, `TRUSTIP_WALLET_CHALLENGE_SECRET`.
+- `TRUSTIP_SIGNER_STRATEGY=env`, `TRUSTIP_OPERATOR_SECRET_KEY`.
+- `PAYMENT_ATTEMPT_SECRET`, `TRUSTIP_CHECKOUT_TOKEN_SECRET`,
+  `TRUSTIP_WALLET_CHALLENGE_SECRET`, `TRUSTIP_SEP10_JWT_SECRET`.
 - `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+- `TRUSTIP_ALLOW_MAINNET_OPERATOR=true` on Mainnet.
 
-Additionally required on **mainnet**:
-
-- `TRUSTIP_OPERATOR_SECRET_KEY` (or `STELLAR_OPERATOR_SECRET_KEY`).
-- `NEXT_PUBLIC_USDC_ISSUER` (no fallback — must be explicit).
-- `TRUSTIP_ALLOW_MAINNET_OPERATOR=true` **or** an approved signer strategy
-  (`TRUSTIP_SIGNER_STRATEGY`), otherwise env-key signing is refused.
+Legacy aliases are rejected in production. There is one canonical contract ID
+and one canonical operator secret; do not set `SOROBAN_ESCROW_CONTRACT_ID`,
+`ESCROW_CONTRACT_ID`, `SOROBAN_ADMIN_SECRET_KEY`, or
+`STELLAR_OPERATOR_SECRET_KEY`.
 
 Proxy / IP trust (rate limiting):
 
@@ -55,14 +68,14 @@ never stored in the audit log (defensive key filter in `recordAuditEvent`).
 
 ### Secret rotation
 
-1. Provision the new secret alongside the old (both accepted where the code
-   reads `envAny(...)`).
-2. Roll web + workers.
-3. Remove the old secret.
+Application HMAC secrets are replaced in the deployment secret store and then
+web + workers are rolled together. There is no dual-name fallback.
 
-Operator key rotation additionally requires updating the on-chain contract admin
-(`initialize` sets it) — rotate the key, then transfer admin, then retire the old
-key. Do this behind a contract `pause` if funds are in flight.
+Operator key rotation uses the contract's two-step handover: call
+`propose_admin` with the current admin, verify control of the proposed key, then
+call `accept_admin` from the new admin. Update the backend signer only after
+`get_admin` returns the new address, then retire the old key. Pause first if
+funds are in flight or compromise is suspected.
 
 ---
 
@@ -131,14 +144,14 @@ exit rather than faking work. Enable with `TRUSTIP_REFUND_WORKER_ENABLED=true` /
 
 Everything the workers write is idempotent, so recovery is "just restart":
 
-| Failure | Behavior |
-|---|---|
-| RPC / Supabase timeout | pass fails, logged, retried next tick; checkpoint not advanced |
-| Duplicate event | `on conflict (tx_hash) do nothing` → no-op |
-| Process restart | resumes from the durable checkpoint |
-| Partial write | reconciliation heals via `confirm_*` RPCs (status-guarded) |
+| Failure                                            | Behavior                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------- |
+| RPC / Supabase timeout                             | pass fails, logged, retried next tick; checkpoint not advanced            |
+| Duplicate event                                    | `on conflict (tx_hash) do nothing` → no-op                                |
+| Process restart                                    | resumes from the durable checkpoint                                       |
+| Partial write                                      | reconciliation heals via `confirm_*` RPCs (status-guarded)                |
 | Crash **after** chain success, **before** DB write | indexer records the tx; reconciliation applies the money-state transition |
-| Crash **before** DB write of checkpoint | boundary ledger re-read next tick (idempotent) |
+| Crash **before** DB write of checkpoint            | boundary ledger re-read next tick (idempotent)                            |
 
 **Replay from a ledger:** set `indexer_checkpoints.last_ledger` for
 `(escrow-event-indexer, <network>)` to the desired ledger and restart. Re-indexing
@@ -155,13 +168,13 @@ it is a no-op, so it is always safe to run.
 Table `audit_logs` (see `supabase/migrations/...init_schema.sql`). Written via
 `recordAuditEvent(client, event)`:
 
-| Field | Source |
-|---|---|
-| `created_at` | timestamp |
-| `actor_user_id`, `actor_role` | actor (`buyer`/`seller`/`admin`/`system`) |
-| `action` | canonical name (`release.completed`, `worker.recovery`, …) |
-| `entity_type`, `entity_id` | order (or other entity) |
-| `metadata` | wallet, `requestId`, `reason`, `result`, tx hash, … (secrets stripped) |
+| Field                         | Source                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `created_at`                  | timestamp                                                              |
+| `actor_user_id`, `actor_role` | actor (`buyer`/`seller`/`admin`/`system`)                              |
+| `action`                      | canonical name (`release.completed`, `worker.recovery`, …)             |
+| `entity_type`, `entity_id`    | order (or other entity)                                                |
+| `metadata`                    | wallet, `requestId`, `reason`, `result`, tx hash, … (secrets stripped) |
 
 Audit writes are best-effort: a failed write is logged and swallowed so it can
 never fail the audited action. **Alert on audit-write-failure log lines.**
@@ -188,11 +201,11 @@ shape is the seam an OTel exporter plugs into later without touching call sites.
 
 ## 9. Health Checks
 
-| Endpoint | Purpose | Use |
-|---|---|---|
-| `GET /api/health` | liveness (process up, no deps) | LB / `livenessProbe` |
-| `GET /api/liveness` | alias of `/api/health` | k8s `livenessProbe` |
-| `GET /api/ready` | readiness (database, RPC, workers, queue, config) | k8s `readinessProbe` |
+| Endpoint            | Purpose                                           | Use                  |
+| ------------------- | ------------------------------------------------- | -------------------- |
+| `GET /api/health`   | liveness (process up, no deps)                    | LB / `livenessProbe` |
+| `GET /api/liveness` | alias of `/api/health`                            | k8s `livenessProbe`  |
+| `GET /api/ready`    | readiness (database, RPC, workers, queue, config) | k8s `readinessProbe` |
 
 `/api/ready` returns `503` when a **hard** dependency (database, RPC, config) is
 down; a degraded worker/queue is reported but does not fail readiness. No secrets
@@ -204,7 +217,7 @@ in any payload.
 
 Signing is behind the `OperatorSigner` interface (`@trustip/stellar`
 `operator.ts`). `createOperatorSigner(strategy)` dispatches on
-`TRUSTIP_SIGNER_STRATEGY` (default `env` → `EnvKeypairOperatorSigner`). Future
+`TRUSTIP_SIGNER_STRATEGY` (`env` → `EnvKeypairOperatorSigner`). Future
 strategies (`kms`, `hsm`, `multisig`, `vault`) are named and fail closed until
 implemented — each is a new class implementing `signXdr` (async, so a remote
 signer fits). No KMS/HSM is implemented in this phase by design.
@@ -215,21 +228,26 @@ Mainnet env-key signing is refused unless `TRUSTIP_ALLOW_MAINNET_OPERATOR=true`.
 
 ## 11. Deployment
 
-1. Apply migrations (`supabase migration up`) — includes `indexer_checkpoints`.
-2. Deploy web (Node runtime for `/api`, edge for middleware).
-3. Deploy the escrow-event-indexer worker as a single long-running instance
+1. Run `pnpm verify:env:production` in the configured production environment.
+2. Apply migrations (`supabase migration up`) — includes `indexer_checkpoints`.
+3. Deploy web (Node runtime for `/api`, edge for middleware).
+4. Deploy the escrow-event-indexer worker as a single long-running instance
    (it self-serializes via the checkpoint; do not run multiple copies against the
    same `(worker, network)` unless you shard by contract).
-4. Verify `GET /api/ready` returns `ready`.
+5. Run `pnpm verify:env:onchain`, then verify `GET /api/ready` returns `ready`.
 
 ---
 
 ## 12. Mainnet Readiness Checklist
 
-- [ ] `assertProductionConfig()` passes (no `/api/ready` config problems).
-- [ ] `NEXT_PUBLIC_STELLAR_NETWORK=mainnet`, USDC issuer explicit, USDC config verified.
-- [ ] Operator signer configured; mainnet env-signing explicitly allowed or KMS wired.
-- [ ] Escrow contract deployed + `initialize`d; contract id in env (not in UI).
+- [ ] `pnpm verify:env:production` passes without network access.
+- [ ] `NEXT_PUBLIC_STELLAR_NETWORK=mainnet` and `STELLAR_NETWORK=mainnet`.
+- [ ] Mainnet RPC provider is selected explicitly; Horizon reports Mainnet.
+- [ ] Circle Mainnet USDC issuer + derived SAC ID pass static validation.
+- [ ] Operator signer configured and Mainnet env-signing explicitly allowed.
+- [ ] Escrow contract constructor deployed atomically with the intended admin + USDC address.
+- [ ] `pnpm verify:env:onchain` confirms RPC/Horizon, contract admin, and stored USDC.
+- [ ] Contract/order TTL renewal and two-step admin rotation tested on testnet.
 - [ ] Upstash configured; `TRUSTIP_TRUSTED_PROXY_HOPS` matches edge topology.
 - [ ] Indexer running; checkpoint advancing; `/api/ready` workers `ok`.
 - [ ] RLS enabled on all exposed tables; service-role grants applied.
@@ -241,12 +259,12 @@ Mainnet env-key signing is refused unless `TRUSTIP_ALLOW_MAINNET_OPERATOR=true`.
 
 ## 13. Disaster Recovery
 
-| Scenario | Action |
-|---|---|
-| Indexer stuck (`/api/ready` workers `stale`) | inspect logs; restart worker — resumes from checkpoint |
-| Suspected missed events | set `indexer_checkpoints.last_ledger` back, restart (idempotent replay) |
-| Money-state drift | reconciliation heals automatically each pass; force by restarting worker |
-| Redis outage | rate limiting fails open (API stays up); per-route limiters remain |
-| RPC outage | passes fail + retry; `/api/ready` reports RPC `down` (503) |
-| Compromised operator key | `pause` contract, rotate key + admin, unpause |
-| Bad deploy | roll back web/worker; state is durable in Postgres + on-chain |
+| Scenario                                     | Action                                                                         |
+| -------------------------------------------- | ------------------------------------------------------------------------------ |
+| Indexer stuck (`/api/ready` workers `stale`) | inspect logs; restart worker — resumes from checkpoint                         |
+| Suspected missed events                      | set `indexer_checkpoints.last_ledger` back, restart (idempotent replay)        |
+| Money-state drift                            | reconciliation heals automatically each pass; force by restarting worker       |
+| Redis outage                                 | rate limiting fails open (API stays up); per-route limiters remain             |
+| RPC outage                                   | passes fail + retry; `/api/ready` reports RPC `down` (503)                     |
+| Compromised operator key                     | `pause`, `propose_admin`, accept with the new key, update signer, then unpause |
+| Bad deploy                                   | roll back web/worker; state is durable in Postgres + on-chain                  |

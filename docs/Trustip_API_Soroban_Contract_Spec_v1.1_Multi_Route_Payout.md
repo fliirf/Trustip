@@ -984,27 +984,30 @@ pub enum DataKey {
     Paused,
     UsdcToken,
     Order(BytesN<32>),
+    PendingAdmin,
 }
 ```
 
 ### 11.6 Contract Methods
 
-#### initialize
+#### `__constructor` / initialize guard
 
 ```rust
-pub fn initialize(env: Env, admin: Address, usdc_token: Address)
+pub fn __constructor(env: Env, admin: Address, usdc_token: Address)
+pub fn initialize(env: Env, admin: Address, usdc_token: Address) -> Result<(), Error>
 ```
 
 Purpose:
 
-- Set admin address.
-- Set USDC token contract address.
-- Can only be called once.
+- Atomically set the initial admin and USDC token during contract deployment.
+- Retain `initialize` only as a compatibility guard that cannot mutate state.
 
 Rules:
 
-- `admin.require_auth()`.
-- Reject if already initialized.
+- The deploy identity and initial admin must be the same authorized address.
+- Constructor arguments are part of the deploy transaction; there is no
+  separately callable uninitialized window.
+- Later `initialize` calls reject with `AlreadyInitialized`.
 
 #### create_order
 
@@ -1030,6 +1033,7 @@ Rules:
 - Reject duplicate `order_id`.
 - `amount > 0`.
 - `buyer != seller`.
+- `expires_at` must be later than the current ledger timestamp.
 - `payout_recipient` must be seller wallet or configured payout treasury.
 - Contract must not be paused.
 
@@ -1152,6 +1156,31 @@ Rules:
 - `admin.require_auth()`.
 - When paused, block new order creation and funding.
 - Recommended: allow admin refund during pause, block normal release.
+
+#### Admin rotation
+
+```rust
+pub fn propose_admin(env: Env, admin: Address, new_admin: Address)
+pub fn accept_admin(env: Env, new_admin: Address)
+pub fn get_admin(env: Env) -> Address
+pub fn get_usdc_token(env: Env) -> Address
+```
+
+Rules:
+
+- Only the current admin can propose a new admin.
+- The current admin remains active until the exact proposed address accepts.
+- Rotation remains available while paused so incident recovery is possible.
+- Emit `admin_rotation_proposed` and `admin_rotated` events.
+
+#### State TTL
+
+- Contract instance and persistent order entries extend to 30 days when their
+  remaining TTL falls below seven days.
+- Every successful state access renews the relevant entry.
+- Operations must monitor low-traffic deployments and extend TTL before
+  archival; restoring an archived persistent entry still requires a correctly
+  simulated restore footprint.
 
 #### get_order
 
@@ -1362,41 +1391,35 @@ Admin cannot:
 
 ## 16. Environment Variables
 
-```bash
-APP_ENV=development|staging|production
-DATABASE_URL=
-JWT_SECRET=
+```env
+NEXT_PUBLIC_APP_URL=
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
-STELLAR_NETWORK=testnet|mainnet
-STELLAR_RPC_URL=
-STELLAR_HORIZON_URL=
-TRUSTIP_ESCROW_CONTRACT_ID=
-USDC_TOKEN_CONTRACT_ID=
-USDC_ASSET_CODE=USDC
-USDC_ASSET_ISSUER=
-TRUSTIP_ADMIN_PUBLIC_KEY=
-TRUSTIP_PAYOUT_TREASURY_PUBLIC_KEY=
+NEXT_PUBLIC_STELLAR_NETWORK=testnet
+STELLAR_NETWORK=testnet
+NEXT_PUBLIC_STELLAR_RPC_URL=
+NEXT_PUBLIC_STELLAR_HORIZON_URL=
+NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID=
+NEXT_PUBLIC_USDC_CONTRACT_ID=
+NEXT_PUBLIC_USDC_ISSUER=
 
-STORAGE_BUCKET=
-STORAGE_PUBLIC_URL=
-
-BINANCE_GUIDE_ENABLED=true
-BINANCE_PAY_ENABLED=false
-BINANCE_PAY_API_KEY=
-BINANCE_PAY_API_SECRET=
-BINANCE_PAY_WEBHOOK_SECRET=
-
-MONEYGRAM_GUIDE_ENABLED=true
-MONEYGRAM_INTEGRATED_ENABLED=false
-MONEYGRAM_API_KEY=
-MONEYGRAM_API_SECRET=
-MONEYGRAM_WEBHOOK_SECRET=
+TRUSTIP_SIGNER_STRATEGY=env
+TRUSTIP_OPERATOR_SECRET_KEY=
+TRUSTIP_ALLOW_MAINNET_OPERATOR=false
+PAYMENT_ATTEMPT_SECRET=
+TRUSTIP_CHECKOUT_TOKEN_SECRET=
+TRUSTIP_WALLET_CHALLENGE_SECRET=
+TRUSTIP_SEP10_JWT_SECRET=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
 Notes:
 
-- `BINANCE_PAY_ENABLED` must remain `false` for MVP unless merchant access is confirmed.
-- `MONEYGRAM_INTEGRATED_ENABLED` must remain `false` unless partner/API access and compliance are confirmed.
+- Binance Pay and integrated MoneyGram credentials are not configured in v1.1.
+- Add partner environment variables only with a reviewed implementation.
 - Do not commit secrets to repo.
 - Testnet and mainnet must use separate environment files.
 
@@ -1508,7 +1531,7 @@ sequenceDiagram
 
 ### 19.3 MVP Rule
 
-Do not implement Binance Pay as active payment method unless `BINANCE_PAY_ENABLED=true` and merchant credentials are available.
+Binance Pay is not an active Trustip v1.1 payment method.
 
 ---
 

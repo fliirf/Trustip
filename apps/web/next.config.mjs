@@ -26,6 +26,7 @@ function wsOrigin(origin) {
 // policy is correct per environment (local vs cloud) instead of hardcoded.
 const supabaseOrigin = originOf(process.env.NEXT_PUBLIC_SUPABASE_URL);
 const rpcOrigin = originOf(process.env.NEXT_PUBLIC_STELLAR_RPC_URL);
+const horizonOrigin = originOf(process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL);
 // SEP-24 on-ramp: the browser fetches the anchor's stellar.toml + SEP-10/SEP-24
 // endpoints directly. The interactive deposit UI opens in a NEW TAB (not an
 // iframe), so only connect-src — not frame-src — needs the anchor origin.
@@ -37,9 +38,12 @@ const connectSrc = [
   supabaseOrigin,
   wsOrigin(supabaseOrigin),
   rpcOrigin,
+  horizonOrigin,
   anchorOrigin,
   // Dev only: Next.js HMR websocket + dev server on localhost.
-  ...(isDev ? ["ws://localhost:*", "ws://127.0.0.1:*", "http://localhost:*"] : []),
+  ...(isDev
+    ? ["ws://localhost:*", "ws://127.0.0.1:*", "http://localhost:*"]
+    : []),
 ].filter(Boolean);
 
 // ponytail: script-src uses 'unsafe-inline' (not nonces). Next App Router emits
@@ -47,7 +51,11 @@ const connectSrc = [
 // (middleware is scoped to /api by design). 'unsafe-inline' still blocks
 // external/injected script SOURCES; upgrade to nonce+'strict-dynamic' if a
 // stricter script policy is needed. 'unsafe-eval' is dev-only (Turbopack/HMR).
-const scriptSrc = ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])];
+const scriptSrc = [
+  "'self'",
+  "'unsafe-inline'",
+  ...(isDev ? ["'unsafe-eval'"] : []),
+];
 
 const csp = [
   "default-src 'self'",
@@ -96,11 +104,11 @@ const nextConfig = {
     "@trustip/database",
     "@trustip/stellar",
     "@trustip/validators",
-    "@trustip/ui"
+    "@trustip/ui",
   ],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
-  }
+  },
 };
 
 export default nextConfig;
