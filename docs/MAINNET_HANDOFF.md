@@ -125,8 +125,14 @@ Keduanya harus lulus tanpa error.
 ## 8. Known gaps (bukan blocker, keputusan sadar)
 
 - Multi-route payout (XLM/MoneyGram) belum dibangun — flag off.
-- Trust profile & reviews belum dibangun (fitur produk, bukan keamanan).
-- Refund evidence upload (foto/video) belum ada — deskripsi teks dulu;
-  bukti tambahan via kanal chat kamu dengan buyer.
+- Refund evidence upload (foto/video) — **SUDAH ADA** (2026-07-15): buyer
+  lampirkan foto/video/PDF ke refund yang masih terbuka; admin lihat via signed
+  URL. Private bucket `refund-evidence`.
+- Trust profile & reviews — **SUDAH ADA** (2026-07-15): pembeli menilai pesanan
+  selesai; trust profile seller (level/rating/skor) tampil di checkout, halaman
+  status, dan `/seller/trust`. Migration `20260715200000` + `20260715210000`.
 - `pnpm lint` rusak repo-wide (Next 16 canary menghapus `next lint`) —
   pre-existing, tidak memengaruhi build/typecheck/test.
+
+Daftar fitur yang MASIH belum ada (dan apakah blocker mainnet) ada di
+`docs/MAINNET_FEATURE_GAPS.md`.
