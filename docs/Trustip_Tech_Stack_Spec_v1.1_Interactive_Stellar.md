@@ -384,7 +384,7 @@ contracts/escrow/src/test.rs
 Contract core methods:
 
 ```rust
-initialize(admin, usdc_token)
+__constructor(admin, usdc_token)
 create_order(order_id, buyer, seller, payout_recipient, amount, expires_at)
 fund_order(order_id, buyer)
 release_to_recipient(order_id, caller)
@@ -393,6 +393,10 @@ cancel_order(order_id, caller)
 get_order(order_id)
 pause_contract(admin)
 unpause_contract(admin)
+propose_admin(admin, new_admin)
+accept_admin(new_admin)
+get_admin()
+get_usdc_token()
 ```
 
 Contract event types:
@@ -625,9 +629,9 @@ If Trustip later integrates Binance Pay, MoneyGram Ramps API, bank payout, or fi
 
 ```env
 # App
-NEXT_PUBLIC_APP_ENV=testnet
 NEXT_PUBLIC_APP_URL=
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
+STELLAR_NETWORK=testnet
 
 # Supabase
 NEXT_PUBLIC_SUPABASE_URL=
@@ -636,35 +640,21 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 # Stellar / Soroban
 NEXT_PUBLIC_STELLAR_RPC_URL=
-STELLAR_RPC_URL=
-STELLAR_NETWORK_PASSPHRASE=
-NEXT_PUBLIC_ESCROW_CONTRACT_ID=
-ESCROW_CONTRACT_ID=
-NEXT_PUBLIC_USDC_ASSET_CODE=USDC
-NEXT_PUBLIC_USDC_ISSUER_TESTNET=
-NEXT_PUBLIC_USDC_ISSUER_MAINNET=
-NEXT_PUBLIC_USDC_SAC_CONTRACT_ID=
-USDC_SAC_CONTRACT_ID=
+NEXT_PUBLIC_STELLAR_HORIZON_URL=
+NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID=
+NEXT_PUBLIC_USDC_ISSUER=
+NEXT_PUBLIC_USDC_CONTRACT_ID=
 
-# Explorer
-NEXT_PUBLIC_STELLAR_EXPERT_BASE_URL=
-
-# Admin / Jobs
-JOB_SECRET=
-ADMIN_EMAIL_ALLOWLIST=
-
-# Storage
-EVIDENCE_BUCKET=order-evidence
-
-# Future: Binance Pay
-BINANCE_PAY_API_KEY=
-BINANCE_PAY_API_SECRET=
-BINANCE_PAY_WEBHOOK_SECRET=
-
-# Future: MoneyGram integrated route
-MONEYGRAM_API_KEY=
-MONEYGRAM_API_SECRET=
-MONEYGRAM_WEBHOOK_SECRET=
+# Server-only
+TRUSTIP_SIGNER_STRATEGY=env
+TRUSTIP_OPERATOR_SECRET_KEY=
+TRUSTIP_ALLOW_MAINNET_OPERATOR=false
+PAYMENT_ATTEMPT_SECRET=
+TRUSTIP_CHECKOUT_TOKEN_SECRET=
+TRUSTIP_WALLET_CHALLENGE_SECRET=
+TRUSTIP_SEP10_JWT_SECRET=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 ```
 
 ---

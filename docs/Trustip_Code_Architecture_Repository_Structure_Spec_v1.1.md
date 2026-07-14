@@ -123,8 +123,7 @@ trustip/
 │   ├── deploy-contract.ts
 │   ├── seed-db.ts
 │   ├── generate-types.ts
-│   ├── verify-env.ts
-│   └── sync-contract-config.ts
+│   └── verify-env.ts
 │
 ├── docs/
 │   ├── overview/
@@ -533,35 +532,34 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 # Stellar network
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
-STELLAR_RPC_URL=
-STELLAR_HORIZON_URL=
+STELLAR_NETWORK=testnet
+NEXT_PUBLIC_STELLAR_RPC_URL=
+NEXT_PUBLIC_STELLAR_HORIZON_URL=
 
 # Stellar assets and contracts
-NEXT_PUBLIC_USDC_ASSET_CODE=USDC
 NEXT_PUBLIC_USDC_ISSUER=
 NEXT_PUBLIC_USDC_CONTRACT_ID=
-SOROBAN_ESCROW_CONTRACT_ID=
-SOROBAN_ADMIN_SECRET_KEY=
+NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID=
 
-# Wallet config
-NEXT_PUBLIC_ENABLE_FREIGHTER=true
-NEXT_PUBLIC_ENABLE_XBULL=true
+# Server-only signer and application secrets
+TRUSTIP_SIGNER_STRATEGY=env
+TRUSTIP_OPERATOR_SECRET_KEY=
+TRUSTIP_ALLOW_MAINNET_OPERATOR=false
+PAYMENT_ATTEMPT_SECRET=
+TRUSTIP_CHECKOUT_TOKEN_SECRET=
+TRUSTIP_WALLET_CHALLENGE_SECRET=
+TRUSTIP_SEP10_JWT_SECRET=
 
-# Payout config
-NEXT_PUBLIC_ENABLE_XLM_PAYOUT=false
-NEXT_PUBLIC_ENABLE_MONEYGRAM_ROUTE=true
-MONEYGRAM_PARTNER_API_URL=
-MONEYGRAM_PARTNER_API_KEY=
+# Rate limiting
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
 
-# Binance guide/future
-NEXT_PUBLIC_ENABLE_BINANCE_TOPUP_GUIDE=true
-NEXT_PUBLIC_ENABLE_BINANCE_PAY=false
-BINANCE_PAY_API_KEY=
-BINANCE_PAY_SECRET=
-
-# Worker
-ESCROW_INDEXER_INTERVAL_SECONDS=30
-PAYOUT_SYNC_INTERVAL_SECONDS=60
+# Worker/indexer
+INDEXER_POLL_MS=30000
+INDEXER_RECONCILE_EVERY=4
+INDEXER_START_LOOKBACK=17280
+TRUSTIP_PAYOUT_WORKER_ENABLED=false
+TRUSTIP_REFUND_WORKER_ENABLED=false
 ```
 
 ### 14.1 Environment Rules
@@ -585,7 +583,7 @@ PAYOUT_SYNC_INTERVAL_SECONDS=60
 | Enum value           | UPPER_SNAKE_CASE            | `MONEYGRAM_CASHOUT`       |
 | Rust function        | snake_case                  | `release_to_recipient`    |
 | Contract event       | snake_case                  | `escrow_funded`           |
-| Environment variable | UPPER_SNAKE_CASE            | `STELLAR_RPC_URL`         |
+| Environment variable | UPPER_SNAKE_CASE            | `NEXT_PUBLIC_STELLAR_RPC_URL` |
 
 ---
 

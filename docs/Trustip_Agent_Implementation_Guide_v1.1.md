@@ -152,14 +152,14 @@ The Soroban contract is the most critical component. The agent must treat it as 
 
 - Contract language is Rust using Soroban SDK.
 - The contract must handle USDC via Stellar Asset Contract / SEP-41 interface.
-- Core methods: initialize, create_order, fund_order, release_to_recipient, refund_to_buyer, cancel_order, pause_contract, unpause_contract, get_order.
+- Core methods: `__constructor`, create_order, fund_order, release_to_recipient, refund_to_buyer, cancel_order, pause_contract, unpause_contract, propose_admin, accept_admin, get_admin, get_usdc_token, get_order. `initialize` is a legacy non-mutating guard.
 - Prevent double release, double refund, unauthorized release/refund, wrong amount funding, and funding after cancellation.
 - Emit events for escrow created, funded, released, refunded, cancelled, paused, and unpaused.
 - Do not put off-chain shipment/refund evidence into the contract. Store evidence in Supabase and keep hashes/references if needed.
 
 ```
 // Contract intent only - final code must be written in Rust Soroban SDK
-initialize(admin, usdc_contract)
+__constructor(admin, usdc_contract)
 create_order(order_id, buyer, seller, payout_recipient, amount, expires_at)
 fund_order(order_id, buyer)
 release_to_recipient(order_id, caller)
@@ -167,6 +167,10 @@ refund_to_buyer(order_id, admin)
 cancel_order(order_id, caller)
 pause_contract(admin)
 unpause_contract(admin)
+propose_admin(admin, new_admin)
+accept_admin(new_admin)
+get_admin()
+get_usdc_token()
 get_order(order_id)
 ```
 

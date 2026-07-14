@@ -88,12 +88,15 @@ This checklist defines the minimum QA scope before Trustip v1.1 is considered de
 | ------ | --------------------------- | ---------------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------- | -------- |
 | ESC-01 | Create escrow order         | Order created in database          | Invoke/create escrow reference or prepare contract state  | Contract/order mapping is created and linked to DB order             | P0       |
 | ESC-02 | Fund escrow                 | Buyer payment submitted            | Backend/contract sync confirms funding                    | Escrow status becomes FUNDED/LOCKED; buyer UI says Pesanan Aman      | P0       |
-| ESC-03 | Release to seller           | Order delivered and buyer confirms | Invoke release_to_seller                                  | USDC is released to seller payout flow; contract emits release event | P0       |
+| ESC-03 | Release to recipient        | Order delivered and buyer confirms | Invoke release_to_recipient                               | USDC is released to the stored payout recipient; contract emits release event | P0       |
 | ESC-04 | Refund to buyer             | Refund approved by admin           | Invoke refund_to_buyer                                    | USDC is returned to buyer; contract emits refund event               | P0       |
 | ESC-05 | Block double release        | Escrow already released            | Invoke release again                                      | Contract rejects second release                                      | P0       |
 | ESC-06 | Block double refund         | Escrow already refunded            | Invoke refund again                                       | Contract rejects second refund                                       | P0       |
 | ESC-07 | Unauthorized release/refund | Non-admin/non-authorized caller    | Attempt release/refund                                    | Contract rejects unauthorized action                                 | P0       |
 | ESC-08 | Pause contract              | Admin emergency condition          | Admin pauses contract then user tries fund/release/refund | Blocked actions follow pause rules and produce clear event/status    | P0       |
+| ESC-09 | Atomic initialization       | Built escrow WASM                  | Deploy with constructor admin + USDC args                 | Contract is initialized in the deploy transaction; no takeover window exists | P0       |
+| ESC-10 | Renew state TTL             | Contract and order TTL near threshold | Access contract and order state                         | Instance and order TTL renew to the configured target                | P0       |
+| ESC-11 | Rotate admin safely         | Current and proposed admin keys available | Propose, try wrong accept, then accept with proposed key | Wrong address fails; authority changes only after proposed admin accepts | P0       |
 
 # 9. Order Lifecycle QA
 

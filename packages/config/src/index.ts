@@ -1,7 +1,14 @@
+export type StellarNetwork = "testnet" | "mainnet";
+
+const DEFAULT_NETWORK: StellarNetwork = "testnet";
+
+// Browser bundles can only read NEXT_PUBLIC_*. Node workers use
+// STELLAR_NETWORK. Production validation requires both values and rejects a
+// mismatch before build/start.
 export const STELLAR_NETWORK =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK ||
-  process.env.STELLAR_NETWORK ||
-  "testnet";
+  (typeof window === "undefined"
+    ? (process.env.STELLAR_NETWORK ?? process.env.NEXT_PUBLIC_STELLAR_NETWORK)
+    : process.env.NEXT_PUBLIC_STELLAR_NETWORK) ?? DEFAULT_NETWORK;
 
 // Production-hardening utilities (Phase 19). Edge-safe, no Node builtins.
 export * from "./logger.js";
@@ -32,8 +39,12 @@ export interface NetworkConfig {
 
 const TESTNET: NetworkConfig = {
   networkPassphrase: "Test SDF Network ; September 2015",
-  rpcUrl: "https://soroban-testnet.stellar.org",
-  horizonUrl: "https://horizon-testnet.stellar.org",
+  rpcUrl:
+    process.env.NEXT_PUBLIC_STELLAR_RPC_URL ||
+    "https://soroban-testnet.stellar.org",
+  horizonUrl:
+    process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
+    "https://horizon-testnet.stellar.org",
   usdcAssetCode: "USDC",
   // Circle USDC testnet issuer (checksum-validated). Verify against
   // https://developers.circle.com/stablecoins/usdc-on-testing-networks
@@ -50,8 +61,12 @@ const TESTNET: NetworkConfig = {
 function getMainnetConfig(): NetworkConfig {
   return {
     networkPassphrase: "Public Global Stellar Network ; September 2015",
-    rpcUrl: process.env.STELLAR_RPC_URL || "https://mainnet.sorobanrpc.com",
-    horizonUrl: "https://horizon.stellar.org",
+    // SDF does not operate a public Mainnet RPC. Production validation requires
+    // an explicitly selected provider; an empty value fails closed at use.
+    rpcUrl: process.env.NEXT_PUBLIC_STELLAR_RPC_URL || "",
+    horizonUrl:
+      process.env.NEXT_PUBLIC_STELLAR_HORIZON_URL ||
+      "https://horizon.stellar.org",
     usdcAssetCode: "USDC",
     usdcIssuer: requiredEnv("NEXT_PUBLIC_USDC_ISSUER"),
   };
@@ -60,32 +75,22 @@ function getMainnetConfig(): NetworkConfig {
 export function getNetworkConfig(
   network: string = STELLAR_NETWORK,
 ): NetworkConfig {
-  return network === "mainnet" ? getMainnetConfig() : TESTNET;
+  if (network === "mainnet") return getMainnetConfig();
+  if (network === "testnet") return TESTNET;
+  throw new Error("Invalid Stellar network: expected testnet or mainnet");
 }
 
 export const currentNetwork: NetworkConfig = getNetworkConfig();
-
-/** Return the first defined env var among `names`, or undefined. */
-function envAny(...names: string[]): string | undefined {
-  for (const name of names) {
-    const value = process.env[name];
-    if (value) return value;
-  }
-  return undefined;
-}
 
 /**
  * Deployed Soroban escrow contract id for the active network. Never hardcode
  * this in UI — it is supplied per-network via env (deploy script sets it).
  */
 export function getEscrowContractId(): string {
-  const value = envAny(
-    "NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID",
-    "SOROBAN_ESCROW_CONTRACT_ID",
-  );
+  const value = process.env.NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID;
   if (!value) {
     throw new Error(
-      "Missing escrow contract id: set NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID (or SOROBAN_ESCROW_CONTRACT_ID)",
+      "Missing escrow contract id: set NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID",
     );
   }
   return value;
@@ -93,7 +98,7 @@ export function getEscrowContractId(): string {
 
 /** USDC token (Stellar Asset Contract) id for the active network. */
 export function getUsdcContractId(): string {
-  const value = envAny("NEXT_PUBLIC_USDC_CONTRACT_ID");
+  const value = process.env.NEXT_PUBLIC_USDC_CONTRACT_ID;
   if (!value) {
     throw new Error(
       "Missing USDC contract id: set NEXT_PUBLIC_USDC_CONTRACT_ID",
@@ -109,7 +114,7 @@ export function getUsdcContractId(): string {
  * closed. The value is never logged or returned to clients.
  */
 export function getOperatorSecretKey(): string | undefined {
-  return envAny("TRUSTIP_OPERATOR_SECRET_KEY", "STELLAR_OPERATOR_SECRET_KEY");
+  return process.env.TRUSTIP_OPERATOR_SECRET_KEY;
 }
 
 /**
@@ -120,7 +125,7 @@ export function getOperatorSecretKey(): string | undefined {
  * may trigger operator-signed create_order. Never logged or returned to clients.
  */
 export function getCheckoutTokenSecret(): string | undefined {
-  return envAny("TRUSTIP_CHECKOUT_TOKEN_SECRET");
+  return process.env.TRUSTIP_CHECKOUT_TOKEN_SECRET;
 }
 
 /**
@@ -131,7 +136,7 @@ export function getCheckoutTokenSecret(): string | undefined {
  * logged or returned to clients.
  */
 export function getWalletChallengeSecret(): string | undefined {
-  return envAny("TRUSTIP_WALLET_CHALLENGE_SECRET");
+  return process.env.TRUSTIP_WALLET_CHALLENGE_SECRET;
 }
 
 /**
@@ -140,7 +145,7 @@ export function getWalletChallengeSecret(): string | undefined {
  * fails closed (no token is issued). Never logged or returned to clients.
  */
 export function getSep10JwtSecret(): string | undefined {
-  return envAny("TRUSTIP_SEP10_JWT_SECRET");
+  return process.env.TRUSTIP_SEP10_JWT_SECRET;
 }
 
 /**

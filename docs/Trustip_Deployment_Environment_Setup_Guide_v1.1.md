@@ -114,57 +114,79 @@ pnpm lint
 
 ## 5. Environment Variables
 
-Do not hardcode network names, contract IDs, RPC URLs, token contract IDs, admin addresses, or Supabase secrets.
+`.env.example` is the canonical inventory. Do not add aliases per deployment
+platform. Public identifiers and URLs may use `NEXT_PUBLIC_`; secrets never may.
 
-### 5.1 Public Browser Variables
-
-These variables can be exposed to the browser. Use the `NEXT_PUBLIC_` prefix only for values that are safe to reveal.
-
-```env
-NEXT_PUBLIC_APP_ENV=local
-NEXT_PUBLIC_STELLAR_NETWORK=testnet
-NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-NEXT_PUBLIC_ESCROW_CONTRACT_ID=<testnet_contract_id>
-NEXT_PUBLIC_USDC_CONTRACT_ID=<testnet_usdc_sac_contract_id>
-NEXT_PUBLIC_STELLAR_EXPERT_BASE_URL=https://stellar.expert/explorer/testnet
-```
-
-### 5.2 Server-Only Variables
-
-Never expose these variables to client components or browser bundles.
+### 5.1 Canonical Public Variables
 
 ```env
-SUPABASE_URL=<project_url>
-SUPABASE_ANON_KEY=<anon_key>
-SUPABASE_SERVICE_ROLE_KEY=<server_only_service_role_key>
-DATABASE_URL=<postgres_connection_string>
-STELLAR_RPC_URL=https://soroban-testnet.stellar.org
-SOROBAN_ESCROW_CONTRACT_ID=<testnet_contract_id>
-SOROBAN_NETWORK_PASSPHRASE="Test SDF Network ; September 2015"
-ESCROW_ADMIN_PUBLIC_KEY=<admin_g_address>
-ESCROW_ADMIN_SECRET_KEY=<server_only_or_external_signer>
-WORKER_SECRET=<random_secret>
-ADMIN_EMAIL_ALLOWLIST=<comma_separated_emails>
-MONEYGRAM_ROUTE_MODE=guided
-BINANCE_TOPUP_GUIDE_ENABLED=true
-BINANCE_PAY_ENABLED=false
-```
-
-### 5.3 Mainnet Variable Rules
-
-For production, switch every Stellar variable deliberately:
-
-```env
+NEXT_PUBLIC_APP_URL=https://trustip.example
 NEXT_PUBLIC_STELLAR_NETWORK=mainnet
-NEXT_PUBLIC_STELLAR_NETWORK_PASSPHRASE="Public Global Stellar Network ; September 2015"
-NEXT_PUBLIC_STELLAR_RPC_URL=<production_rpc_provider_url>
-NEXT_PUBLIC_ESCROW_CONTRACT_ID=<mainnet_contract_id>
+NEXT_PUBLIC_STELLAR_RPC_URL=<selected_mainnet_rpc_provider>
+NEXT_PUBLIC_STELLAR_HORIZON_URL=https://horizon.stellar.org
+NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID=<mainnet_escrow_contract_id>
+NEXT_PUBLIC_USDC_ISSUER=GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN
 NEXT_PUBLIC_USDC_CONTRACT_ID=<mainnet_usdc_sac_contract_id>
-NEXT_PUBLIC_STELLAR_EXPERT_BASE_URL=https://stellar.expert/explorer/public
+NEXT_PUBLIC_SUPABASE_URL=<production_supabase_url>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<production_anon_key>
+NEXT_PUBLIC_ANCHOR_DOMAIN=<approved_mainnet_anchor_domain>
 ```
 
-Mainnet variables must be set in Vercel Production only. Do not reuse preview/testnet variables in production.
+SDF provides Testnet RPC but not a public Mainnet RPC. Select a Mainnet provider
+from the [official Stellar provider list](https://developers.stellar.org/docs/data/apis/rpc/providers);
+do not retain the Testnet endpoint. Verify the issuer against
+[Circle's USDC address registry](https://developers.circle.com/stablecoins/usdc-contract-addresses).
+
+### 5.2 Canonical Server-Only Variables
+
+```env
+STELLAR_NETWORK=mainnet
+SUPABASE_SERVICE_ROLE_KEY=<production_service_role_key>
+TRUSTIP_SIGNER_STRATEGY=env
+TRUSTIP_OPERATOR_SECRET_KEY=<mainnet_operator_secret_seed>
+TRUSTIP_ALLOW_MAINNET_OPERATOR=true
+PAYMENT_ATTEMPT_SECRET=<minimum_32_random_characters>
+TRUSTIP_CHECKOUT_TOKEN_SECRET=<minimum_32_random_characters>
+TRUSTIP_WALLET_CHALLENGE_SECRET=<minimum_32_random_characters>
+TRUSTIP_SEP10_JWT_SECRET=<minimum_32_random_characters>
+UPSTASH_REDIS_REST_URL=<production_upstash_url>
+UPSTASH_REDIS_REST_TOKEN=<production_upstash_token>
+```
+
+`STELLAR_NETWORK` must match `NEXT_PUBLIC_STELLAR_NETWORK`. Network passphrases
+are derived in code and must not be configured manually. The service-role key
+and operator seed belong only in the deployment platform's encrypted secret
+store, never GitHub variables, browser env, logs, or files in the repository.
+
+### 5.3 Worker and Deployment Variables
+
+```env
+INDEXER_POLL_MS=30000
+INDEXER_RECONCILE_EVERY=4
+INDEXER_START_LOOKBACK=17280
+TRUSTIP_PAYOUT_WORKER_ENABLED=false
+TRUSTIP_REFUND_WORKER_ENABLED=false
+STELLAR_DEPLOY_IDENTITY=<stellar_cli_identity_name>
+```
+
+Do not enable the payout/refund workers until their implementations exist; they
+intentionally fail if enabled today.
+
+### 5.4 Validation Gates
+
+```bash
+# No network access: required before production build/deploy.
+pnpm verify:env:production
+
+# Network access: run after the contract exists, before traffic is enabled.
+pnpm verify:env:onchain
+```
+
+The static gate rejects missing values, placeholders, old aliases, invalid
+StrKeys, frontend/backend network mismatch, endpoint mismatch, invalid Circle
+USDC issuer/SAC pairing, short application secrets, and missing Supabase keys.
+The on-chain gate confirms RPC and Horizon passphrases, contract availability,
+contract admin/operator match, and stored USDC token/environment match.
 
 ---
 
@@ -177,10 +199,10 @@ npx supabase init
 npx supabase start
 ```
 
-Apply migrations:
+Apply pending migrations incrementally (preserves existing local data):
 
 ```bash
-npx supabase db reset
+npx supabase migration up --local
 ```
 
 Generate TypeScript types:
@@ -239,13 +261,18 @@ contracts/escrow/target/wasm32v1-none/release/trustip_escrow.wasm
 The contract must support:
 
 ```text
-initialize
+__constructor
+initialize (legacy guard only)
 create_order
 fund_order
-release_to_seller
+release_to_recipient
 refund_to_buyer
 pause_contract
 unpause_contract
+propose_admin
+accept_admin
+get_admin
+get_usdc_token
 get_order
 ```
 
@@ -270,29 +297,44 @@ Deploy the escrow contract:
 stellar contract deploy \
   --wasm target/wasm32v1-none/release/trustip_escrow.wasm \
   --source trustip-deployer \
-  --network testnet
+  --network testnet \
+  -- \
+  --admin "$(stellar keys address trustip-deployer)" \
+  --usdc_token <TESTNET_USDC_CONTRACT_ID>
 ```
+
+The constructor runs in the same transaction as deployment. The deploy identity
+must be the initial admin; this removes the uninitialized-contract takeover
+window. Use `scripts/deploy-contract.ts` for the same atomic flow.
 
 Save the returned contract ID into:
 
 ```text
-NEXT_PUBLIC_ESCROW_CONTRACT_ID
-SOROBAN_ESCROW_CONTRACT_ID
+NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID
 ```
 
-### 7.4 Initialize the Contract
+### 7.4 Rotate the Initial Admin When Needed
 
 ```bash
 stellar contract invoke \
   --id <ESCROW_CONTRACT_ID> \
   --source trustip-deployer \
   --network testnet \
-  -- initialize \
-  --admin <ESCROW_ADMIN_PUBLIC_KEY> \
-  --usdc_contract <USDC_CONTRACT_ID>
+  -- propose_admin \
+  --admin "$(stellar keys address trustip-deployer)" \
+  --new_admin <NEW_ADMIN_PUBLIC_KEY>
+
+stellar contract invoke \
+  --id <ESCROW_CONTRACT_ID> \
+  --source <NEW_ADMIN_IDENTITY> \
+  --network testnet \
+  -- accept_admin \
+  --new_admin <NEW_ADMIN_PUBLIC_KEY>
 ```
 
-Do not initialize a production contract with a testnet USDC contract ID.
+Verify `get_admin` before retiring the old key. Contract instance and order TTLs
+renew to 30 days when touched below seven days remaining; monitor TTL on
+low-traffic deployments and submit an extension transaction before archival.
 
 ---
 
@@ -396,8 +438,10 @@ Production: dedicated Node.js worker with queue or external scheduler.
 ### 11.1 Project Setup
 
 1. Connect Git repository to Vercel.
-2. Set root directory to `apps/web` if using a monorepo.
-3. Configure build command according to the monorepo scripts.
+2. Keep the repository root so workspace packages and `scripts/verify-env.ts`
+   are available.
+3. Use `pnpm verify:env:production && pnpm --filter web build` as the production
+   build command.
 4. Add environment variables for Preview and Production separately.
 5. Deploy Preview first.
 6. Run QA checklist on Preview.
@@ -476,41 +520,28 @@ Do not deploy to mainnet unless all items are true:
 [ ] Contract IDs and USDC IDs are network-specific.
 [ ] Private keys are not stored in frontend env variables.
 [ ] Production Supabase and Vercel environments are separate from staging.
+[ ] `pnpm verify:env:production` passes using the production secret store.
 ```
 
 ### 13.2 Mainnet Contract Deploy
 
-```bash
-stellar keys generate trustip-mainnet-deployer --network mainnet
-# fund deployer manually with enough XLM
-
-stellar contract deploy \
-  --wasm target/wasm32v1-none/release/trustip_escrow.wasm \
-  --source trustip-mainnet-deployer \
-  --network mainnet
-```
-
-Initialize with mainnet values only:
-
-```bash
-stellar contract invoke \
-  --id <MAINNET_ESCROW_CONTRACT_ID> \
-  --source trustip-mainnet-deployer \
-  --network mainnet \
-  -- initialize \
-  --admin <MAINNET_ESCROW_ADMIN_PUBLIC_KEY> \
-  --usdc_contract <MAINNET_USDC_CONTRACT_ID>
-```
+The deployment operator must create and fund the Mainnet CLI identity outside
+the repository, set the canonical environment variables in the deployment
+secret store, and run `scripts/deploy-contract.ts`. The script requires an
+explicit `STELLAR_NETWORK`, validates the USDC contract ID, checks the frontend
+network if present, and deploys with constructor arguments atomically through
+`pnpm deploy:contract`.
 
 After deployment:
 
 ```text
-1. Save contract ID in production env.
+1. Save the contract ID as `NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID`.
 2. Save deployment tx hash in deployment log.
-3. Verify contract on Stellar explorer/lab.
-4. Run one small mainnet smoke test.
-5. Confirm event indexer syncs the smoke test.
-6. Confirm database status matches on-chain status.
+3. Run `pnpm verify:env:onchain` and resolve every failure.
+4. Verify contract on Stellar explorer/lab.
+5. Run one separately approved small Mainnet smoke test.
+6. Confirm event indexer syncs the smoke test.
+7. Confirm database status matches on-chain status.
 ```
 
 ---
@@ -521,32 +552,21 @@ After deployment:
 
 For v1.1, Binance is a guided top-up route, not an automated payment processor.
 
-Environment flags:
-
-```env
-BINANCE_TOPUP_GUIDE_ENABLED=true
-BINANCE_PAY_ENABLED=false
-```
-
 Rules:
 
 ```text
 - Trustip does not pull funds from buyer Binance accounts.
 - Trustip does not auto-convert Rupiah to USDC.
 - The guide must tell users to verify the Stellar network before withdrawal.
-- Binance Pay remains a future feature.
+- Binance Pay is not configured or implemented.
 ```
 
 ### 14.2 MoneyGram Seller Payout Route
 
 MoneyGram is used as seller off-ramp/cash-out route, not buyer checkout rail.
 
-Environment flags:
-
-```env
-MONEYGRAM_ROUTE_MODE=guided
-MONEYGRAM_API_ENABLED=false
-```
+No MoneyGram API environment variable is active in v1.1. Add credentials only
+when an actual reviewed partner integration exists.
 
 Route stages:
 
@@ -571,6 +591,19 @@ pnpm test
 pnpm build
 cargo test --manifest-path contracts/escrow/Cargo.toml
 ```
+
+The configured production deployment environment must additionally run
+`pnpm verify:env:production`. Run `pnpm verify:env:onchain` only after the target
+contract has been deployed; neither command performs deployment.
+
+### 15.1 GitHub Environment Handoff
+
+Create a protected GitHub Environment named `production`. Store public URLs,
+network names, issuer, and contract IDs as environment variables. Store the
+Supabase service-role key, operator seed, HMAC/JWT secrets, and Upstash token as
+encrypted environment secrets. Require reviewer approval and never expose a
+secret through a `NEXT_PUBLIC_` name. A deployment workflow should run the
+static gate before build and the on-chain gate before enabling traffic.
 
 Recommended deployment gates:
 

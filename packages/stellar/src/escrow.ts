@@ -66,9 +66,9 @@ export interface FundOrderParams {
  * and submit via `submit`.
  *
  * The transaction `source` for each method is the address whose `require_auth`
- * the contract enforces (admin for create/release/refund/pause/unpause, buyer
- * for fund, admin-or-buyer for cancel), so source-account authorization
- * satisfies the contract's auth checks.
+ * the contract enforces (admin for create/release/refund/pause/unpause/admin
+ * proposal, buyer for fund, proposed admin for acceptance, admin-or-buyer for
+ * cancel), so source-account authorization satisfies the contract's checks.
  */
 export class EscrowClient {
   private readonly server: rpc.Server;
@@ -102,10 +102,16 @@ export class EscrowClient {
     return this.server.prepareTransaction(tx);
   }
 
-  buildInitialize(admin: string, usdcToken: string): Promise<Transaction> {
-    return this.buildInvoke(admin, "initialize", [
+  buildProposeAdmin(admin: string, newAdmin: string): Promise<Transaction> {
+    return this.buildInvoke(admin, "propose_admin", [
       addressToScVal(admin),
-      addressToScVal(usdcToken),
+      addressToScVal(newAdmin),
+    ]);
+  }
+
+  buildAcceptAdmin(newAdmin: string): Promise<Transaction> {
+    return this.buildInvoke(newAdmin, "accept_admin", [
+      addressToScVal(newAdmin),
     ]);
   }
 
@@ -158,6 +164,34 @@ export class EscrowClient {
 
   buildUnpause(admin: string): Promise<Transaction> {
     return this.buildInvoke(admin, "unpause_contract", [addressToScVal(admin)]);
+  }
+
+  /** Read the currently configured on-chain admin. */
+  async readAdmin(): Promise<string | null> {
+    return this.readAddress("get_admin");
+  }
+
+  /** Read the USDC SAC address configured by the contract constructor. */
+  async readUsdcToken(): Promise<string | null> {
+    return this.readAddress("get_usdc_token");
+  }
+
+  private async readAddress(
+    method: "get_admin" | "get_usdc_token",
+  ): Promise<string | null> {
+    const reader = new Account(Keypair.random().publicKey(), "0");
+    const tx = new TransactionBuilder(reader, {
+      fee: BASE_FEE,
+      networkPassphrase: this.networkPassphrase,
+    })
+      .addOperation(this.contract().call(method))
+      .setTimeout(30)
+      .build();
+
+    const sim = await this.server.simulateTransaction(tx);
+    if (rpc.Api.isSimulationError(sim)) return null;
+    const retval = sim.result?.retval;
+    return retval ? String(scValToNative(retval)) : null;
   }
 
   /** Read an order's on-chain state; returns null if not found / unreadable. */

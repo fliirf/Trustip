@@ -117,6 +117,9 @@ Trustip v1.1 is a Stellar-native protected checkout application. Buyer payment i
 - Contract allows double release or double refund.
 - Contract releases funds before escrow is funded.
 - Admin pause or admin role is abused.
+- A separately deployed but uninitialized contract is claimed by an attacker.
+- Contract or order state becomes archived because TTL is not renewed.
+- An incorrect admin address immediately locks out the current operator.
 - Contract emits insufficient events for backend reconciliation.
 
 ### Controls
@@ -126,6 +129,10 @@ Trustip v1.1 is a Stellar-native protected checkout application. Buyer payment i
 - `release_to_seller` can only succeed after funded state and proper authorization.
 - `refund_to_buyer` can only succeed after funded state and proper authorization.
 - Double release/refund must fail at contract level, not only backend level.
+- Initialize admin and USDC atomically in the deployment constructor.
+- Renew contract and order TTL on access, with operational TTL monitoring.
+- Rotate admin through propose/accept so the old admin remains active until the
+  new address proves control.
 - Emit events for order created, funded, released, refunded, cancelled, paused, unpaused.
 - Keep contract small and avoid putting social-commerce business logic on-chain.
 
@@ -137,6 +144,9 @@ Trustip v1.1 is a Stellar-native protected checkout application. Buyer payment i
 - Cancelled order cannot be funded/released.
 - Unauthorized caller cannot release/refund.
 - Admin pause blocks money-moving operations.
+- Constructor deployment has no externally callable uninitialized window.
+- Contract and order access renews TTL before the configured threshold.
+- Unauthorized or unproposed addresses cannot complete admin rotation.
 
 ## 8. Order, Shipment, and Refund Risks
 

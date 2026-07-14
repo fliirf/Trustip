@@ -6,7 +6,7 @@
  * buyer `fund_order` can now be prepared. Never prints or commits secrets.
  *
  * Requires (all testnet):
- *   - SOROBAN_ESCROW_CONTRACT_ID / NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID in env
+ *   - NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID in env
  *   - Stellar CLI keystore identities: tt-admin (contract admin), tt-buyer, tt-seller
  *   - Operator secret: TRUSTIP_OPERATOR_SECRET_KEY if already set, else read
  *     in-process from `stellar keys secret tt-admin` (never logged).

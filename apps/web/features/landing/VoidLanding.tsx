@@ -5,7 +5,7 @@
    THESIS     ManifestoPan  full-viewport typography, panned sideways
    PROTOCOL   ProtocolScene one Escrow Core, pinned, scrubbed
    PROOF      ProofDocument dense technical document with sticky marginalia
-   PLATFORM   PlatformSplit asymmetric code split, real contract source
+   PLATFORM   PlatformSplit compact protected-funds instrument
    ACTION     closing       massive type, one Core, one button
 
    No two consecutive chapters share a structure, an alignment, a density, or a
@@ -42,7 +42,6 @@ function BootChars({ text, start, step = 0.05 }: { text: string; start: number; 
     </>
   );
 }
-
 const MARQUEE = [
   "PROTECTED CHECKOUT",
   "USDC ON STELLAR",
@@ -91,12 +90,12 @@ export async function VoidLanding() {
           clearer two-tier action hierarchy (bright buyer link + standing seller
           key). Still floating and minimal — height and balance only, no redesign. */}
       <header className="engraved-b fixed inset-x-0 top-0 z-50 bg-void/85 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-5 py-4 md:px-10 md:py-[18px]">
+        <div className="relative flex items-center justify-between px-5 py-4 md:px-10 md:py-[18px]">
           <a href="#hero" className="flex items-baseline">
             <span className="font-display text-xl font-medium tracking-tight text-bone">TRUSTIP</span>
             <span className="font-display text-xl font-medium text-blood">.</span>
           </a>
-          <nav className="hidden items-center gap-7 md:flex lg:gap-9" aria-label="Section">
+          <nav className="hidden items-center gap-7 md:flex lg:absolute lg:left-1/2 lg:-translate-x-1/2 lg:gap-9" aria-label="Section">
             {NAV.map((item) => (
               <a
                 key={item.href}
@@ -245,7 +244,7 @@ export async function VoidLanding() {
 
         {/* ============ 05 · PROOF + 06 · PLATFORM ============
             One hairline spine runs through both. It is a single element: the Proof
-            rail hangs its states off it, the Platform code block starts flush
+            rail hangs its states off it, the Platform chapter starts flush
             against it, and CameraRig draws it downward as the reader descends. The
             chapter boundary between them has no rule of its own to announce it. */}
         <div data-spine-wrap className="relative px-5 md:px-10">

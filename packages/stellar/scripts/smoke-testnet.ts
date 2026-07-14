@@ -6,13 +6,13 @@
  * never writes or logs secrets.
  *
  * Env:
- *   ESCROW_CONTRACT_ID   escrow contract to test (main USDC or auxiliary SAC)
+ *   NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID  escrow contract to test
  *   TOKEN_LABEL          human label for the token (e.g. "USDC" | "TEST-SAC")
  *   MODE                 "usdc" (create + prepare-only) | "full" (create→fund→release)
  *   AMOUNT               i128 stroops (default 100000)
  *
  * Usage:
- *   ESCROW_CONTRACT_ID=C... MODE=usdc npx tsx packages/stellar/scripts/smoke-testnet.ts
+ *   NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID=C... MODE=usdc npx tsx packages/stellar/scripts/smoke-testnet.ts
  */
 import { execFileSync } from "node:child_process";
 import { Keypair, rpc } from "@stellar/stellar-sdk";
@@ -75,8 +75,10 @@ async function main(): Promise<void> {
     );
   }
 
-  const escrowId = process.env.ESCROW_CONTRACT_ID;
-  if (!escrowId) throw new Error("ESCROW_CONTRACT_ID required");
+  const escrowId = process.env.NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID;
+  if (!escrowId) {
+    throw new Error("NEXT_PUBLIC_SOROBAN_ESCROW_CONTRACT_ID required");
+  }
   const tokenLabel = process.env.TOKEN_LABEL || "TOKEN";
   const mode = process.env.MODE || "usdc";
   const amount = BigInt(process.env.AMOUNT || "100000");
@@ -100,21 +102,15 @@ async function main(): Promise<void> {
   });
 
   const orderId = deriveContractOrderId(`smoke-${tokenLabel}-${Date.now()}`);
-  const usdcToken = process.env.USDC_SAC_ID ?? process.env.TOKEN_SAC_ID ?? "";
   const expiresAt = BigInt(Math.floor(Date.now() / 1000) + 3600);
 
-  // --- initialize (tolerate AlreadyInitialized on re-runs) ---
-  if (usdcToken) {
-    try {
-      const tx = await client.buildInitialize(admin, usdcToken);
-      const r = await signSubmitPoll(client, tx, secret("tt-admin"));
-      logStep("initialize", r.hash);
-    } catch (e) {
-      console.log(
-        `  ℹ️  initialize skipped: ${(e as Error).message.slice(0, 120)}`,
-      );
-    }
+  // Constructor initialization is atomic with deployment; fail closed if the
+  // smoke-test signer is not the deployed contract admin.
+  const onChainAdmin = await client.readAdmin();
+  if (onChainAdmin !== admin) {
+    throw new Error(`admin mismatch: expected ${admin}, got ${onChainAdmin}`);
   }
+  console.log("  ✅ constructor admin verified");
 
   // --- create_order ---
   const created = await client.buildCreateOrder({
