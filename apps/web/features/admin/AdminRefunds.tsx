@@ -45,6 +45,30 @@ export function AdminRefunds() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [lastResult, setLastResult] = useState<ResolveResult | null>(null);
+  // Evidence lives in the PARENT so a rows refetch (session/token refresh
+  // re-renders this component) can never wipe an already-loaded gallery.
+  const [evidence, setEvidence] = useState<Record<string, EvidenceItem[]>>({});
+  const [evidenceBusy, setEvidenceBusy] = useState<string | null>(null);
+  const [evidenceErr, setEvidenceErr] = useState<Record<string, string>>({});
+
+  async function loadEvidence(id: string) {
+    if (!accessToken) return;
+    setEvidenceBusy(id);
+    setEvidenceErr((m) => ({ ...m, [id]: "" }));
+    try {
+      const res = await fetch(`/api/admin/refunds/${id}/evidence`, {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        setEvidenceErr((m) => ({ ...m, [id]: `Failed (${res.status}).` }));
+        return;
+      }
+      const body = (await res.json()) as { evidence: EvidenceItem[] };
+      setEvidence((m) => ({ ...m, [id]: body.evidence }));
+    } finally {
+      setEvidenceBusy(null);
+    }
+  }
 
   const load = useCallback(async () => {
     if (!accessToken) return;
@@ -169,7 +193,12 @@ export function AdminRefunds() {
               </p>
             )}
 
-            <AdminEvidence id={r.id} accessToken={accessToken} />
+            <EvidenceGallery
+              items={evidence[r.id]}
+              error={evidenceErr[r.id]}
+              loading={evidenceBusy === r.id}
+              onLoad={() => void loadEvidence(r.id)}
+            />
 
             {confirmingId === r.id ? (
               <div className="mt-4">
@@ -228,49 +257,36 @@ export function AdminRefunds() {
   );
 }
 
-function AdminEvidence({
-  id,
-  accessToken,
+/** Stateless evidence gallery — all state is owned by AdminRefunds so it
+ * survives parent re-renders. Before first load, shows a "View evidence"
+ * button; after, the thumbnails (or an error / empty note). */
+function EvidenceGallery({
+  items,
+  error,
+  loading,
+  onLoad,
 }: {
-  id: string;
-  accessToken: string;
+  items: EvidenceItem[] | undefined;
+  error: string | undefined;
+  loading: boolean;
+  onLoad: () => void;
 }) {
-  const [items, setItems] = useState<EvidenceItem[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/refunds/${id}/evidence`, {
-        headers: { authorization: `Bearer ${accessToken}` },
-      });
-      if (!res.ok) {
-        setError(`Failed to load evidence (${res.status}).`);
-        return;
-      }
-      const body = (await res.json()) as { evidence: EvidenceItem[] };
-      setItems(body.evidence);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (items === null) {
+  if (items === undefined) {
     return (
-      <button
-        type="button"
-        onClick={() => void load()}
-        disabled={loading}
-        className="mt-3 text-sm text-ash underline underline-offset-4 hover:text-mist disabled:opacity-50"
-      >
-        {loading ? "Loading evidence…" : "View evidence"}
-      </button>
+      <div className="mt-3">
+        <button
+          type="button"
+          onClick={onLoad}
+          disabled={loading}
+          className="text-sm text-ash underline underline-offset-4 hover:text-mist disabled:opacity-50"
+        >
+          {loading ? "Loading evidence…" : "View evidence"}
+        </button>
+        {error && <p className="mt-2 text-sm text-blood">{error}</p>}
+      </div>
     );
   }
 
-  if (error) return <p className="mt-3 text-sm text-blood">{error}</p>;
   if (items.length === 0)
     return <p className="mt-3 text-sm text-ash">No evidence attached.</p>;
 

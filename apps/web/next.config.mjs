@@ -63,7 +63,9 @@ const csp = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  "img-src 'self' data:",
+  // Supabase storage origin: admin refund-evidence thumbnails load from
+  // signed URLs on the Supabase host (derived from env, correct per network).
+  `img-src 'self' data:${supabaseOrigin ? ` ${supabaseOrigin}` : ""}`,
   "font-src 'self'",
   // Inline styles: next/font, Tailwind, and React inline `style=` attributes
   // (the landing sets inline transition delays) require 'unsafe-inline'.
