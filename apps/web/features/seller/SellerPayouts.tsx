@@ -11,12 +11,15 @@ import type { Dict } from "../../lib/i18n/dictionaries";
 import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { sellerErrorLabel } from "./labels";
+import { explorerTxUrl, networkName } from "@trustip/stellar";
 import {
   addPayoutMethod,
   type AddPayoutMethodBody,
   disablePayoutMethod,
   getOnboarding,
   listPayoutMethods,
+  listPayouts,
+  type Payout,
   type PayoutMethod,
   type PayoutMethodType,
   SellerApiError,
@@ -46,6 +49,7 @@ export function SellerPayouts() {
   const token = session.accessToken;
 
   const [methods, setMethods] = useState<PayoutMethod[] | null>(null);
+  const [payouts, setPayouts] = useState<Payout[] | null>(null);
   const [wallets, setWallets] = useState<SellerWallet[]>([]);
   const [error, setError] = useState<{ code: string; message: string } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,12 +68,14 @@ export function SellerPayouts() {
   const refresh = useCallback(async () => {
     if (!token) return;
     try {
-      const [m, onboarding] = await Promise.all([
+      const [m, onboarding, p] = await Promise.all([
         listPayoutMethods(token),
         getOnboarding(token),
+        listPayouts(token),
       ]);
       setMethods(m.methods);
       setWallets(onboarding.wallets);
+      setPayouts(p.payouts);
       setError(null);
     } catch (e) {
       setError(describeError(d, e));
@@ -362,6 +368,49 @@ export function SellerPayouts() {
                     </button>
                   </div>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* 03 · HISTORY — a direct USDC payout is the escrow release itself,
+          recorded when the buyer confirmed receipt. */}
+      <section className="pb-16">
+        <div className="micro-label text-ash">{t.historyTitle}</div>
+        <p className="os-body mt-2 max-w-[56ch] text-mist/70">{t.historyNote}</p>
+        {payouts !== null && payouts.length === 0 && (
+          <p className="mt-4 os-body text-mist/60">{t.historyEmpty}</p>
+        )}
+        {payouts !== null && payouts.length > 0 && (
+          <ul className="mt-4 space-y-3">
+            {payouts.map((p) => (
+              <li
+                key={p.id}
+                className="max-w-2xl border border-hairline px-5 py-4"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <span className="font-mono text-xs text-bone">{p.orderNo}</span>
+                  <span className="text-sm text-mist">
+                    {p.amountUsdc ?? "—"} USDC
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <span className="micro-label text-ash">
+                    {t.types[p.routeType]} ·{" "}
+                    {t.payoutStatuses[p.status] ?? p.status}
+                  </span>
+                  {p.releaseTxHash && (
+                    <a
+                      href={explorerTxUrl(networkName(), p.releaseTxHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="micro-label os-press text-bone underline underline-offset-4 hover:text-blood"
+                    >
+                      {t.viewTx}
+                    </a>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

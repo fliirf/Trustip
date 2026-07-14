@@ -1559,6 +1559,13 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_direct_payout: {
+        Args: {
+          p_network: Database["public"]["Enums"]["payout_transaction_network"]
+          p_order_id: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       is_order_buyer: { Args: { p_order: string }; Returns: boolean }
       is_order_party: { Args: { p_order: string }; Returns: boolean }

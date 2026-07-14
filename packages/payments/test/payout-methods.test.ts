@@ -2,7 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   addPayoutMethod,
   disablePayoutMethod,
+  getPayout,
   listPayoutMethods,
+  listPayouts,
   type PayoutMethodDeps,
   type PayoutMethodRecord,
   type PayoutMethodStore,
@@ -36,6 +38,8 @@ function fakeStore(overrides: Partial<PayoutMethodStore> = {}): PayoutMethodStor
   return {
     getSellerProfileIdForUser: vi.fn(async () => SELLER),
     findVerifiedWallet: vi.fn(async () => ({ publicKey: "G" + "A".repeat(55) })),
+    listPayouts: vi.fn(async () => []),
+    getPayout: vi.fn(async () => null),
     listPayoutMethods: vi.fn(async () => []),
     insertPayoutMethod: vi.fn(async (i) =>
       record({ methodType: i.methodType, displayName: i.displayName, status: i.status }),
@@ -151,5 +155,21 @@ describe("listPayoutMethods", () => {
       getSellerProfileIdForUser: vi.fn(async () => null),
     });
     expect(await listPayoutMethods(deps(store), actor)).toEqual([]);
+  });
+});
+
+describe("payouts", () => {
+  it("lists [] for a user with no seller profile", async () => {
+    const store = fakeStore({
+      getSellerProfileIdForUser: vi.fn(async () => null),
+    });
+    expect(await listPayouts(deps(store), actor)).toEqual([]);
+  });
+
+  it("404s a payout that is not the seller's", async () => {
+    const store = fakeStore({ getPayout: vi.fn(async () => null) });
+    await expect(getPayout(deps(store), actor, METHOD)).rejects.toMatchObject({
+      code: "OrderNotFound",
+    });
   });
 });

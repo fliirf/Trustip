@@ -166,6 +166,14 @@ export interface ReleaseStore {
     orderId: string,
     eventType: "order_completed" | "order_refunded" | "review_received",
   ): Promise<void>;
+
+  /** Record the direct (USDC-wallet) payout that the release just performed, as
+   * a reconciliation payout_request + payout_transaction (record_direct_payout
+   * RPC). Best-effort, idempotent — moves no money, only mirrors the release. */
+  recordDirectPayout(input: {
+    orderId: string;
+    network: NetworkName;
+  }): Promise<void>;
 }
 
 export interface ReleaseDeps {
@@ -564,6 +572,18 @@ export async function confirmOrderReceivedAndRelease(
     await deps.store.recomputeTrustProfile(ctx.orderId, "order_completed");
   } catch {
     // intentionally ignored — see above
+  }
+
+  // Reconciliation: record the direct USDC payout the release just performed so
+  // it shows in the seller's payout history. Best-effort + idempotent; a failure
+  // never fails the release, and the payout-sync worker can backfill.
+  try {
+    await deps.store.recordDirectPayout({
+      orderId: ctx.orderId,
+      network: deps.config.networkName,
+    });
+  } catch {
+    // intentionally ignored — reconciliation only, self-healing
   }
 
   return {

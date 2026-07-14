@@ -186,5 +186,13 @@ export function createSupabaseReleaseStore(
       });
       if (error) throw error;
     },
+
+    async recordDirectPayout({ orderId, network }) {
+      const { error } = await client.rpc("record_direct_payout", {
+        p_order_id: orderId,
+        p_network: network,
+      });
+      if (error) throw error;
+    },
   };
 }

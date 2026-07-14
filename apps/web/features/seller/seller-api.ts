@@ -364,3 +364,19 @@ export function disablePayoutMethod(
     method: "DELETE",
   });
 }
+
+export interface Payout {
+  id: string;
+  orderNo: string;
+  routeType: PayoutMethodType;
+  status: string;
+  releaseMode: string;
+  amountUsdc: string | null;
+  requestedAt: string | null;
+  completedAt: string | null;
+  releaseTxHash: string | null;
+}
+
+export function listPayouts(token: string): Promise<{ payouts: Payout[] }> {
+  return request<{ payouts: Payout[] }>("/api/seller/payouts", token);
+}

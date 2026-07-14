@@ -32,8 +32,46 @@ export interface PayoutMethodRecord {
   createdAt: string;
 }
 
+/** One payout in the seller's history. A direct (USDC-wallet) payout is the
+ * escrow release itself, auto-recorded at release (record_direct_payout). */
+export interface PayoutRecord {
+  id: string;
+  orderNo: string;
+  routeType: string;
+  status: string;
+  releaseMode: string;
+  amountUsdc: string | null;
+  requestedAt: string | null;
+  completedAt: string | null;
+  /** The on-chain release tx for a direct payout (from its escrow_release
+   * payout_transaction), or null for a not-yet-executed guided route. */
+  releaseTxHash: string | null;
+}
+
+export interface PayoutTransactionRecord {
+  transactionType: string;
+  status: string;
+  network: string;
+  amountUsdc: string | null;
+  txHash: string | null;
+  createdAt: string;
+}
+
+export interface PayoutDetail extends PayoutRecord {
+  transactions: PayoutTransactionRecord[];
+}
+
 export interface PayoutMethodStore {
   getSellerProfileIdForUser(userId: string): Promise<string | null>;
+
+  /** The seller's payout history, newest first. */
+  listPayouts(sellerProfileId: string): Promise<PayoutRecord[]>;
+
+  /** One payout scoped to the seller (with its transactions), or null. */
+  getPayout(input: {
+    sellerProfileId: string;
+    payoutId: string;
+  }): Promise<PayoutDetail | null>;
 
   /** A wallet that this user OWNS and has VERIFIED (verified_at not null), by
    * id. Null when it does not exist, is not theirs, or is unverified. */
@@ -181,6 +219,27 @@ export async function setDefaultPayoutMethod(
     );
   }
   return { payoutMethodId, isDefault: true };
+}
+
+export async function listPayouts(
+  deps: PayoutMethodDeps,
+  actor: PaymentActor,
+): Promise<PayoutRecord[]> {
+  const userId = requireUserId(actor);
+  const sellerProfileId = await deps.store.getSellerProfileIdForUser(userId);
+  if (!sellerProfileId) return [];
+  return deps.store.listPayouts(sellerProfileId);
+}
+
+export async function getPayout(
+  deps: PayoutMethodDeps,
+  actor: PaymentActor,
+  payoutId: string,
+): Promise<PayoutDetail> {
+  const sellerProfileId = await requireSellerProfileId(deps, actor);
+  const payout = await deps.store.getPayout({ sellerProfileId, payoutId });
+  if (!payout) throw new PaymentError("OrderNotFound", "payout not found");
+  return payout;
 }
 
 export async function disablePayoutMethod(

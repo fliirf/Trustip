@@ -1,9 +1,55 @@
 import type { TrustipClient } from "@trustip/database";
+import { usdcAmountToString } from "../money.js";
 import type {
+  PayoutDetail,
   PayoutMethodRecord,
   PayoutMethodStore,
   PayoutMethodType,
+  PayoutRecord,
+  PayoutTransactionRecord,
 } from "../payout-methods.js";
+
+const PAYOUT_COLUMNS = `id, route_type, status, release_mode, amount_usdc,
+  requested_at, completed_at, orders ( order_no ),
+  payout_transactions ( transaction_type, status, network, amount, tx_hash, created_at )`;
+
+type PayoutRow = {
+  id: string;
+  route_type: string;
+  status: string;
+  release_mode: string;
+  amount_usdc: number | null;
+  requested_at: string | null;
+  completed_at: string | null;
+  orders: { order_no: string } | null;
+  payout_transactions: Array<{
+    transaction_type: string;
+    status: string;
+    network: string;
+    amount: number | null;
+    tx_hash: string | null;
+    created_at: string;
+  }> | null;
+};
+
+const money = (v: number | null): string | null =>
+  v === null ? null : usdcAmountToString(v);
+
+function toPayoutRecord(row: PayoutRow): PayoutRecord {
+  const txs = row.payout_transactions ?? [];
+  const release = txs.find((t) => t.transaction_type === "escrow_release");
+  return {
+    id: row.id,
+    orderNo: row.orders?.order_no ?? "",
+    routeType: row.route_type,
+    status: row.status,
+    releaseMode: row.release_mode,
+    amountUsdc: money(row.amount_usdc),
+    requestedAt: row.requested_at,
+    completedAt: row.completed_at,
+    releaseTxHash: release?.tx_hash ?? null,
+  };
+}
 
 const METHOD_COLUMNS =
   "id, method_type, display_name, is_default, status, stellar_address, asset_code, cashout_country, cashout_currency, created_at";
@@ -37,6 +83,42 @@ export function createSupabasePayoutStore(
         .maybeSingle();
       if (error) throw error;
       return data ? { publicKey: data.public_key } : null;
+    },
+
+    async listPayouts(sellerProfileId) {
+      const { data, error } = await client
+        .from("payout_requests")
+        .select(PAYOUT_COLUMNS)
+        .eq("seller_profile_id", sellerProfileId)
+        .order("requested_at", { ascending: false, nullsFirst: false });
+      if (error) throw error;
+      return ((data ?? []) as unknown as PayoutRow[]).map(toPayoutRecord);
+    },
+
+    async getPayout({ sellerProfileId, payoutId }) {
+      const { data, error } = await client
+        .from("payout_requests")
+        .select(PAYOUT_COLUMNS)
+        .eq("id", payoutId)
+        .eq("seller_profile_id", sellerProfileId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const row = data as unknown as PayoutRow;
+      const detail: PayoutDetail = {
+        ...toPayoutRecord(row),
+        transactions: (row.payout_transactions ?? []).map(
+          (t): PayoutTransactionRecord => ({
+            transactionType: t.transaction_type,
+            status: t.status,
+            network: t.network,
+            amountUsdc: money(t.amount),
+            txHash: t.tx_hash,
+            createdAt: t.created_at,
+          }),
+        ),
+      };
+      return detail;
     },
 
     async listPayoutMethods(sellerProfileId) {
