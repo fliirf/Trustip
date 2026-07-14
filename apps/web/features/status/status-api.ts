@@ -65,6 +65,23 @@ export interface PublicOrderStatus {
   /** False for a no-shipping (digital goods) order — the rail/UI skip the
    * processing/packed/shipped lifecycle entirely. */
   requiresShipping: boolean;
+  /** Latest refund request, if any. While one is open the confirm-received
+   * action is hidden (the backend blocks release regardless). */
+  refund: {
+    status: string;
+    reasonCode: string;
+    createdAt: string;
+    resolvedAt: string | null;
+  } | null;
+}
+
+/** Result of filing a refund request (REFUND-1). */
+export interface RefundRequestResult {
+  id: string;
+  orderNo: string;
+  status: string;
+  reasonCode: string;
+  createdAt: string;
 }
 
 /** Server-signed challenge the buyer's funding wallet must sign to confirm
@@ -137,6 +154,26 @@ export async function requestConfirmReceivedChallenge(
   });
   if (!res.ok) throw await parseError(res);
   return (await res.json()) as ConfirmReceivedChallenge;
+}
+
+/** File a refund request. Never moves money — it freezes release until an
+ * admin resolves it; an approved refund can only return to the funding
+ * wallet (contract-enforced). */
+export async function requestRefund(
+  slug: string,
+  orderNo: string,
+  input: { reasonCode: string; description?: string },
+): Promise<RefundRequestResult> {
+  const res = await fetch(
+    `/api/checkout/${encodeURIComponent(slug)}/status/${encodeURIComponent(orderNo)}/refund`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as RefundRequestResult;
 }
 
 /** Submit the signed challenge. The backend runs every release guard and only

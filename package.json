@@ -15,6 +15,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "db:generate-types": "tsx scripts/generate-types.ts",
     "deploy:contract": "tsx scripts/deploy-contract.ts",
+    "pause:contract": "tsx scripts/pause-contract.ts",
     "verify:env": "tsx scripts/verify-env.ts",
     "verify:env:production": "tsx scripts/verify-env.ts --production",
     "verify:env:onchain": "tsx scripts/verify-env.ts --production --on-chain"

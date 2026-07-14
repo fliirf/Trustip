@@ -374,7 +374,8 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
            order_items ( quantity, metadata ),
            payments ( status, tx_hash ),
            escrows ( status, funded_tx_hash, release_tx_hash ),
-           shipments ( status, courier_name, tracking_number, shipped_at )`,
+           shipments ( status, courier_name, tracking_number, shipped_at ),
+           refund_requests ( status, reason_code, created_at, resolved_at )`,
           )
           .eq("order_no", orderNo)
           .maybeSingle(),
@@ -397,8 +398,18 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
           release_tx_hash: string | null;
         } | null;
         shipments: ShipmentRow[] | null;
+        refund_requests: Array<{
+          status: string;
+          reason_code: string;
+          created_at: string;
+          resolved_at: string | null;
+        }> | null;
       };
       const row = order as unknown as OrderRow;
+      const latestRefund =
+        (row.refund_requests ?? [])
+          .slice()
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
       const profile = link.seller_profiles as unknown as {
         store_name: string;
       } | null;
@@ -429,6 +440,14 @@ export function createSupabaseSellerStore(client: TrustipClient): SellerStore {
             }
           : null,
         shipment: toShipmentSummary(row.shipments),
+        refund: latestRefund
+          ? {
+              status: latestRefund.status,
+              reasonCode: latestRefund.reason_code,
+              createdAt: latestRefund.created_at,
+              resolvedAt: latestRefund.resolved_at,
+            }
+          : null,
       };
       return record;
     },

@@ -94,6 +94,15 @@ export interface PublicOrderStatusRecord {
   /** False for a no-shipping (digital goods) order — the buyer/seller UI
    * skips the processing/packed/shipped lifecycle entirely. */
   requiresShipping: boolean;
+  /** Latest refund request, if any — read-only projection so the buyer page
+   * can show "refund diajukan / ditolak / dikembalikan" and hide
+   * confirm-received while one is open. Safe public fields only. */
+  refund: {
+    status: string;
+    reasonCode: string;
+    createdAt: string;
+    resolvedAt: string | null;
+  } | null;
 }
 
 export interface SellerOrderRecord {

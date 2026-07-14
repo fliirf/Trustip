@@ -118,6 +118,11 @@ export interface EscrowGateway {
   releaseOrder(input: {
     contractOrderIdHex: string;
   }): Promise<CreateOrderGatewayResult>;
+  /** Build+sign(admin/operator)+submit a `refund_to_buyer` tx. Same fail-closed
+   * operator policy as `releaseOrder`. */
+  refundOrder(input: {
+    contractOrderIdHex: string;
+  }): Promise<CreateOrderGatewayResult>;
   /** Build the buyer's unsigned, simulation-prepared `fund_order` XDR. */
   buildFundOrderXdr(input: FundOrderXdrInput): Promise<string>;
   /** Statically inspect a signed fund tx (no network I/O). */
@@ -263,6 +268,30 @@ class SorobanEscrowGateway implements EscrowGateway {
   }): Promise<CreateOrderGatewayResult> {
     const operator = this.operator(); // throws OperatorSignerError if unavailable
     const tx = await this.client.buildReleaseToRecipient(
+      operator.publicKey,
+      hexToBytes(input.contractOrderIdHex),
+    );
+    const signedXdr = await operator.signXdr(
+      tx.toXDR(),
+      this.networkPassphrase,
+    );
+    const res = await this.client.submit(signedXdr);
+    const errorResult = res.errorResult
+      ? JSON.stringify(res.errorResult)
+      : undefined;
+    return {
+      hash: res.hash,
+      status: res.status as SubmitStatus,
+      errorResult,
+      sourceAccount: operator.publicKey,
+    };
+  }
+
+  async refundOrder(input: {
+    contractOrderIdHex: string;
+  }): Promise<CreateOrderGatewayResult> {
+    const operator = this.operator(); // throws OperatorSignerError if unavailable
+    const tx = await this.client.buildRefundToBuyer(
       operator.publicKey,
       hexToBytes(input.contractOrderIdHex),
     );

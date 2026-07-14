@@ -297,3 +297,36 @@ export const confirmReceivedSchema = z.object({
   networkPassphrase: networkPassphraseSchema,
 });
 export type ConfirmReceivedInput = z.infer<typeof confirmReceivedSchema>;
+
+/** Refund reason codes — mirrors the `refund_reason_code` DB enum. */
+export const refundReasonCodeSchema = z.enum([
+  "not_received",
+  "wrong_item",
+  "damaged",
+  "fake",
+  "seller_unresponsive",
+  "other",
+]);
+export type RefundReasonCode = z.infer<typeof refundReasonCodeSchema>;
+
+/** Buyer refund request (REFUND-1). SHAPE only — eligibility (order state,
+ * escrow funded, no open refund) is enforced server-side; the client can never
+ * name an amount or a destination: an on-chain refund can only ever go back to
+ * the funding buyer wallet, decided by an admin. */
+export const createRefundRequestSchema = z.object({
+  reasonCode: refundReasonCodeSchema,
+  description: z.string().trim().min(1).max(2000).optional(),
+});
+export type CreateRefundRequestInput = z.infer<
+  typeof createRefundRequestSchema
+>;
+
+/** Admin refund resolution (REFUND-2). SHAPE only — admin authority, refund
+ * state, and on-chain truth are all enforced server-side. */
+export const resolveRefundSchema = z.object({
+  action: z.enum(["approve", "reject"]),
+  note: z.string().trim().min(1).max(2000).optional(),
+});
+export type ResolveRefundInput = z.infer<typeof resolveRefundSchema>;
+
+export const refundRequestIdSchema = z.string().uuid();

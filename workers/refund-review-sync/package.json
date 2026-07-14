@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@trustip/config": "workspace:*",
-    "@trustip/database": "workspace:*"
+    "@trustip/database": "workspace:*",
+    "@trustip/payments": "workspace:*",
+    "@trustip/stellar": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

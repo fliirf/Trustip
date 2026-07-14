@@ -33,9 +33,11 @@ import { EscrowCore } from "../escrow/EscrowCore";
 import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { ConfirmReceived } from "./ConfirmReceived";
+import { RefundBanner, RefundRequest } from "./RefundRequest";
 import {
   awaitingShipment,
   canConfirmReceived,
+  canRequestRefund,
   escrowCoreState,
   isProtected,
   isReleased,
@@ -563,6 +565,10 @@ export function OrderStatusPage({
   const locked = isProtected(order);
   const bad = isTerminalBad(order);
   const released = isReleased(order);
+  // A refunded order is terminal: the payment/escrow station notes must say so
+  // instead of falling back to the "not paid yet" / "protection pending" copy.
+  const refunded =
+    order.escrow?.status === "refunded" || order.payment?.status === "refunded";
   const rail = lifecycleRail(order, false, d.status.rail);
   const txHash = order.payment?.txHash ?? order.escrow?.fundedTxHash ?? null;
   const releaseTxHash = order.escrow?.releaseTxHash ?? releaseOverride;
@@ -718,6 +724,25 @@ export function OrderStatusPage({
               </Reveal>
             ) : null}
 
+            {/* REFUND — banner strictly from backend-recorded refund state,
+                plus the request affordance whenever a request would actually
+                be accepted (mirrors createRefundRequest eligibility). */}
+            {(order.refund || canRequestRefund(order)) && (
+              <Reveal>
+                <div className="relative">
+                  <Node tone={order.refund ? "live" : "idle"} />
+                  {order.refund && <RefundBanner status={order.refund.status} />}
+                  {canRequestRefund(order) && (
+                    <RefundRequest
+                      slug={order.link.slug}
+                      orderNo={order.orderNo}
+                      onSubmitted={refetch}
+                    />
+                  )}
+                </div>
+              </Reveal>
+            )}
+
             {/* 01–03 render statically. Only the three PROOF sections below
                 animate, so the reveal means something instead of every block
                 moving at once. */}
@@ -725,15 +750,17 @@ export function OrderStatusPage({
               <Reading
                 value={statusLabel(d.status.paymentStatusLabel, order.payment?.status)}
                 note={
-                  order.payment?.status === "confirmed"
-                    ? // Answers "what happens next" without ever running ahead
-                      // of the recorded state.
-                      released
-                      ? d.status.station01.noteConfirmedReleased
-                      : order.requiresShipping && shipmentProgress(order) >= 3
-                        ? d.status.station01.noteConfirmedShipped
-                        : d.status.station01.noteConfirmedProcessing
-                    : d.status.station01.noteUnpaid
+                  refunded
+                    ? d.status.station01.noteRefunded
+                    : order.payment?.status === "confirmed"
+                      ? // Answers "what happens next" without ever running ahead
+                        // of the recorded state.
+                        released
+                        ? d.status.station01.noteConfirmedReleased
+                        : order.requiresShipping && shipmentProgress(order) >= 3
+                          ? d.status.station01.noteConfirmedShipped
+                          : d.status.station01.noteConfirmedProcessing
+                      : d.status.station01.noteUnpaid
                 }
               />
             </Station>
@@ -742,11 +769,13 @@ export function OrderStatusPage({
               <Reading
                 value={statusLabel(d.status.escrowStatusLabel, order.escrow?.status)}
                 note={
-                  released
-                    ? d.status.station02.noteReleased
-                    : locked
-                      ? d.status.station02.noteLocked
-                      : d.status.station02.noteWaiting
+                  refunded
+                    ? d.status.station02.noteRefunded
+                    : released
+                      ? d.status.station02.noteReleased
+                      : locked
+                        ? d.status.station02.noteLocked
+                        : d.status.station02.noteWaiting
                 }
               />
             </Station>

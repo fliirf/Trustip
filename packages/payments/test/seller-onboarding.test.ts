@@ -903,6 +903,7 @@ describe("getPublicOrderStatus", () => {
     payment: { status: "confirmed", txHash: "abc" },
     escrow: { status: "funded", fundedTxHash: "abc", releaseTxHash: null },
     shipment: null,
+    refund: null,
   };
 
   const COMPLETED_STATUS: PublicOrderStatusRecord = {
@@ -939,6 +940,7 @@ describe("getPublicOrderStatus", () => {
       "payment",
       "escrow",
       "shipment",
+      "refund",
     ]);
   });
 

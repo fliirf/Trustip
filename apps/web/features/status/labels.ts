@@ -42,7 +42,33 @@ export function canConfirmReceived(order: PublicOrderStatus): boolean {
     shipmentOk &&
     order.escrow?.status === "funded" &&
     order.payment?.status === "confirmed" &&
-    !isReleased(order)
+    !isReleased(order) &&
+    !hasOpenRefund(order)
+  );
+}
+
+/** Refund states that freeze release — mirrors OPEN_REFUND_STATUSES in the
+ * backend release store exactly (rejected/completed are not open). */
+const OPEN_REFUND_STATUSES = [
+  "submitted",
+  "under_review",
+  "seller_response_needed",
+  "approved",
+];
+
+export function hasOpenRefund(order: PublicOrderStatus): boolean {
+  return !!order.refund && OPEN_REFUND_STATUSES.includes(order.refund.status);
+}
+
+/** Eligible to show the "request refund" affordance. Mirrors the backend
+ * eligibility in `createRefundRequest`: money actually escrowed, order not
+ * terminal, and no refund already open. A rejected refund may be re-filed. */
+export function canRequestRefund(order: PublicOrderStatus): boolean {
+  return (
+    order.payment?.status === "confirmed" &&
+    order.escrow?.status === "funded" &&
+    !["completed", "refunded", "cancelled", "failed"].includes(order.status) &&
+    !hasOpenRefund(order)
   );
 }
 

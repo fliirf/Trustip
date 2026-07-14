@@ -238,6 +238,12 @@ importers:
       '@trustip/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@trustip/payments':
+        specifier: workspace:*
+        version: link:../../packages/payments
+      '@trustip/stellar':
+        specifier: workspace:*
+        version: link:../../packages/stellar
     devDependencies:
       '@types/node':
         specifier: ^20.0.0

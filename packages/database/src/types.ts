@@ -432,6 +432,30 @@ export type Database = {
           },
         ]
       }
+      indexer_checkpoints: {
+        Row: {
+          cursor: string | null
+          last_ledger: number
+          network: Database["public"]["Enums"]["network"]
+          updated_at: string
+          worker: string
+        }
+        Insert: {
+          cursor?: string | null
+          last_ledger?: number
+          network: Database["public"]["Enums"]["network"]
+          updated_at?: string
+          worker: string
+        }
+        Update: {
+          cursor?: string | null
+          last_ledger?: number
+          network?: Database["public"]["Enums"]["network"]
+          updated_at?: string
+          worker?: string
+        }
+        Relationships: []
+      }
       moneygram_payout_details: {
         Row: {
           cashout_currency: string | null
@@ -487,30 +511,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      indexer_checkpoints: {
-        Row: {
-          worker: string
-          network: Database["public"]["Enums"]["network"]
-          last_ledger: number
-          cursor: string | null
-          updated_at: string
-        }
-        Insert: {
-          worker: string
-          network: Database["public"]["Enums"]["network"]
-          last_ledger?: number
-          cursor?: string | null
-          updated_at?: string
-        }
-        Update: {
-          worker?: string
-          network?: Database["public"]["Enums"]["network"]
-          last_ledger?: number
-          cursor?: string | null
-          updated_at?: string
-        }
-        Relationships: []
       }
       notifications: {
         Row: {
@@ -1523,6 +1523,19 @@ export type Database = {
           p_network: Database["public"]["Enums"]["network"]
           p_order_id: string
           p_payment_id: string
+          p_tx_hash: string
+        }
+        Returns: boolean
+      }
+      confirm_refunded_payment: {
+        Args: {
+          p_amount_usdc: number
+          p_escrow_id: string
+          p_ledger: number
+          p_network: Database["public"]["Enums"]["network"]
+          p_order_id: string
+          p_refund_request_id: string
+          p_to_public_key: string
           p_tx_hash: string
         }
         Returns: boolean
