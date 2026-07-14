@@ -11,7 +11,7 @@ import type { Dict } from "../../lib/i18n/dictionaries";
 import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { sellerErrorLabel } from "./labels";
-import { explorerTxUrl, networkName } from "@trustip/stellar";
+import { explorerTxUrl, networkName, type WalletId } from "@trustip/stellar";
 import {
   addPayoutMethod,
   type AddPayoutMethodBody,
@@ -27,6 +27,7 @@ import {
   type SellerWallet,
 } from "./seller-api";
 import { SellerShell } from "./SellerShell";
+import { useConvertToXlm } from "./useConvertToXlm";
 import { useSellerSession } from "./useSellerSession";
 
 function describeError(d: Dict, e: unknown): { code: string; message: string } {
@@ -65,6 +66,25 @@ export function SellerPayouts() {
 
   const verifiedWallets = wallets.filter((w) => w.verifiedAt !== null);
 
+  const convert = useConvertToXlm(token);
+
+  // Convert affordance eligibility (client-side gate; the backend re-checks
+  // every precondition). Show it only on a completed direct USDC payout when
+  // the seller has an active XLM route and that order hasn't been converted yet.
+  const hasActiveXlm =
+    methods?.some((m) => m.methodType === "xlm_wallet" && m.status === "active") ??
+    false;
+  const convertedOrderNos = new Set(
+    (payouts ?? [])
+      .filter((p) => p.routeType === "xlm_wallet")
+      .map((p) => p.orderNo),
+  );
+  const canConvert = (p: Payout): boolean =>
+    p.routeType === "usdc_wallet" &&
+    p.status === "completed" &&
+    hasActiveXlm &&
+    !convertedOrderNos.has(p.orderNo);
+
   const refresh = useCallback(async () => {
     if (!token) return;
     try {
@@ -85,6 +105,11 @@ export function SellerPayouts() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // A completed conversion adds a new XLM payout row — pull it in.
+  useEffect(() => {
+    if (convert.phase === "done") void refresh();
+  }, [convert.phase, refresh]);
 
   async function add() {
     if (!token) return;
@@ -410,12 +435,137 @@ export function SellerPayouts() {
                       {t.viewTx}
                     </a>
                   )}
+                  {canConvert(p) && convert.activePayoutId !== p.id && (
+                    <button
+                      type="button"
+                      onClick={() => void convert.start(p.id)}
+                      className="micro-label os-press text-bone underline underline-offset-4 hover:text-blood"
+                    >
+                      {t.convert.cta}
+                    </button>
+                  )}
                 </div>
+                {convert.activePayoutId === p.id && (
+                  <ConvertPanel t={t.convert} convert={convert} />
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
     </SellerShell>
+  );
+}
+
+function ConvertPanel({
+  t,
+  convert,
+}: {
+  t: Dict["seller"]["payouts"]["convert"];
+  convert: ReturnType<typeof useConvertToXlm>;
+}) {
+  const { phase, error, quote, wallets, publicKey, wrongNetwork, txHash } =
+    convert;
+
+  return (
+    <div className="mt-4 max-w-xl border border-hairline bg-void/40 px-5 py-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="micro-label text-bone">{t.title}</span>
+        <button
+          type="button"
+          onClick={() => convert.reset()}
+          className="micro-label os-press text-ash underline underline-offset-4 hover:text-mist"
+        >
+          {t.cancel}
+        </button>
+      </div>
+      <p className="os-body mt-2 text-mist/70">{t.note}</p>
+
+      {phase === "preparing" && (
+        <p className="micro-label mt-4 text-ash">{t.preparing}</p>
+      )}
+
+      {quote && (
+        <dl className="mt-4 space-y-1">
+          <div className="flex justify-between gap-4">
+            <dt className="micro-label text-ash">{t.quote}</dt>
+            <dd className="text-sm text-mist">≈ {quote.estimatedXlm} XLM</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt className="micro-label text-ash">{t.minReceive}</dt>
+            <dd className="text-sm text-mist">{quote.destMinXlm} XLM</dd>
+          </div>
+        </dl>
+      )}
+
+      {/* Wallet connect (source must be the payout wallet). */}
+      {quote && !publicKey && (
+        <div className="mt-4 space-y-3">
+          <div className="micro-label text-ash">{t.connectWallet}</div>
+          <div className="grid grid-cols-2 gap-3">
+            {wallets.map((w) => (
+              <button
+                key={w.id}
+                type="button"
+                disabled={!w.installed}
+                onClick={() => void convert.connect(w.id as WalletId)}
+                className="mat-key os-press flex items-center gap-3 border border-hairline px-4 py-3 text-left disabled:opacity-40"
+              >
+                <span
+                  aria-hidden
+                  className={`h-6 w-[3px] shrink-0 ${
+                    w.installed ? "mat-emissive bg-blood" : "bg-hairline"
+                  }`}
+                />
+                <span className="text-sm font-medium text-bone">{w.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {publicKey && phase !== "done" && (
+        <div className="mt-4 space-y-3">
+          {wrongNetwork && (
+            <p className="micro-label text-blood">{t.wrongNetwork}</p>
+          )}
+          <button
+            type="button"
+            onClick={() => void convert.submit()}
+            disabled={phase === "awaiting-signature" || phase === "submitting"}
+            className="mat-illuminated os-press w-full px-6 py-3 text-sm font-semibold disabled:opacity-50"
+          >
+            {phase === "awaiting-signature"
+              ? t.signing
+              : phase === "submitting"
+                ? t.submitting
+                : t.sign}
+          </button>
+        </div>
+      )}
+
+      {phase === "done" && (
+        <div className="mt-4 space-y-2">
+          <p className="micro-label text-bone">{t.done}</p>
+          {txHash && (
+            <a
+              href={explorerTxUrl(networkName(), txHash)}
+              target="_blank"
+              rel="noreferrer"
+              className="micro-label os-press text-bone underline underline-offset-4 hover:text-blood"
+            >
+              {/* reuse the history "view tx" affordance */}
+              {txHash.slice(0, 8)}…{txHash.slice(-8)}
+            </a>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <p className="os-body mt-3 text-blood">
+          {error.code === "WrongWallet" ? t.walletMismatch : error.message}
+        </p>
+      )}
+    </div>
   );
 }

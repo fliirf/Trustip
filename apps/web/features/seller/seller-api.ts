@@ -380,3 +380,42 @@ export interface Payout {
 export function listPayouts(token: string): Promise<{ payouts: Payout[] }> {
   return request<{ payouts: Payout[] }>("/api/seller/payouts", token);
 }
+
+export interface ConversionQuote {
+  unsignedXdr: string;
+  sourcePublicKey: string;
+  sendUsdc: string;
+  estimatedXlm: string;
+  destMinXlm: string;
+  convertToken: string;
+}
+
+/** Prepare a seller-signed USDC→XLM conversion for a completed direct payout. */
+export function prepareConversion(
+  token: string,
+  payoutId: string,
+): Promise<ConversionQuote> {
+  return request<ConversionQuote>(
+    `/api/seller/payouts/${encodeURIComponent(payoutId)}/convert/prepare`,
+    token,
+    { method: "POST", body: JSON.stringify({}) },
+  );
+}
+
+export function submitConversion(
+  token: string,
+  payoutId: string,
+  body: {
+    signedXdr: string;
+    convertToken: string;
+    sourcePublicKey: string;
+    sendUsdc: string;
+    estimatedXlm: string;
+  },
+): Promise<{ payoutId: string; txHash: string }> {
+  return request(
+    `/api/seller/payouts/${encodeURIComponent(payoutId)}/convert`,
+    token,
+    { method: "POST", body: JSON.stringify(body) },
+  );
+}

@@ -1566,6 +1566,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_xlm_conversion: {
+        Args: {
+          p_network: Database["public"]["Enums"]["payout_transaction_network"]
+          p_recv_xlm: number
+          p_send_usdc: number
+          p_source_payout_id: string
+          p_tx_hash: string
+        }
+        Returns: undefined
+      }
       is_admin: { Args: never; Returns: boolean }
       is_order_buyer: { Args: { p_order: string }; Returns: boolean }
       is_order_party: { Args: { p_order: string }; Returns: boolean }

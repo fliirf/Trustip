@@ -1,5 +1,6 @@
 import type { TrustipClient } from "@trustip/database";
 import { usdcAmountToString } from "../money.js";
+import type { ConversionStore } from "../payout-conversion.js";
 import type {
   PayoutDetail,
   PayoutMethodRecord,
@@ -8,6 +9,10 @@ import type {
   PayoutRecord,
   PayoutTransactionRecord,
 } from "../payout-methods.js";
+
+/** A decimal string sent through a numeric column/arg — PostgREST casts
+ * string->numeric server-side, so no JS float precision is lost. */
+const numeric = (v: string): number => v as unknown as number;
 
 const PAYOUT_COLUMNS = `id, route_type, status, release_mode, amount_usdc,
   requested_at, completed_at, orders ( order_no ),
@@ -61,8 +66,67 @@ const METHOD_COLUMNS =
  */
 export function createSupabasePayoutStore(
   client: TrustipClient,
-): PayoutMethodStore {
+): PayoutMethodStore & ConversionStore {
   return {
+    async loadConversionContext({ sellerProfileId, payoutId }) {
+      const { data, error } = await client
+        .from("payout_requests")
+        .select(
+          "id, order_id, route_type, status, amount_usdc, escrows ( seller_public_key )",
+        )
+        .eq("id", payoutId)
+        .eq("seller_profile_id", sellerProfileId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+
+      const row = data as unknown as {
+        order_id: string;
+        route_type: string;
+        status: string;
+        amount_usdc: number | null;
+        escrows: { seller_public_key: string | null } | null;
+      };
+
+      const [{ data: xlmMethod }, { data: existing }] = await Promise.all([
+        client
+          .from("seller_payout_methods")
+          .select("id")
+          .eq("seller_profile_id", sellerProfileId)
+          .eq("method_type", "xlm_wallet")
+          .eq("status", "active")
+          .limit(1)
+          .maybeSingle(),
+        client
+          .from("payout_requests")
+          .select("id")
+          .eq("idempotency_key", `convert:${payoutId}`)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      return {
+        orderId: row.order_id,
+        sourcePublicKey: row.escrows?.seller_public_key ?? null,
+        amountUsdc: row.amount_usdc === null ? null : usdcAmountToString(row.amount_usdc),
+        routeType: row.route_type,
+        status: row.status,
+        hasActiveXlmMethod: !!xlmMethod,
+        alreadyConverted: !!existing,
+      };
+    },
+
+    async recordXlmConversion({ sourcePayoutId, txHash, sendUsdc, recvXlm, network }) {
+      const { error } = await client.rpc("record_xlm_conversion", {
+        p_source_payout_id: sourcePayoutId,
+        p_tx_hash: txHash,
+        p_send_usdc: numeric(sendUsdc),
+        p_recv_xlm: numeric(recvXlm),
+        p_network: network,
+      });
+      if (error) throw error;
+    },
+
     async getSellerProfileIdForUser(userId) {
       const { data, error } = await client
         .from("seller_profiles")
