@@ -156,6 +156,25 @@ export async function requestConfirmReceivedChallenge(
   return (await res.json()) as ConfirmReceivedChallenge;
 }
 
+/** Attach one evidence file to the open refund on this order. Sent as
+ * multipart/form-data; the private bucket + backend validate MIME and size. */
+export async function uploadRefundEvidence(
+  slug: string,
+  orderNo: string,
+  file: File,
+  evidenceType: string,
+): Promise<{ id: string; fileType: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("evidenceType", evidenceType);
+  const res = await fetch(
+    `/api/checkout/${encodeURIComponent(slug)}/status/${encodeURIComponent(orderNo)}/refund/evidence`,
+    { method: "POST", body: form },
+  );
+  if (!res.ok) throw await parseError(res);
+  return (await res.json()) as { id: string; fileType: string };
+}
+
 /** File a refund request. Never moves money — it freezes release until an
  * admin resolves it; an approved refund can only return to the funding
  * wallet (contract-enforced). */

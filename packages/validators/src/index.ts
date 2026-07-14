@@ -330,3 +330,13 @@ export const resolveRefundSchema = z.object({
 export type ResolveRefundInput = z.infer<typeof resolveRefundSchema>;
 
 export const refundRequestIdSchema = z.string().uuid();
+
+/** Refund evidence kinds — mirrors the `evidence_type` DB enum. */
+export const refundEvidenceTypeSchema = z.enum([
+  "unboxing_video",
+  "chat_screenshot",
+  "shipping_receipt",
+  "item_photo",
+  "other",
+]);
+export type RefundEvidenceTypeInput = z.infer<typeof refundEvidenceTypeSchema>;

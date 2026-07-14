@@ -1,12 +1,24 @@
 import type { TrustipClient } from "@trustip/database";
+import { randomUUID } from "node:crypto";
 import { usdcAmountToString } from "../money.js";
 import type {
   AdminRefundRow,
+  RefundEvidenceItem,
   RefundReasonCode,
   RefundRequestRecord,
   RefundStore,
 } from "../refund.js";
 import { createSupabaseReleaseStore } from "./supabase-release-store.js";
+
+const EVIDENCE_BUCKET = "refund-evidence";
+const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes
+
+/** Keep only a filesystem-safe tail of the client-supplied name (defence in
+ * depth — the object key is otherwise a server UUID). */
+function safeFileName(name: string): string {
+  const base = name.split(/[\\/]/).pop() ?? "file";
+  return base.replace(/[^A-Za-z0-9._-]/g, "_").slice(-80) || "file";
+}
 
 const OPEN_STATUSES = [
   "submitted",
@@ -29,6 +41,71 @@ export function createSupabaseRefundStore(client: TrustipClient): RefundStore {
   return {
     // Same public (slug, order_no) context load as RELEASE-1 — one derivation.
     loadReleaseContext: releaseStore.loadReleaseContext,
+
+    async findOpenRefundForOrder(orderId) {
+      const { data, error } = await client
+        .from("refund_requests")
+        .select("id")
+        .eq("order_id", orderId)
+        .in("status", OPEN_STATUSES)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? { refundRequestId: data.id } : null;
+    },
+
+    async addRefundEvidence({ refundRequestId, fileType, evidenceType, file }) {
+      // Object key is a server UUID under the request folder; the client name is
+      // only a sanitized suffix. Private bucket → no public URL is ever formed.
+      const objectPath = `${refundRequestId}/${randomUUID()}-${safeFileName(file.fileName)}`;
+      const { error: uploadError } = await client.storage
+        .from(EVIDENCE_BUCKET)
+        .upload(objectPath, Buffer.from(file.bytes), {
+          contentType: file.mimeType,
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await client
+        .from("refund_evidence")
+        .insert({
+          refund_request_id: refundRequestId,
+          actor_type: "buyer",
+          file_url: objectPath,
+          file_type: fileType,
+          evidence_type: evidenceType,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+
+    async listRefundEvidence(refundRequestId) {
+      const { data, error } = await client
+        .from("refund_evidence")
+        .select("id, file_url, file_type, evidence_type, note, created_at")
+        .eq("refund_request_id", refundRequestId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+
+      const items: RefundEvidenceItem[] = [];
+      for (const row of data ?? []) {
+        const { data: signed } = await client.storage
+          .from(EVIDENCE_BUCKET)
+          .createSignedUrl(row.file_url, SIGNED_URL_TTL_SECONDS);
+        items.push({
+          id: row.id,
+          fileType: row.file_type,
+          evidenceType: row.evidence_type,
+          note: row.note,
+          createdAt: row.created_at,
+          signedUrl: signed?.signedUrl ?? "",
+        });
+      }
+      return items;
+    },
 
     async createRefundRequest({ orderId, reasonCode, description }) {
       // seller_profile_id / requested amount come from the order row itself —

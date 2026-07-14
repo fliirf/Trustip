@@ -28,6 +28,15 @@ interface ResolveResult {
   refundTxHash: string | null;
 }
 
+interface EvidenceItem {
+  id: string;
+  fileType: string;
+  evidenceType: string;
+  note: string | null;
+  createdAt: string;
+  signedUrl: string;
+}
+
 export function AdminRefunds() {
   const { loading, accessToken, email, signIn, signOut } = useSellerSession();
   const [rows, setRows] = useState<AdminRefundRow[] | null>(null);
@@ -160,6 +169,8 @@ export function AdminRefunds() {
               </p>
             )}
 
+            <AdminEvidence id={r.id} accessToken={accessToken} />
+
             {confirmingId === r.id ? (
               <div className="mt-4">
                 <textarea
@@ -213,6 +224,81 @@ export function AdminRefunds() {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function AdminEvidence({
+  id,
+  accessToken,
+}: {
+  id: string;
+  accessToken: string;
+}) {
+  const [items, setItems] = useState<EvidenceItem[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/refunds/${id}/evidence`, {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        setError(`Failed to load evidence (${res.status}).`);
+        return;
+      }
+      const body = (await res.json()) as { evidence: EvidenceItem[] };
+      setItems(body.evidence);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (items === null) {
+    return (
+      <button
+        type="button"
+        onClick={() => void load()}
+        disabled={loading}
+        className="mt-3 text-sm text-ash underline underline-offset-4 hover:text-mist disabled:opacity-50"
+      >
+        {loading ? "Loading evidence…" : "View evidence"}
+      </button>
+    );
+  }
+
+  if (error) return <p className="mt-3 text-sm text-blood">{error}</p>;
+  if (items.length === 0)
+    return <p className="mt-3 text-sm text-ash">No evidence attached.</p>;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-3">
+      {items.map((it) => (
+        <a
+          key={it.id}
+          href={it.signedUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block border border-hairline p-1"
+          title={it.evidenceType}
+        >
+          {it.fileType === "photo" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={it.signedUrl}
+              alt={it.evidenceType}
+              className="h-24 w-24 object-cover"
+            />
+          ) : (
+            <span className="flex h-24 w-24 items-center justify-center px-2 text-center text-xs text-mist">
+              {it.fileType} · {it.evidenceType}
+            </span>
+          )}
+        </a>
+      ))}
     </div>
   );
 }

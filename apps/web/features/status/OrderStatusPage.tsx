@@ -33,7 +33,12 @@ import { EscrowCore } from "../escrow/EscrowCore";
 import { useDict } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { ConfirmReceived } from "./ConfirmReceived";
-import { RefundBanner, RefundRequest } from "./RefundRequest";
+import {
+  canAttachEvidence,
+  RefundBanner,
+  RefundEvidence,
+  RefundRequest,
+} from "./RefundRequest";
 import {
   awaitingShipment,
   canConfirmReceived,
@@ -732,6 +737,12 @@ export function OrderStatusPage({
                 <div className="relative">
                   <Node tone={order.refund ? "live" : "idle"} />
                   {order.refund && <RefundBanner status={order.refund.status} />}
+                  {order.refund && canAttachEvidence(order.refund.status) && (
+                    <RefundEvidence
+                      slug={order.link.slug}
+                      orderNo={order.orderNo}
+                    />
+                  )}
                   {canRequestRefund(order) && (
                     <RefundRequest
                       slug={order.link.slug}

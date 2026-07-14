@@ -70,8 +70,61 @@ export interface RefundResolutionContext {
   } | null;
 }
 
+export type RefundFileType = "photo" | "video" | "document";
+export type RefundEvidenceType =
+  | "unboxing_video"
+  | "chat_screenshot"
+  | "shipping_receipt"
+  | "item_photo"
+  | "other";
+
+// Server-side MIME whitelist → DB file_type. Mirrors the bucket's
+// allowed_mime_types; the bucket is a second gate, this is the first.
+const MIME_TO_FILE_TYPE: Record<string, RefundFileType> = {
+  "image/jpeg": "photo",
+  "image/png": "photo",
+  "image/webp": "photo",
+  "video/mp4": "video",
+  "video/quicktime": "video",
+  "application/pdf": "document",
+};
+export const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024; // 10 MB, matches the bucket
+
+export interface RefundEvidenceFile {
+  bytes: Uint8Array;
+  mimeType: string;
+  fileName: string;
+}
+
+export interface RefundEvidenceItem {
+  id: string;
+  fileType: string;
+  evidenceType: string;
+  note: string | null;
+  createdAt: string;
+  /** Short-lived signed URL (admin view only) — the bucket is private. */
+  signedUrl: string;
+}
+
 export interface RefundStore
   extends Pick<ReleaseStore, "loadReleaseContext"> {
+  /** The open (pre-decision) refund request for an order, if any. */
+  findOpenRefundForOrder(
+    orderId: string,
+  ): Promise<{ refundRequestId: string } | null>;
+
+  /** Upload one evidence file to the private bucket and record its row.
+   * Returns the new refund_evidence id. */
+  addRefundEvidence(input: {
+    refundRequestId: string;
+    fileType: RefundFileType;
+    evidenceType: RefundEvidenceType;
+    file: RefundEvidenceFile;
+  }): Promise<string>;
+
+  /** Evidence rows for a request, each with a fresh short-lived signed URL. */
+  listRefundEvidence(refundRequestId: string): Promise<RefundEvidenceItem[]>;
+
   /** Insert the refund request (seller_profile_id / requested amount are
    * resolved server-side from the order — never client input) and append the
    * buyer 'refund_requested' order_status_events row. orders.status itself is
@@ -184,6 +237,54 @@ export async function createRefundRequest(
   });
 }
 
+// --- REFUND-1b: buyer attaches evidence to an open refund ----------------------
+
+export interface AddRefundEvidenceInput {
+  slug: string;
+  orderNo: string;
+  evidenceType: RefundEvidenceType;
+  file: RefundEvidenceFile;
+}
+
+/**
+ * Attach one evidence file to the OPEN refund on a publicly-addressed order.
+ * Possession of (slug, order_no) authorizes it — the same discipline as filing
+ * the refund. Only a pre-decision (open) refund accepts evidence; anything else
+ * is the same generic 404. MIME + size are validated here (first gate) and again
+ * by the private bucket (second gate).
+ */
+export async function addRefundEvidence(
+  deps: RefundDeps,
+  input: AddRefundEvidenceInput,
+): Promise<{ id: string; fileType: RefundFileType }> {
+  const fileType = MIME_TO_FILE_TYPE[input.file.mimeType];
+  if (!fileType) {
+    throw new PaymentError("InvalidInput", "unsupported file type");
+  }
+  if (input.file.bytes.byteLength === 0) {
+    throw new PaymentError("InvalidInput", "empty file");
+  }
+  if (input.file.bytes.byteLength > MAX_EVIDENCE_BYTES) {
+    throw new PaymentError("InvalidInput", "file exceeds the size limit");
+  }
+
+  const ctx = await deps.store.loadReleaseContext({
+    slug: input.slug,
+    orderNo: input.orderNo,
+  });
+  if (!ctx) throw notFound();
+  const open = await deps.store.findOpenRefundForOrder(ctx.orderId);
+  if (!open) throw notFound();
+
+  const id = await deps.store.addRefundEvidence({
+    refundRequestId: open.refundRequestId,
+    fileType,
+    evidenceType: input.evidenceType,
+    file: input.file,
+  });
+  return { id, fileType };
+}
+
 // --- REFUND-2: admin resolution ------------------------------------------------
 
 function requireAdmin(actor: PaymentActor): string {
@@ -200,6 +301,17 @@ export async function listRefundRequests(
 ): Promise<AdminRefundRow[]> {
   requireAdmin(actor);
   return deps.store.listAdminRefunds({ onlyOpen: input.onlyOpen ?? true });
+}
+
+/** Admin-only: evidence for one refund request, each with a short-lived signed
+ * URL (the bucket is private). */
+export async function listRefundEvidence(
+  deps: RefundDeps,
+  actor: PaymentActor,
+  refundRequestId: string,
+): Promise<RefundEvidenceItem[]> {
+  requireAdmin(actor);
+  return deps.store.listRefundEvidence(refundRequestId);
 }
 
 export interface ResolveRefundInput {

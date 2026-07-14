@@ -7,7 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import { PaymentError } from "../src/errors.js";
 import { usdcToUnits } from "../src/money.js";
 import {
+  addRefundEvidence,
   createRefundRequest,
+  listRefundEvidence,
   listRefundRequests,
   type RefundDeps,
   type RefundRequestRecord,
@@ -91,6 +93,9 @@ function fakeStore(
 ): RefundStore {
   return {
     loadReleaseContext: vi.fn(async () => ctx),
+    findOpenRefundForOrder: vi.fn(async () => ({ refundRequestId: REQUEST_ID })),
+    addRefundEvidence: vi.fn(async () => "evidence-1"),
+    listRefundEvidence: vi.fn(async () => []),
     createRefundRequest: vi.fn(async () => createdRecord()),
     listAdminRefunds: vi.fn(async () => []),
     loadRefundResolutionContext: vi.fn(async () => resolutionContext()),
@@ -102,6 +107,8 @@ function fakeStore(
     ...overrides,
   };
 }
+
+const PNG = { bytes: new Uint8Array([1, 2, 3]), mimeType: "image/png", fileName: "x.png" };
 
 function fundedView(
   overrides: Partial<GatewayOrderView> = {},
@@ -227,6 +234,72 @@ describe("createRefundRequest", () => {
         "CheckoutNotFound",
       );
     }
+  });
+});
+
+describe("addRefundEvidence", () => {
+  const input = {
+    slug: SLUG,
+    orderNo: ORDER_NO,
+    evidenceType: "item_photo" as const,
+  };
+
+  it("uploads a valid file to the open refund", async () => {
+    const store = fakeStore(baseContext());
+    const res = await addRefundEvidence(deps(store), { ...input, file: PNG });
+    expect(res).toEqual({ id: "evidence-1", fileType: "photo" });
+    expect(store.addRefundEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        refundRequestId: REQUEST_ID,
+        fileType: "photo",
+        evidenceType: "item_photo",
+      }),
+    );
+  });
+
+  it("rejects an unsupported MIME type", async () => {
+    await expectCode(
+      addRefundEvidence(deps(fakeStore(baseContext())), {
+        ...input,
+        file: { ...PNG, mimeType: "application/x-msdownload" },
+      }),
+      "InvalidInput",
+    );
+  });
+
+  it("rejects an empty and an oversized file", async () => {
+    await expectCode(
+      addRefundEvidence(deps(fakeStore(baseContext())), {
+        ...input,
+        file: { ...PNG, bytes: new Uint8Array(0) },
+      }),
+      "InvalidInput",
+    );
+    await expectCode(
+      addRefundEvidence(deps(fakeStore(baseContext())), {
+        ...input,
+        file: { ...PNG, bytes: new Uint8Array(10 * 1024 * 1024 + 1) },
+      }),
+      "InvalidInput",
+    );
+  });
+
+  it("404s when there is no open refund", async () => {
+    const store = fakeStore(baseContext(), {
+      findOpenRefundForOrder: vi.fn(async () => null),
+    });
+    await expectCode(
+      addRefundEvidence(deps(store), { ...input, file: PNG }),
+      "CheckoutNotFound",
+    );
+    expect(store.addRefundEvidence).not.toHaveBeenCalled();
+  });
+
+  it("admin evidence listing requires admin", async () => {
+    await expectCode(
+      listRefundEvidence(deps(fakeStore(baseContext())), NON_ADMIN, REQUEST_ID),
+      "Forbidden",
+    );
   });
 });
 

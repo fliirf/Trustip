@@ -5,9 +5,13 @@
 // to the funding wallet (contract-enforced). Inline expanding panel — no
 // wallet interaction needed, so no dialog ceremony.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useDict } from "../i18n/LocaleProvider";
-import { requestRefund, StatusApiError } from "./status-api";
+import {
+  requestRefund,
+  StatusApiError,
+  uploadRefundEvidence,
+} from "./status-api";
 
 const REASON_CODES = [
   "not_received",
@@ -15,6 +19,14 @@ const REASON_CODES = [
   "damaged",
   "fake",
   "seller_unresponsive",
+  "other",
+] as const;
+
+const EVIDENCE_TYPES = [
+  "item_photo",
+  "unboxing_video",
+  "chat_screenshot",
+  "shipping_receipt",
   "other",
 ] as const;
 
@@ -124,6 +136,110 @@ export function RefundRequest({
         </button>
       </div>
     </div>
+  );
+}
+
+/** Buyer attaches evidence to an OPEN refund. Possession-authorized like the
+ * request itself; files go to a private bucket via the backend. Session-local
+ * feedback only — the admin is the one who reads the evidence. */
+export function RefundEvidence({
+  slug,
+  orderNo,
+}: {
+  slug: string;
+  orderNo: string;
+}) {
+  const d = useDict().status.refund.evidence;
+  const [file, setFile] = useState<File | null>(null);
+  const [evidenceType, setEvidenceType] = useState<string>("item_photo");
+  const [uploading, setUploading] = useState(false);
+  const [count, setCount] = useState(0);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function submit() {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    setDone(false);
+    try {
+      await uploadRefundEvidence(slug, orderNo, file, evidenceType);
+      setCount((c) => c + 1);
+      setDone(true);
+      setFile(null);
+      if (inputRef.current) inputRef.current.value = "";
+    } catch (e) {
+      const code = e instanceof StatusApiError ? e.code : "default";
+      setError(d.error[code] ?? d.error.default);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 max-w-md">
+      <div className="micro-label text-ash">{d.title}</div>
+      <p className="os-body mt-3 max-w-[52ch] text-mist/80">{d.intro}</p>
+
+      <label
+        className="micro-label mt-5 block text-ash"
+        htmlFor="evidence-type"
+      >
+        {d.typeLabel}
+      </label>
+      <select
+        id="evidence-type"
+        value={evidenceType}
+        onChange={(e) => setEvidenceType(e.target.value)}
+        disabled={uploading}
+        className="os-body mt-2 w-full border border-hairline bg-void px-3 py-2.5 text-mist"
+      >
+        {EVIDENCE_TYPES.map((t) => (
+          <option key={t} value={t}>
+            {d.types[t] ?? t}
+          </option>
+        ))}
+      </select>
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,application/pdf"
+        onChange={(e) => {
+          setFile(e.target.files?.[0] ?? null);
+          setDone(false);
+          setError(null);
+        }}
+        disabled={uploading}
+        aria-label={d.chooseFile}
+        className="os-body mt-4 block w-full text-mist/80 file:mr-4 file:border file:border-hairline file:bg-void file:px-4 file:py-2 file:text-sm file:text-bone"
+      />
+
+      {error && <p className="os-body mt-4 text-blood">{error}</p>}
+      {done && !error && (
+        <p className="os-body mt-4 text-mist/80">
+          {d.uploaded}
+          {count > 0 && <span className="text-ash"> · {d.attached(count)}</span>}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={submit}
+        disabled={uploading || !file}
+        className="mat-illuminated os-press mt-6 px-6 py-3 text-sm font-semibold disabled:opacity-50"
+      >
+        {uploading ? d.uploading : d.upload}
+      </button>
+    </div>
+  );
+}
+
+/** Refund statuses where the buyer can still add evidence (pre-decision). */
+export function canAttachEvidence(refundStatus: string): boolean {
+  return ["submitted", "under_review", "seller_response_needed"].includes(
+    refundStatus,
   );
 }
 
