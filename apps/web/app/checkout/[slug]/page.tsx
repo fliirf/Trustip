@@ -56,9 +56,7 @@ export default async function CheckoutPage({
   const { data: link } = await supabase
     .from("checkout_links")
     .select(
-      `slug, title, description, price_usdc, status, expires_at, requires_shipping,
-       seller_profiles ( store_name,
-         trust_profiles ( level, average_rating, total_reviews, completed_orders ) )`,
+      "slug, title, description, price_usdc, status, expires_at, requires_shipping, seller_profile_id",
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -71,19 +69,16 @@ export default async function CheckoutPage({
     return <Unavailable d={d} />;
   }
 
-  // Public trust signal (trust_profiles is publicly readable). Shown only when
-  // the seller has a real track record so a brand-new store isn't flagged as
-  // "0.0". Read-only projection — every number is backend-derived.
-  const seller = link.seller_profiles as unknown as {
-    store_name: string | null;
-    trust_profiles: {
-      level: string;
-      average_rating: number;
-      total_reviews: number;
-      completed_orders: number;
-    } | null;
-  } | null;
-  const trust = seller?.trust_profiles ?? null;
+  // Public trust signal. trust_profiles is publicly readable (its own RLS +
+  // grant); seller_profiles is NOT anon-readable, so we key by the link's
+  // seller_profile_id directly rather than embedding. Shown only when the
+  // seller has a real track record so a brand-new store isn't flagged "0.0".
+  // Read-only projection — every number is backend-derived.
+  const { data: trust } = await supabase
+    .from("trust_profiles")
+    .select("level, average_rating, total_reviews, completed_orders")
+    .eq("seller_profile_id", link.seller_profile_id)
+    .maybeSingle();
   const showTrust =
     !!trust && (trust.completed_orders > 0 || trust.total_reviews > 0);
 
