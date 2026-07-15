@@ -28,9 +28,10 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { formatDateTime } from "../../lib/i18n/config";
 import type { Dict } from "../../lib/i18n/dictionaries";
 import { EscrowCore } from "../escrow/EscrowCore";
-import { useDict } from "../i18n/LocaleProvider";
+import { useDict, useLocale } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { ConfirmReceived } from "./ConfirmReceived";
 import { ReviewForm } from "./ReviewForm";
@@ -263,6 +264,7 @@ function ShipmentSection({
   d: Dict;
 }) {
   const s = d.status.shipmentSection;
+  const locale = useLocale();
 
   if (!order.requiresShipping) {
     const delivered = order.status === "delivered" || order.status === "completed";
@@ -342,7 +344,7 @@ function ShipmentSection({
           {shipment.shippedAt && (
             <DetailRow
               label={s.shippedAtLabel}
-              value={new Date(shipment.shippedAt).toLocaleString("id-ID")}
+              value={formatDateTime(locale, shipment.shippedAt)}
             />
           )}
         </div>
@@ -466,6 +468,7 @@ export function OrderStatusPage({
   orderNo: string;
 }) {
   const d = useDict();
+  const locale = useLocale();
   const [order, setOrder] = useState<PublicOrderStatus | null>(null);
   // Stores the locale-independent REASON, not translated strings — so a
   // language toggle updates the displayed failure instantly without a refetch.
@@ -818,7 +821,7 @@ export function OrderStatusPage({
                 />
                 <DetailRow
                   label={d.status.station03.created}
-                  value={new Date(order.createdAt).toLocaleString("id-ID")}
+                  value={formatDateTime(locale, order.createdAt)}
                 />
                 {order.buyer?.city && (
                   <DetailRow
@@ -879,7 +882,7 @@ export function OrderStatusPage({
                   </p>
                   {completedAt && (
                     <p className="micro-label mt-3 text-ash">
-                      {d.status.completion.completedAtPrefix} {new Date(completedAt).toLocaleString("id-ID")}
+                      {d.status.completion.completedAtPrefix} {formatDateTime(locale, completedAt)}
                     </p>
                   )}
                   {releaseTxHash && (

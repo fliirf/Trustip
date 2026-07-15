@@ -74,9 +74,11 @@ export function SellerPayouts() {
   const hasActiveXlm =
     methods?.some((m) => m.methodType === "xlm_wallet" && m.status === "active") ??
     false;
+  // A FAILED conversion does not block a retry (the backend resurrects it);
+  // only a completed or still-confirming conversion consumes the payout.
   const convertedOrderNos = new Set(
     (payouts ?? [])
-      .filter((p) => p.routeType === "xlm_wallet")
+      .filter((p) => p.routeType === "xlm_wallet" && p.status !== "failed")
       .map((p) => p.orderNo),
   );
   const canConvert = (p: Payout): boolean =>
@@ -368,7 +370,7 @@ export function SellerPayouts() {
                 </div>
                 <p className="os-serial mt-2 font-mono text-xs text-mist/70">
                   {m.methodType === "moneygram_cashout"
-                    ? `${m.cashoutCountry ?? "—"} · ${m.cashoutCurrency ?? "—"}`
+                    ? `${m.cashoutCountry ?? "-"} · ${m.cashoutCurrency ?? "-"}`
                     : `${m.stellarAddress?.slice(0, 8)}…${m.stellarAddress?.slice(-8)} · ${m.assetCode}`}
                 </p>
                 {m.status !== "disabled" && (
@@ -404,6 +406,11 @@ export function SellerPayouts() {
       <section className="pb-16">
         <div className="micro-label text-ash">{t.historyTitle}</div>
         <p className="os-body mt-2 max-w-[56ch] text-mist/70">{t.historyNote}</p>
+        {payouts === null && !error && (
+          <div className="mt-4 max-w-md">
+            <ProtocolState surface="seller" label={t.loading} />
+          </div>
+        )}
         {payouts !== null && payouts.length === 0 && (
           <p className="mt-4 os-body text-mist/60">{t.historyEmpty}</p>
         )}
@@ -417,7 +424,7 @@ export function SellerPayouts() {
                 <div className="flex flex-wrap items-baseline justify-between gap-3">
                   <span className="font-mono text-xs text-bone">{p.orderNo}</span>
                   <span className="text-sm text-mist">
-                    {p.amountUsdc ?? "—"} USDC
+                    {p.amountUsdc ?? "-"} USDC
                   </span>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -563,7 +570,11 @@ function ConvertPanel({
 
       {error && (
         <p className="os-body mt-3 text-blood">
-          {error.code === "WrongWallet" ? t.walletMismatch : error.message}
+          {error.code === "WrongWallet"
+            ? t.walletMismatch
+            : error.code === "Conflict"
+              ? t.conflict
+              : error.message}
         </p>
       )}
     </div>

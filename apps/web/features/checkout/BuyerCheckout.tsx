@@ -273,7 +273,7 @@ export function BuyerCheckout({ link }: { link: CheckoutLinkView }) {
             {/* The connected wallet, read out on the machine's own plate. */}
             <div className="terminal-panel px-4 py-3">
               <div className="micro-label text-ash">{d.checkout.wallet.connected}</div>
-              <div className="os-serial mt-2 font-mono text-mist">
+              <div className="os-serial mt-2 break-all font-mono text-mist">
                 {flow.publicKey}
               </div>
             </div>

@@ -10,8 +10,9 @@
 // escrow_locked -> delivered directly, no courier/tracking form.
 
 import { useState } from "react";
+import { formatDateTime } from "../../lib/i18n/config";
 import type { Dict } from "../../lib/i18n/dictionaries";
-import { useDict } from "../i18n/LocaleProvider";
+import { useDict, useLocale } from "../i18n/LocaleProvider";
 import { ErrorState } from "../ui/ErrorState";
 import { sellerErrorLabel } from "./labels";
 import { SellerApiError, updateShipment, type SellerOrder } from "./seller-api";
@@ -75,6 +76,7 @@ export function ShipmentControls({
   onUpdated: () => Promise<void>;
 }) {
   const d = useDict();
+  const locale = useLocale();
   const s = d.seller.shipment;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ShipmentError | null>(null);
@@ -239,7 +241,7 @@ export function ShipmentControls({
           {order.shipment.shippedAt && (
             <span className="text-ash">
               {" "}
-              · {new Date(order.shipment.shippedAt).toLocaleString("id-ID")}
+              · {formatDateTime(locale, order.shipment.shippedAt)}
             </span>
           )}
         </p>

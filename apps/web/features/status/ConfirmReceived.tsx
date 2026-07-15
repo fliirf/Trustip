@@ -204,7 +204,7 @@ export function ConfirmReceived({
                           type="button"
                           disabled={!w.installed || busy}
                           onClick={() => flow.connect(w.id as WalletId)}
-                          className="mat-key os-press flex items-center gap-3 border border-hairline px-4 py-3 text-left"
+                          className="mat-key os-press flex items-center gap-3 border border-hairline px-4 py-3 text-left disabled:opacity-40"
                         >
                           {/* A status lamp, lit only where a wallet actually is.
                               Same lamp the checkout terminal uses. */}
@@ -236,7 +236,7 @@ export function ConfirmReceived({
                       type="button"
                       disabled={busy}
                       onClick={() => flow.confirm()}
-                      className="mat-illuminated os-press w-full px-6 py-3.5 text-sm font-semibold tracking-tight text-void hover:text-bone"
+                      className="mat-illuminated os-press w-full px-6 py-3.5 text-sm font-semibold tracking-tight text-void hover:text-bone disabled:opacity-50"
                     >
                       {d.signButton}
                     </button>

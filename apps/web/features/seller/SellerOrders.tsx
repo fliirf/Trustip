@@ -21,6 +21,7 @@
 
 import { explorerTxUrl, networkName } from "@trustip/stellar";
 import { useCallback, useEffect, useState } from "react";
+import { formatDateTime } from "../../lib/i18n/config";
 import type { Dict } from "../../lib/i18n/dictionaries";
 import { EscrowCore, type EscrowCoreState } from "../escrow/EscrowCore";
 import {
@@ -29,7 +30,7 @@ import {
   isReleased,
   lifecycleRail,
 } from "../escrow/lifecycle";
-import { useDict } from "../i18n/LocaleProvider";
+import { useDict, useLocale } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { sellerErrorLabel, statusLabel } from "./labels";
 import { ShipmentControls } from "./ShipmentControls";
@@ -166,6 +167,7 @@ function EscrowReading({ state, d }: { state: EscrowCoreState; d: Dict }) {
  * release tx hash is shown strictly from backend data, never before it exists.
  * Motion is a slow fade only — a settlement, not a celebration. */
 function ReleaseProof({ order, d }: { order: SellerOrder; d: Dict }) {
+  const locale = useLocale();
   if (!isReleased(order)) return null;
   const o = d.seller.orders;
   const releaseTxHash = order.escrow?.releaseTxHash ?? null;
@@ -175,7 +177,7 @@ function ReleaseProof({ order, d }: { order: SellerOrder; d: Dict }) {
       <p className="mt-2 os-body text-mist/80">{o.completedBody}</p>
       {order.completedAt && (
         <p className="micro-label mt-2 text-ash">
-          {o.completedAtPrefix} {new Date(order.completedAt).toLocaleString("id-ID")}
+          {o.completedAtPrefix} {formatDateTime(locale, order.completedAt)}
         </p>
       )}
       {releaseTxHash && (

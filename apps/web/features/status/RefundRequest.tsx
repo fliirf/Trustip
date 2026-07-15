@@ -158,8 +158,16 @@ export function RefundEvidence({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Mirrors the server's MAX_EVIDENCE_BYTES — reject oversized files before
+  // uploading megabytes that the backend will refuse anyway.
+  const MAX_BYTES = 10 * 1024 * 1024;
+
   async function submit() {
     if (!file) return;
+    if (file.size > MAX_BYTES) {
+      setError(d.error.InvalidInput ?? d.error.default);
+      return;
+    }
     setUploading(true);
     setError(null);
     setDone(false);
@@ -258,9 +266,12 @@ export function RefundBanner({
         : status === "completed"
           ? [d.completedTitle, d.completedBody]
           : [d.openTitle, d.openBody];
+  // Completed = the money came back; a resting state, not an alert. Blood is
+  // reserved for states that still need the buyer's attention.
+  const tone = status === "completed" ? "text-bone" : "text-blood";
   return (
     <div className="mt-6 max-w-md border border-hairline px-5 py-4">
-      <div className="micro-label text-blood">{title}</div>
+      <div className={`micro-label ${tone}`}>{title}</div>
       <p className="os-body mt-2 max-w-[52ch] text-mist/80">{body}</p>
     </div>
   );

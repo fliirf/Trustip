@@ -598,6 +598,7 @@ const id = {
         attached: (n: number) => `${n} bukti terlampir sesi ini`,
         error: {
           InvalidInput: "File tidak didukung atau lebih dari 10 MB. Pakai foto, video, atau PDF.",
+          Conflict: "Jumlah bukti sudah mencapai batas (10 file per pengajuan).",
           RateLimited: "Terlalu banyak percobaan. Tunggu sebentar, lalu coba lagi.",
           CheckoutNotFound: "Bukti hanya bisa dilampirkan saat pengajuan refund masih ditinjau.",
           default: "Gagal mengunggah. Silakan coba lagi.",
@@ -740,6 +741,8 @@ const id = {
         done: "Konversi selesai",
         cancel: "Batal",
         alreadyConverted: "Sudah dikonversi",
+        conflict:
+          "Payout ini sudah dikonversi atau konversi sebelumnya masih diproses. Muat ulang untuk melihat status terbaru.",
       },
     },
     login: {
@@ -1722,6 +1725,7 @@ const en: Dict = {
         attached: (n: number) => `${n} attached this session`,
         error: {
           InvalidInput: "Unsupported file or larger than 10 MB. Use a photo, video, or PDF.",
+          Conflict: "Evidence limit reached (10 files per request).",
           RateLimited: "Too many attempts. Wait a moment, then try again.",
           CheckoutNotFound: "Evidence can only be attached while the refund is under review.",
           default: "Upload failed. Please try again.",
@@ -1860,6 +1864,8 @@ const en: Dict = {
         done: "Conversion complete",
         cancel: "Cancel",
         alreadyConverted: "Already converted",
+        conflict:
+          "This payout was already converted, or a previous conversion is still confirming. Reload to see the latest status.",
       },
     },
     needLogin: {

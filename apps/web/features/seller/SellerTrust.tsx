@@ -139,7 +139,7 @@ export function SellerTrustPage() {
             <Stat label={t.reviews} value={String(p.totalReviews)} />
             <Stat
               label={t.avgRating}
-              value={p.totalReviews > 0 ? p.averageRating : "—"}
+              value={p.totalReviews > 0 ? p.averageRating : "-"}
             />
           </div>
 

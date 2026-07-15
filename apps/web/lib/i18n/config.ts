@@ -16,3 +16,13 @@ export function isLocale(value: unknown): value is Locale {
 export function otherLocale(locale: Locale): Locale {
   return locale === "id" ? "en" : "id";
 }
+
+/** BCP-47 tag for date/number formatting in the active language. */
+export function formattingLocale(locale: Locale): string {
+  return locale === "id" ? "id-ID" : "en-US";
+}
+
+/** Locale-aware date-time string for timestamps shown in the UI. */
+export function formatDateTime(locale: Locale, iso: string): string {
+  return new Date(iso).toLocaleString(formattingLocale(locale));
+}

@@ -166,7 +166,7 @@ export function AdminRefunds() {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="font-mono text-sm text-bone">{r.orderNo}</span>
               <span className="text-sm text-ash">
-                {r.requestedAmountUsdc ?? "—"} USDC · {r.status}
+                {r.requestedAmountUsdc ?? "-"} USDC · {r.status}
               </span>
             </div>
             <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm text-mist md:grid-cols-4">
@@ -180,11 +180,11 @@ export function AdminRefunds() {
               </div>
               <div>
                 <dt className="text-ash">Escrow</dt>
-                <dd>{r.escrowStatus ?? "—"}</dd>
+                <dd>{r.escrowStatus ?? "-"}</dd>
               </div>
               <div>
                 <dt className="text-ash">Shipment</dt>
-                <dd>{r.shipmentStatus ?? "—"}</dd>
+                <dd>{r.shipmentStatus ?? "-"}</dd>
               </div>
             </dl>
             {r.description && (
