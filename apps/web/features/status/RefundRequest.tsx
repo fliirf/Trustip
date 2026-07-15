@@ -122,7 +122,7 @@ export function RefundRequest({
           type="button"
           onClick={submit}
           disabled={submitting}
-          className="mat-illuminated os-press px-6 py-3 text-sm font-semibold disabled:opacity-50"
+          className="mat-illuminated os-press px-6 py-3 text-sm font-semibold text-[#f5f2ec] hover:text-[#ff3a12] focus-visible:text-[#ff3a12] disabled:opacity-50"
         >
           {submitting ? d.submitting : d.submit}
         </button>
