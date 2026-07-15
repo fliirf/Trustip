@@ -605,6 +605,16 @@ const id = {
         } as Record<string, string>,
       },
     },
+    artifact: {
+      awaiting: "Menunggu Pembayaran",
+      protected: "Dana Dilindungi",
+      shipped: "Sedang Dikirim",
+      arriving: "Menunggu Konfirmasi",
+      settled: "Pesanan Selesai",
+      frozen: "Dalam Peninjauan",
+      returned: "Dana Dikembalikan",
+      void: "Pesanan Berakhir",
+    } as Record<string, string>,
     review: {
       title: "Beri Penilaian",
       intro: "Pesanan sudah selesai. Bagikan pengalamanmu untuk membantu pembeli lain.",
@@ -1732,6 +1742,16 @@ const en: Dict = {
         } as Record<string, string>,
       },
     },
+    artifact: {
+      awaiting: "Awaiting Payment",
+      protected: "Funds Protected",
+      shipped: "On Its Way",
+      arriving: "Awaiting Confirmation",
+      settled: "Order Complete",
+      frozen: "Under Review",
+      returned: "Funds Returned",
+      void: "Order Closed",
+    } as Record<string, string>,
     review: {
       title: "Leave a Rating",
       intro: "This order is complete. Share your experience to help other buyers.",

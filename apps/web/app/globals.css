@@ -1599,3 +1599,184 @@ body {
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
 }
+
+/* ---------------------------------------------------------------------------
+   StatusCore3D — the vault in three dimensions (features/escrow/StatusCore3D).
+   Pure CSS 3D: perspective + preserve-3d, transform/opacity only. The cube is
+   200-unit design space scaled by the wrapper's size; faces are hairline bone
+   panels, the core is the seated blood mark. Reduced motion: a static tilted
+   cube with identical geometry (no dead space, no CLS).
+--------------------------------------------------------------------------- */
+.core3d {
+  perspective: 700px;
+  display: grid;
+  place-items: center;
+}
+.core3d-stage {
+  width: 62%;
+  height: 62%;
+  transform-style: preserve-3d;
+}
+.core3d-cube {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  /* Static resting pose — also the reduced-motion + void pose. */
+  transform: rotateX(-22deg) rotateY(32deg);
+}
+.core3d-face {
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(237, 234, 227, 0.28);
+  background: rgba(237, 234, 227, 0.02);
+  backface-visibility: visible;
+}
+/* --tz is half the cube edge; set from the stage's own width via container-ish
+   trick: faces use 50% translations in their own plane, and translateZ uses a
+   CSS var the wrapper sizes. Default suits the h-40 (10rem) artifact. */
+.core3d { --core3d-half: 3.1rem; }
+.core3d-face-front  { transform: translateZ(var(--core3d-half)); }
+.core3d-face-back   { transform: rotateY(180deg) translateZ(var(--core3d-half)); }
+.core3d-face-left   { transform: rotateY(-90deg) translateZ(var(--core3d-half)); }
+.core3d-face-right  { transform: rotateY(90deg) translateZ(var(--core3d-half)); }
+.core3d-face-top    { transform: rotateX(90deg) translateZ(var(--core3d-half)); }
+.core3d-face-bottom { transform: rotateX(-90deg) translateZ(var(--core3d-half)); }
+
+.core3d-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 22%;
+  height: 22%;
+  margin: -11% 0 0 -11%;
+  background: #ff2d00;
+  transform: translateZ(0) rotateZ(45deg);
+  box-shadow: 0 0 24px rgba(255, 45, 0, 0.35);
+}
+
+/* ---- per-state material ---------------------------------------------------- */
+.core3d-awaiting .core3d-face {
+  border-style: dashed;
+  border-color: rgba(237, 234, 227, 0.16);
+  background: none;
+}
+.core3d-awaiting .core3d-core {
+  background: rgba(255, 45, 0, 0.28);
+  box-shadow: none;
+}
+.core3d-protected .core3d-face,
+.core3d-shipped .core3d-face {
+  border-color: rgba(255, 45, 0, 0.4);
+  background: rgba(255, 45, 0, 0.035);
+}
+.core3d-arriving .core3d-face {
+  border-color: rgba(255, 45, 0, 0.55);
+  background: rgba(255, 45, 0, 0.05);
+}
+.core3d-settled .core3d-face {
+  border-color: rgba(237, 234, 227, 0.4);
+  background: rgba(237, 234, 227, 0.03);
+}
+.core3d-settled .core3d-core {
+  background: rgba(237, 234, 227, 0.75);
+  box-shadow: 0 0 20px rgba(237, 234, 227, 0.25);
+}
+.core3d-frozen .core3d-face {
+  border-style: dashed;
+  border-color: rgba(255, 45, 0, 0.5);
+  background: none;
+}
+.core3d-returned .core3d-face {
+  border-color: rgba(237, 234, 227, 0.18);
+  background: none;
+}
+.core3d-returned .core3d-core {
+  background: rgba(255, 45, 0, 0.35);
+  box-shadow: none;
+}
+.core3d-void .core3d-face {
+  border-color: rgba(237, 234, 227, 0.1);
+  background: none;
+}
+.core3d-void .core3d-core {
+  background: rgba(122, 122, 115, 0.4);
+  box-shadow: none;
+}
+
+/* ---- per-state motion (motion-safe only) ----------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* awaiting: a hesitant half-turn scan — searching, not promising. */
+  .core3d-awaiting .core3d-cube {
+    animation: core3d-scan 7s ease-in-out infinite;
+  }
+  /* protected: one steady, confident spin. The heartbeat lives in the core. */
+  .core3d-protected .core3d-cube {
+    animation: core3d-spin 16s linear infinite;
+  }
+  .core3d-protected .core3d-core,
+  .core3d-shipped .core3d-core {
+    animation: core3d-heartbeat 3.2s ease-out infinite;
+  }
+  /* shipped: the same locked spin, leaning into a gentle travel drift. */
+  .core3d-shipped .core3d-stage {
+    animation: core3d-travel 5.5s ease-in-out infinite;
+  }
+  .core3d-shipped .core3d-cube {
+    animation: core3d-spin 12s linear infinite;
+  }
+  /* arriving: nearly at rest — a slow turn waiting for the buyer's hand. */
+  .core3d-arriving .core3d-cube {
+    animation: core3d-spin 30s linear infinite;
+  }
+  .core3d-arriving .core3d-core {
+    animation: core3d-heartbeat 1.8s ease-out infinite;
+  }
+  /* settled: barely turning; the geometry has opened and nothing pulses. */
+  .core3d-settled .core3d-cube {
+    animation: core3d-spin 60s linear infinite;
+  }
+  .core3d-settled .core3d-face-front  { transform: translateZ(calc(var(--core3d-half) * 1.25)); }
+  .core3d-settled .core3d-face-back   { transform: rotateY(180deg) translateZ(calc(var(--core3d-half) * 1.25)); }
+  .core3d-settled .core3d-face-left   { transform: rotateY(-90deg) translateZ(calc(var(--core3d-half) * 1.25)); }
+  .core3d-settled .core3d-face-right  { transform: rotateY(90deg) translateZ(calc(var(--core3d-half) * 1.25)); }
+  .core3d-settled .core3d-face-top    { transform: rotateX(90deg) translateZ(calc(var(--core3d-half) * 1.25)); }
+  .core3d-settled .core3d-face-bottom { transform: rotateX(-90deg) translateZ(calc(var(--core3d-half) * 1.25)); }
+  /* frozen: halted mid-turn; only the edges breathe while review runs. The
+     pose stays clearly volumetric (a near-edge-on angle reads as a sliver). */
+  .core3d-frozen .core3d-cube {
+    transform: rotateX(-20deg) rotateY(38deg);
+    animation: core3d-breathe 2.6s ease-in-out infinite;
+  }
+  /* returned: the spin runs BACKWARDS, slowly — the money went home. */
+  .core3d-returned .core3d-cube {
+    animation: core3d-spin 22s linear infinite reverse;
+  }
+  /* void: no motion at all. */
+}
+
+@keyframes core3d-spin {
+  from { transform: rotateX(-22deg) rotateY(0deg); }
+  to   { transform: rotateX(-22deg) rotateY(360deg); }
+}
+@keyframes core3d-scan {
+  0%,
+  100% { transform: rotateX(-22deg) rotateY(14deg); }
+  50%  { transform: rotateX(-16deg) rotateY(-52deg); }
+}
+@keyframes core3d-travel {
+  0%,
+  100% { transform: translateX(-7%) rotateZ(-2deg); }
+  50%  { transform: translateX(7%) rotateZ(2deg); }
+}
+@keyframes core3d-heartbeat {
+  0%   { transform: translateZ(0) rotateZ(45deg) scale(1); }
+  12%  { transform: translateZ(0) rotateZ(45deg) scale(1.18); }
+  24%  { transform: translateZ(0) rotateZ(45deg) scale(1); }
+  100% { transform: translateZ(0) rotateZ(45deg) scale(1); }
+}
+@keyframes core3d-breathe {
+  0%,
+  100% { opacity: 1; }
+  50%  { opacity: 0.55; }
+}

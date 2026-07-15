@@ -31,6 +31,8 @@ import {
 import { formatDateTime } from "../../lib/i18n/config";
 import type { Dict } from "../../lib/i18n/dictionaries";
 import { EscrowCore } from "../escrow/EscrowCore";
+import { statusCore3DState } from "../escrow/lifecycle";
+import { StatusCore3D } from "../escrow/StatusCore3D";
 import { useDict, useLocale } from "../i18n/LocaleProvider";
 import { EmptyState, ErrorState, ProtocolState } from "../ui/ErrorState";
 import { ConfirmReceived } from "./ConfirmReceived";
@@ -45,6 +47,7 @@ import {
   awaitingShipment,
   canConfirmReceived,
   canRequestRefund,
+  hasOpenRefund,
   escrowCoreState,
   isProtected,
   isReleased,
@@ -579,6 +582,7 @@ export function OrderStatusPage({
   const refunded =
     order.escrow?.status === "refunded" || order.payment?.status === "refunded";
   const rail = lifecycleRail(order, false, d.status.rail);
+  const core3d = statusCore3DState(order, hasOpenRefund(order));
   const txHash = order.payment?.txHash ?? order.escrow?.fundedTxHash ?? null;
   const releaseTxHash = order.escrow?.releaseTxHash ?? releaseOverride;
   const completedAt = order.completedAt;
@@ -637,6 +641,20 @@ export function OrderStatusPage({
             </div>
           </div>
         </header>
+
+        {/* THE VAULT IN THREE DIMENSIONS — one centred, backend-derived
+            animation per state. Depth is the only new information here; the
+            words above already state the fact, so the artifact stays
+            decorative (aria-hidden inside the component). */}
+        <Reveal>
+          <div className="mt-16 flex justify-center md:mt-20">
+            <StatusCore3D
+              state={core3d}
+              className="h-40 w-40 md:h-52 md:w-52 md:[--core3d-half:4rem]"
+              label={d.status.artifact[core3d]}
+            />
+          </div>
+        </Reveal>
 
         {/* THE SPINE. One rule runs from the orbit down through every station.
             Everything below hangs off it; nothing below is boxed. */}

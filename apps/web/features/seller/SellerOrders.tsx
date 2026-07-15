@@ -24,8 +24,10 @@ import { useCallback, useEffect, useState } from "react";
 import { formatDateTime } from "../../lib/i18n/config";
 import type { Dict } from "../../lib/i18n/dictionaries";
 import { EscrowCore, type EscrowCoreState } from "../escrow/EscrowCore";
+import { StatusCore3D } from "../escrow/StatusCore3D";
 import {
   escrowCoreState,
+  statusCore3DState,
   isProtected,
   isReleased,
   lifecycleRail,
@@ -273,6 +275,16 @@ function OrderDetail({
       {/* The divider is an engraved groove, not a border, and only exists once
           the two halves actually sit side by side. */}
       <aside className="min-w-0 lg:pl-10 lg:shadow-[inset_1px_0_0_var(--mat-groove),inset_2px_0_0_var(--mat-lip)]">
+        {/* The vault in three dimensions — same backend-only derivation the
+            buyer sees, so seller and buyer can never watch different truths.
+            Waiting for payment = the awaiting scan; funded = the locked spin. */}
+        <div className="mb-8 flex justify-center">
+          <StatusCore3D
+            state={statusCore3DState(order)}
+            className="h-28 w-28 [--core3d-half:2.15rem]"
+            label={d.status.artifact[statusCore3DState(order)]}
+          />
+        </div>
         <EscrowReading state={escrowCoreState(order)} d={d} />
         {(order.payment?.txHash || order.escrow?.fundedTxHash) && (
           <div className="mt-8">

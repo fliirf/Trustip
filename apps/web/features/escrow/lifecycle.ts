@@ -118,6 +118,26 @@ export function escrowCoreState(order: LifecycleOrder): EscrowCoreState {
   return "dormant";
 }
 
+/** Visual state of the 3D status artifact (StatusCore3D), derived STRICTLY
+ * from backend records with the same ordering discipline as escrowCoreState.
+ * `refundOpen` is caller-supplied (only the buyer surface knows it) and
+ * outranks everything except terminal states: a frozen vault must never
+ * render as travelling or settled while review runs. */
+export function statusCore3DState(
+  order: LifecycleOrder,
+  refundOpen = false,
+): import("./StatusCore3D").StatusCore3DState {
+  if (order.escrow?.status === "refunded") return "returned";
+  if (isTerminalBad(order)) return "void";
+  if (refundOpen) return "frozen";
+  if (isReleased(order)) return "settled";
+  if (isProtected(order)) {
+    if (order.status === "delivered") return "arriving";
+    return shipmentProgress(order) >= 3 ? "shipped" : "protected";
+  }
+  return "awaiting";
+}
+
 /** Protected + paid but the seller has not shipped yet — buyer waits. */
 export function awaitingShipment(order: LifecycleOrder): boolean {
   return (
