@@ -30,7 +30,6 @@ import {
 } from "react";
 import { formatDateTime } from "../../lib/i18n/config";
 import type { Dict } from "../../lib/i18n/dictionaries";
-import { EscrowCore } from "../escrow/EscrowCore";
 import { statusCore3DState } from "../escrow/lifecycle";
 import { StatusCore3D } from "../escrow/StatusCore3D";
 import { useDict, useLocale } from "../i18n/LocaleProvider";
@@ -48,7 +47,6 @@ import {
   canConfirmReceived,
   canRequestRefund,
   hasOpenRefund,
-  escrowCoreState,
   isProtected,
   isReleased,
   isTerminalBad,
@@ -562,8 +560,7 @@ export function OrderStatusPage({
     // page moves — the instrument lights up in place.
     return (
       <main className="relative mx-auto max-w-4xl px-5 py-14 md:px-8 md:py-20">
-        <header className="grid items-center gap-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-16">
-          <div aria-hidden className="h-44 w-44 shrink-0 lg:h-56 lg:w-56" />
+        <header>
           <ProtocolState
             surface="status"
             label={d.status.loadingLabel}
@@ -602,12 +599,7 @@ export function OrderStatusPage({
       <main className="relative mx-auto max-w-4xl px-5 py-14 md:px-8 md:py-20">
         {/* HERO — never centred. The beacon holds the left, the reading holds
             the right, and the gap between them is the point. */}
-        <header className="grid items-center gap-10 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-16">
-          <EscrowCore
-            state={escrowCoreState(order)}
-            context="radar"
-            className="h-44 w-44 shrink-0 lg:h-56 lg:w-56"
-          />
+        <header>
           <div>
             <div
               className="boot-line micro-label text-ash"
