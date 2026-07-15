@@ -96,6 +96,7 @@ function fakeStore(
     findOpenRefundForOrder: vi.fn(async () => ({ refundRequestId: REQUEST_ID })),
     addRefundEvidence: vi.fn(async () => "evidence-1"),
     listRefundEvidence: vi.fn(async () => []),
+    countRefundEvidence: vi.fn(async () => 0),
     createRefundRequest: vi.fn(async () => createdRecord()),
     listAdminRefunds: vi.fn(async () => []),
     loadRefundResolutionContext: vi.fn(async () => resolutionContext()),

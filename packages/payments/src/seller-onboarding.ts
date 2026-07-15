@@ -665,7 +665,24 @@ export async function getPublicOrderStatus(
   if (!record) {
     throw new PaymentError("CheckoutNotFound", "order not found");
   }
-  return record;
+  // PII minimization: the status URL is a shareable capability (slug+order_no),
+  // so never expose the buyer's email/phone/full address on it. The public page
+  // only renders name + city; the seller gets the full contact via the
+  // authenticated seller-orders endpoint.
+  return {
+    ...record,
+    buyer: record.buyer
+      ? {
+          name: record.buyer.name,
+          city: record.buyer.city,
+          email: null,
+          phone: null,
+          addressLine1: null,
+          postalCode: null,
+          country: null,
+        }
+      : null,
+  };
 }
 
 /** READ-ONLY seller orders (Phase 7D). No mutation of any lifecycle state —

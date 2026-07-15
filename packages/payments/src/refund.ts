@@ -89,6 +89,8 @@ const MIME_TO_FILE_TYPE: Record<string, RefundFileType> = {
   "application/pdf": "document",
 };
 export const MAX_EVIDENCE_BYTES = 10 * 1024 * 1024; // 10 MB, matches the bucket
+/** Storage-abuse cap: max evidence files on one refund request. */
+export const MAX_EVIDENCE_FILES = 10;
 
 export interface RefundEvidenceFile {
   bytes: Uint8Array;
@@ -124,6 +126,9 @@ export interface RefundStore
 
   /** Evidence rows for a request, each with a fresh short-lived signed URL. */
   listRefundEvidence(refundRequestId: string): Promise<RefundEvidenceItem[]>;
+
+  /** Number of evidence rows already attached to a request (abuse cap). */
+  countRefundEvidence(refundRequestId: string): Promise<number>;
 
   /** Insert the refund request (seller_profile_id / requested amount are
    * resolved server-side from the order — never client input) and append the
@@ -275,6 +280,14 @@ export async function addRefundEvidence(
   if (!ctx) throw notFound();
   const open = await deps.store.findOpenRefundForOrder(ctx.orderId);
   if (!open) throw notFound();
+
+  const count = await deps.store.countRefundEvidence(open.refundRequestId);
+  if (count >= MAX_EVIDENCE_FILES) {
+    throw new PaymentError(
+      "Conflict",
+      `at most ${MAX_EVIDENCE_FILES} evidence files per refund request`,
+    );
+  }
 
   const id = await deps.store.addRefundEvidence({
     refundRequestId: open.refundRequestId,

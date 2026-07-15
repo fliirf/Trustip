@@ -4,9 +4,11 @@
 // @trustip/payments package itself stays framework-agnostic for workers/tests.)
 import "server-only";
 import {
+  checkRateLimit,
   clientIp as trustedClientIp,
   getCheckoutTokenSecret,
   getEscrowContractId,
+  getRateLimitStore,
   getWalletChallengeSecret,
 } from "@trustip/config";
 import { getServiceClient, supabase } from "@trustip/database";
@@ -210,11 +212,26 @@ export function enforceStatusRateLimit(request: Request): NextResponse | null {
 
 /** Rate-limit create_order (operator-fee abuse guard). Tighter than the generic
  * write budget because each call can trigger operator-signed on-chain writes.
+ * Uses the DISTRIBUTED store when configured (per-instance memory limiters are
+ * ineffective for this budget on multi-instance serverless); falls back to the
+ * in-memory limiter otherwise — the check never fails open entirely.
  * Returns a 429 response when over budget, else null. */
-export function enforceCreateOrderRateLimit(
+export async function enforceCreateOrderRateLimit(
   request: Request,
-): NextResponse | null {
-  const result = createOrderLimiter.check(`create-order:${clientIp(request)}`);
+): Promise<NextResponse | null> {
+  const key = `create-order:${clientIp(request)}`;
+  const store = getRateLimitStore();
+  if (store) {
+    try {
+      const result = await checkRateLimit(store, key, [
+        { limit: 12, windowMs: 60_000 },
+      ]);
+      return result.allowed ? null : tooManyRequests(result.retryAfterMs);
+    } catch {
+      // Store blip — fall through to the in-memory guard below.
+    }
+  }
+  const result = createOrderLimiter.check(key);
   return result.allowed ? null : tooManyRequests(result.retryAfterMs);
 }
 

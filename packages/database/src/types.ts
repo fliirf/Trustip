@@ -1572,6 +1572,7 @@ export type Database = {
           p_recv_xlm: number
           p_send_usdc: number
           p_source_payout_id: string
+          p_status?: string
           p_tx_hash: string
         }
         Returns: undefined

@@ -99,11 +99,21 @@ export function createSupabasePayoutStore(
           .maybeSingle(),
         client
           .from("payout_requests")
-          .select("id")
+          .select(
+            "id, status, amount_usdc, target_amount_estimate, requested_at, payout_transactions ( tx_hash, status )",
+          )
           .eq("idempotency_key", `convert:${payoutId}`)
           .limit(1)
           .maybeSingle(),
       ]);
+
+      const conv = existing as unknown as {
+        status: string;
+        amount_usdc: number | null;
+        target_amount_estimate: number | null;
+        requested_at: string | null;
+        payout_transactions: Array<{ tx_hash: string | null }> | null;
+      } | null;
 
       return {
         orderId: row.order_id,
@@ -112,19 +122,47 @@ export function createSupabasePayoutStore(
         routeType: row.route_type,
         status: row.status,
         hasActiveXlmMethod: !!xlmMethod,
-        alreadyConverted: !!existing,
+        alreadyConverted: conv?.status === "completed",
+        pendingConversion:
+          conv && conv.status === "processing"
+            ? {
+                txHash: conv.payout_transactions?.[0]?.tx_hash ?? null,
+                sendUsdc: money(conv.amount_usdc),
+                recvXlm: money(conv.target_amount_estimate),
+                createdAt: conv.requested_at,
+              }
+            : null,
       };
     },
 
-    async recordXlmConversion({ sourcePayoutId, txHash, sendUsdc, recvXlm, network }) {
+    async recordXlmConversion({ sourcePayoutId, txHash, sendUsdc, recvXlm, network, status }) {
       const { error } = await client.rpc("record_xlm_conversion", {
         p_source_payout_id: sourcePayoutId,
         p_tx_hash: txHash,
         p_send_usdc: numeric(sendUsdc),
         p_recv_xlm: numeric(recvXlm),
         p_network: network,
+        p_status: status,
       });
       if (error) throw error;
+    },
+
+    async failStaleConversion({ sourcePayoutId, txHash }) {
+      // Guarded direct writes (service role): only a still-pending row flips.
+      const { error } = await client
+        .from("payout_requests")
+        .update({ status: "failed" })
+        .eq("idempotency_key", `convert:${sourcePayoutId}`)
+        .eq("status", "processing");
+      if (error) throw error;
+      if (txHash) {
+        const { error: txError } = await client
+          .from("payout_transactions")
+          .update({ status: "failed" })
+          .eq("tx_hash", txHash)
+          .eq("status", "submitted");
+        if (txError) throw txError;
+      }
     },
 
     async getSellerProfileIdForUser(userId) {

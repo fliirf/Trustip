@@ -83,6 +83,15 @@ export function createSupabaseRefundStore(client: TrustipClient): RefundStore {
       return data.id;
     },
 
+    async countRefundEvidence(refundRequestId) {
+      const { count, error } = await client
+        .from("refund_evidence")
+        .select("id", { count: "exact", head: true })
+        .eq("refund_request_id", refundRequestId);
+      if (error) throw error;
+      return count ?? 0;
+    },
+
     async listRefundEvidence(refundRequestId) {
       const { data, error } = await client
         .from("refund_evidence")

@@ -576,7 +576,9 @@ export async function confirmOrderReceivedAndRelease(
 
   // Reconciliation: record the direct USDC payout the release just performed so
   // it shows in the seller's payout history. Best-effort + idempotent; a failure
-  // never fails the release, and the payout-sync worker can backfill.
+  // never fails the release. NOTE: there is no backfill worker for this yet
+  // (payout-sync is a disabled framework) — a failure here only loses a history
+  // row, never money; a repeat release call re-runs the idempotent RPC.
   try {
     await deps.store.recordDirectPayout({
       orderId: ctx.orderId,

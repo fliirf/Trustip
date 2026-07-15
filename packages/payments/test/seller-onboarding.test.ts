@@ -949,6 +949,36 @@ describe("getPublicOrderStatus", () => {
     ]);
   });
 
+  it("masks buyer PII down to name + city on the public capability URL", async () => {
+    const { store, publicStatuses } = makeStore();
+    publicStatuses.set("hoodie-void:TRP-PUBLIC0000000003", {
+      ...STATUS,
+      orderNo: "TRP-PUBLIC0000000003",
+      buyer: {
+        name: "Budi",
+        email: "budi@example.com",
+        phone: "0812345678",
+        addressLine1: "Jl. Contoh 1",
+        city: "Bandung",
+        postalCode: "40111",
+        country: "ID",
+      },
+    });
+    const res = await getPublicOrderStatus(deps(store), {
+      slug: "hoodie-void",
+      orderNo: "TRP-PUBLIC0000000003",
+    });
+    expect(res.buyer).toEqual({
+      name: "Budi",
+      city: "Bandung",
+      email: null,
+      phone: null,
+      addressLine1: null,
+      postalCode: null,
+      country: null,
+    });
+  });
+
   it("carries completedAt + releaseTxHash once the order has completed", async () => {
     const { store, publicStatuses } = makeStore();
     publicStatuses.set("hoodie-void:TRP-PUBLIC0000000002", COMPLETED_STATUS);

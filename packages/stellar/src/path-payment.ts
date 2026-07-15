@@ -4,6 +4,7 @@ import {
   Horizon,
   Operation,
   TransactionBuilder,
+  xdr,
 } from "@stellar/stellar-sdk";
 import { currentNetwork, type NetworkConfig } from "@trustip/config";
 
@@ -115,16 +116,73 @@ export async function prepareUsdcToXlmConversion(input: {
   };
 }
 
+/** Decode the ACTUAL XLM received by a strict-send path payment from the
+ * Horizon result XDR (7-dp string), or null when the shape is unexpected.
+ * Chain truth for the conversion record — never the pre-trade estimate. */
+export function receivedXlmFromResultXdr(resultXdr: string): string | null {
+  try {
+    const result = xdr.TransactionResult.fromXDR(resultXdr, "base64");
+    const opResults = result.result().results();
+    for (const op of opResults) {
+      const tr = op.tr();
+      if (tr.switch().name !== "pathPaymentStrictSend") continue;
+      const success = tr.pathPaymentStrictSendResult().success();
+      const stroops = BigInt(success.last().amount().toString());
+      const whole = stroops / 10000000n;
+      const frac = (stroops % 10000000n).toString().padStart(7, "0");
+      return `${whole}.${frac}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 /** Submit a seller-signed path-payment tx to the classic network. Returns the
- * confirmed hash + ledger, or throws with the Horizon failure. */
+ * confirmed hash + ledger + chain-actual received XLM (null when the result
+ * could not be decoded), or throws with the Horizon failure. */
 export async function submitPathPayment(
   signedXdr: string,
   cfg: NetworkConfig = currentNetwork,
-): Promise<{ hash: string; ledger: number }> {
+): Promise<{ hash: string; ledger: number; receivedXlm: string | null }> {
   const server = horizon(cfg);
   const tx = TransactionBuilder.fromXDR(signedXdr, cfg.networkPassphrase);
   const res = await server.submitTransaction(tx);
-  return { hash: res.hash, ledger: res.ledger };
+  const resultXdr = (res as { result_xdr?: string }).result_xdr;
+  return {
+    hash: res.hash,
+    ledger: res.ledger,
+    receivedXlm: resultXdr ? receivedXlmFromResultXdr(resultXdr) : null,
+  };
+}
+
+/** Hash (hex) of a signed classic tx — recorded BEFORE the Horizon submit so a
+ * timeout can never lose track of a tx that later lands. */
+export function transactionHash(
+  signedXdr: string,
+  cfg: NetworkConfig = currentNetwork,
+): string {
+  const tx = TransactionBuilder.fromXDR(signedXdr, cfg.networkPassphrase);
+  return tx.hash().toString("hex");
+}
+
+/** Final status of a classic tx by hash: confirmed / failed once included in a
+ * ledger, not_found while absent (still in flight, or never landed). */
+export async function getClassicTransactionStatus(
+  hash: string,
+  cfg: NetworkConfig = currentNetwork,
+): Promise<"confirmed" | "failed" | "not_found"> {
+  const server = horizon(cfg);
+  try {
+    const tx = await server.transactions().transaction(hash).call();
+    return (tx as { successful?: boolean }).successful === false
+      ? "failed"
+      : "confirmed";
+  } catch (e) {
+    const status = (e as { response?: { status?: number } }).response?.status;
+    if (status === 404) return "not_found";
+    throw e;
+  }
 }
 
 /** Source account of a (signed) tx XDR — for binding a submitted conversion to
@@ -144,8 +202,14 @@ export interface PathPaymentGateway {
     sourcePublicKey: string;
     usdcAmount: string;
   }): Promise<UsdcToXlmQuote>;
-  submitPathPayment(signedXdr: string): Promise<{ hash: string; ledger: number }>;
+  submitPathPayment(
+    signedXdr: string,
+  ): Promise<{ hash: string; ledger: number; receivedXlm: string | null }>;
   transactionSource(signedXdr: string): string;
+  transactionHash(signedXdr: string): string;
+  getTransactionStatus(
+    hash: string,
+  ): Promise<"confirmed" | "failed" | "not_found">;
 }
 
 export function createPathPaymentGateway(
@@ -156,5 +220,7 @@ export function createPathPaymentGateway(
       prepareUsdcToXlmConversion({ ...input, cfg }),
     submitPathPayment: (signedXdr) => submitPathPayment(signedXdr, cfg),
     transactionSource: (signedXdr) => transactionSource(signedXdr, cfg),
+    transactionHash: (signedXdr) => transactionHash(signedXdr, cfg),
+    getTransactionStatus: (hash) => getClassicTransactionStatus(hash, cfg),
   };
 }

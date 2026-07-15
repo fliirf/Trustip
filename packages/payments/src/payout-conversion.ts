@@ -67,6 +67,16 @@ function verifyConvertToken(
   }
 }
 
+/** A conversion recorded as submitted but not yet confirmed (Horizon timeout /
+ * crash between submit and confirm). Resolved against the chain on the next
+ * prepare — never silently ignored, so a retry can never double-convert. */
+export interface PendingConversion {
+  txHash: string | null;
+  sendUsdc: string | null;
+  recvXlm: string | null;
+  createdAt: string | null;
+}
+
 export interface ConversionContext {
   orderId: string;
   /** The wallet that received the release (source of the conversion). */
@@ -76,8 +86,10 @@ export interface ConversionContext {
   status: string;
   /** Seller has an active xlm_wallet payout method (opted into XLM). */
   hasActiveXlmMethod: boolean;
-  /** A convert request for this payout already exists. */
+  /** A COMPLETED convert request for this payout already exists. */
   alreadyConverted: boolean;
+  /** A submitted-but-unconfirmed convert request, if any. */
+  pendingConversion: PendingConversion | null;
 }
 
 export interface ConversionStore {
@@ -86,12 +98,21 @@ export interface ConversionStore {
     sellerProfileId: string;
     payoutId: string;
   }): Promise<ConversionContext | null>;
+  /** Record the conversion. `submitted` is written BEFORE the Horizon submit
+   * (heal-able pending state); `confirmed` upgrades it with chain-actual XLM. */
   recordXlmConversion(input: {
     sourcePayoutId: string;
     txHash: string;
     sendUsdc: string;
     recvXlm: string;
     network: NetworkName;
+    status: "submitted" | "confirmed";
+  }): Promise<void>;
+  /** Mark a pending conversion failed (its tx failed on-chain or can no longer
+   * land), unblocking a fresh prepare. No-op unless still pending. */
+  failStaleConversion(input: {
+    sourcePayoutId: string;
+    txHash: string | null;
   }): Promise<void>;
 }
 
@@ -115,8 +136,13 @@ async function requireSeller(
   return id;
 }
 
+/** Max age of an unfound pending tx before it is considered dead. The unsigned
+ * tx carries 5-minute timebounds; past this it can never land. */
+const PENDING_EXPIRY_MS = 10 * 60 * 1000;
+
 /** Load + guard the payout for conversion. Direct USDC payout, completed, with
- * an active XLM route, a known source wallet, and not already converted. */
+ * an active XLM route, a known source wallet, and not already converted.
+ * Pending (submitted-but-unconfirmed) handling is the caller's job. */
 async function loadEligible(
   deps: ConversionDeps,
   sellerProfileId: string,
@@ -137,6 +163,47 @@ async function loadEligible(
     throw new PaymentError("Conflict", "payout is missing its release wallet or amount");
   }
   return { ...ctx, sourcePublicKey: ctx.sourcePublicKey, amountUsdc: ctx.amountUsdc };
+}
+
+/** Resolve a pending (submitted-but-unconfirmed) conversion against the chain.
+ * Confirmed → upgrade the record and report already-converted; failed or
+ * expired → mark failed (a fresh prepare may proceed); still in flight →
+ * Conflict, retry shortly. Never allows a second tx while one can still land. */
+async function resolvePendingConversion(
+  deps: ConversionDeps,
+  payoutId: string,
+  ctx: ConversionContext & { amountUsdc: string },
+  now: number = Date.now(),
+): Promise<void> {
+  const pending = ctx.pendingConversion;
+  if (!pending) return;
+
+  const status = pending.txHash
+    ? await deps.gateway.getTransactionStatus(pending.txHash)
+    : "failed"; // a pending row without a hash can never be confirmed
+  if (status === "confirmed") {
+    await deps.store.recordXlmConversion({
+      sourcePayoutId: payoutId,
+      txHash: pending.txHash!,
+      sendUsdc: pending.sendUsdc ?? ctx.amountUsdc,
+      recvXlm: pending.recvXlm ?? "0",
+      network: deps.config.networkName,
+      status: "confirmed",
+    });
+    throw new PaymentError("Conflict", "this payout was already converted to XLM");
+  }
+  const age = pending.createdAt ? now - Date.parse(pending.createdAt) : Infinity;
+  if (status === "failed" || age > PENDING_EXPIRY_MS) {
+    await deps.store.failStaleConversion({
+      sourcePayoutId: payoutId,
+      txHash: pending.txHash,
+    });
+    return; // dead tx — a fresh conversion may proceed
+  }
+  throw new PaymentError(
+    "Conflict",
+    "a conversion for this payout is still confirming; retry shortly",
+  );
 }
 
 export interface PrepareConversionResult {
@@ -162,6 +229,7 @@ export async function prepareXlmConversion(
   }
   const sellerProfileId = await requireSeller(deps, actor);
   const ctx = await loadEligible(deps, sellerProfileId, payoutId);
+  await resolvePendingConversion(deps, payoutId, ctx);
 
   const quote = await deps.gateway.prepareUsdcToXlmConversion({
     sourcePublicKey: ctx.sourcePublicKey,
@@ -204,7 +272,7 @@ export async function submitXlmConversion(
   if (!secret) {
     throw new PaymentError("WalletChallengeUnavailable", "conversion is not configured");
   }
-  await requireSeller(deps, actor);
+  const sellerProfileId = await requireSeller(deps, actor);
 
   const claims: ConvertClaims = {
     payoutId: input.payoutId,
@@ -219,8 +287,10 @@ export async function submitXlmConversion(
   // The seller signs their OWN wallet's funds; still, bind the submitted tx to
   // the account the token authorized so a mismatched tx can't be recorded here.
   let signedSource: string;
+  let txHash: string;
   try {
     signedSource = deps.gateway.transactionSource(input.signedXdr);
+    txHash = deps.gateway.transactionHash(input.signedXdr);
   } catch {
     throw new PaymentError("InvalidSignedTx", "could not decode the signed transaction");
   }
@@ -231,23 +301,63 @@ export async function submitXlmConversion(
     );
   }
 
-  let result: { hash: string };
-  try {
-    result = await deps.gateway.submitPathPayment(input.signedXdr);
-  } catch (e) {
+  // Re-check ownership + eligibility at submit time — the token alone is never
+  // the whole authority. A pending row is only acceptable when it is THIS tx
+  // (a retry of the same signed envelope).
+  const ctx = await loadEligible(deps, sellerProfileId, input.payoutId);
+  if (ctx.pendingConversion && ctx.pendingConversion.txHash !== txHash) {
     throw new PaymentError(
-      "SubmitRejected",
-      "the network rejected the conversion; please retry",
-      e,
+      "Conflict",
+      "another conversion for this payout is still confirming",
     );
   }
 
+  // Record SUBMITTED before touching Horizon, so a timeout while the tx can
+  // still land (5-min timebounds) blocks any second conversion until resolved.
+  await deps.store.recordXlmConversion({
+    sourcePayoutId: input.payoutId,
+    txHash,
+    sendUsdc: input.sendUsdc,
+    recvXlm: input.estimatedXlm,
+    network: deps.config.networkName,
+    status: "submitted",
+  });
+
+  let result: { hash: string; receivedXlm: string | null };
+  try {
+    result = await deps.gateway.submitPathPayment(input.signedXdr);
+  } catch (e) {
+    // The tx may have landed despite the error (e.g. Horizon timeout) — check
+    // before failing so a landed conversion is confirmed, not retried.
+    const landed = await deps.gateway
+      .getTransactionStatus(txHash)
+      .catch(() => "not_found" as const);
+    if (landed !== "confirmed") {
+      if (landed === "failed") {
+        await deps.store.failStaleConversion({
+          sourcePayoutId: input.payoutId,
+          txHash,
+        });
+      }
+      // not_found: leave the pending row — prepare resolves it once the
+      // timebounds pass (or it confirms).
+      throw new PaymentError(
+        "SubmitRejected",
+        "the network rejected the conversion; please retry",
+        e,
+      );
+    }
+    result = { hash: txHash, receivedXlm: null };
+  }
+
+  // Chain-actual received XLM when decodable; the estimate only as fallback.
   await deps.store.recordXlmConversion({
     sourcePayoutId: input.payoutId,
     txHash: result.hash,
     sendUsdc: input.sendUsdc,
-    recvXlm: input.estimatedXlm,
+    recvXlm: result.receivedXlm ?? input.estimatedXlm,
     network: deps.config.networkName,
+    status: "confirmed",
   });
 
   return { payoutId: input.payoutId, txHash: result.hash };

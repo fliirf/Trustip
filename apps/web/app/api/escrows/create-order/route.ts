@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request): Promise<NextResponse> {
   try {
-    const limited = enforceCreateOrderRateLimit(request);
+    const limited = await enforceCreateOrderRateLimit(request);
     if (limited) return limited;
     const input = await parseJsonBody(request, createEscrowOrderSchema);
     const actor = await getActor(request);
