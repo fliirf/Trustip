@@ -29,8 +29,7 @@ trustip/
 │   ├── policies/               # Row-Level Security (RLS) policies
 │   └── seed.sql                # Initial database seed values
 │
-├── scripts/                    # Deploy, typegen, and management helper scripts
-└── docs/                       # Project requirements and specification documents
+└── scripts/                    # Deploy, typegen, and management helper scripts
 ```
 
 ## Setup & Execution
@@ -47,6 +46,6 @@ trustip/
 - `pnpm install`: Install dependencies and link packages
 - `pnpm dev`: Run all applications and workers in development mode
 - `pnpm build`: Build all workspace packages and apps
-- `pnpm lint`: Run linting checks
 - `pnpm typecheck`: Run typescript compilations checks
+- `pnpm test`: Run unit tests
 - `pnpm format`: Format codebase with Prettier

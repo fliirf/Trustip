@@ -7,7 +7,6 @@
     "prebuild": "pnpm --dir ../.. verify:env",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

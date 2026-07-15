@@ -29,6 +29,13 @@ logs/
 npm-debug.log*
 pnpm-debug.log*
 
+# Local-only dev docs & tooling (not part of the handoff repo)
+docs/
+.claude/
+CLAUDE.md
+AGENTS.md
+trustip_frontend/
+
 # OS files
 .DS_Store
 Thumbs.db
