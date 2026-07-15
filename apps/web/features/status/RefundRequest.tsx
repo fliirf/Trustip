@@ -236,7 +236,7 @@ export function RefundEvidence({
         type="button"
         onClick={submit}
         disabled={uploading || !file}
-        className="mat-illuminated os-press mt-6 px-6 py-3 text-sm font-semibold disabled:opacity-50"
+        className="mat-illuminated os-press mt-6 px-6 py-3 text-sm font-semibold text-[#f5f2ec] hover:text-[#ff3a12] focus-visible:text-[#ff3a12] disabled:opacity-50"
       >
         {uploading ? d.uploading : d.upload}
       </button>

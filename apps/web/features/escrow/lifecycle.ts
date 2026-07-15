@@ -170,14 +170,14 @@ export function lifecycleRail(
   // straight from "protected" to the completion steps.
   if (!order.requiresShipping) {
     const rail: RailStep[] = [
-      { key: "created", label: "Pesanan Dibuat", state: "done" },
-      step("paid", "Pembayaran", paid, true),
-      step("protected", "Dana Dilindungi", protectedNow, paid),
+      { key: "created", label: labels.created, state: "done" },
+      step("paid", labels.paid, paid, true),
+      step("protected", labels.protectedStep, protectedNow, paid),
     ];
     if (delivered) {
       rail.push(
-        step("received", "Diterima", delivered, protectedNow),
-        step("completed", "Selesai", released, delivered),
+        step("received", labels.received, delivered, protectedNow),
+        step("completed", labels.completed, released, delivered),
       );
     }
     return rail;

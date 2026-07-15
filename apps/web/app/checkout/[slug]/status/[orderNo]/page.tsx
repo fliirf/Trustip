@@ -1,10 +1,14 @@
 import { OrderStatusPage } from "../../../../../features/status/OrderStatusPage";
+import { getServerLocale } from "../../../../../lib/i18n/server";
 
 // noindex: slug + order number is the whole access credential for this page.
-export const metadata = {
-  title: "Status Pesanan · Trustip",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata() {
+  const locale = await getServerLocale();
+  return {
+    title: locale === "en" ? "Order Status · Trustip" : "Status Pesanan · Trustip",
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function StatusPage({
   params,

@@ -17,6 +17,7 @@ interface AdminRefundRow {
   description: string | null;
   requestedAmountUsdc: string | null;
   createdAt: string;
+  resolvedAt: string | null;
   orderStatus: string;
   escrowStatus: string | null;
   shipmentStatus: string | null;
@@ -45,6 +46,7 @@ export function AdminRefunds() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [lastResult, setLastResult] = useState<ResolveResult | null>(null);
+  const [view, setView] = useState<"open" | "history">("open");
   // Evidence lives in the PARENT so a rows refetch (session/token refresh
   // re-renders this component) can never wipe an already-loaded gallery.
   const [evidence, setEvidence] = useState<Record<string, EvidenceItem[]>>({});
@@ -73,9 +75,10 @@ export function AdminRefunds() {
   const load = useCallback(async () => {
     if (!accessToken) return;
     setError(null);
-    const res = await fetch("/api/admin/refunds", {
-      headers: { authorization: `Bearer ${accessToken}` },
-    });
+    const res = await fetch(
+      `/api/admin/refunds${view === "history" ? "?all=1" : ""}`,
+      { headers: { authorization: `Bearer ${accessToken}` } },
+    );
     if (res.status === 403) {
       setError("This account is not an admin.");
       setRows(null);
@@ -87,7 +90,7 @@ export function AdminRefunds() {
     }
     const body = (await res.json()) as { refunds: AdminRefundRow[] };
     setRows(body.refunds);
-  }, [accessToken]);
+  }, [accessToken, view]);
 
   useEffect(() => {
     void load();
@@ -129,6 +132,16 @@ export function AdminRefunds() {
 
   if (!accessToken) return <AdminSignIn signIn={signIn} />;
 
+  const visibleRows =
+    view === "history"
+      ? (rows ?? []).filter(
+          (r) =>
+            !["submitted", "under_review", "seller_response_needed"].includes(
+              r.status,
+            ),
+        )
+      : rows ?? [];
+
   return (
     <div className="mx-auto max-w-3xl px-5 py-12">
       <div className="flex items-baseline justify-between">
@@ -156,12 +169,33 @@ export function AdminRefunds() {
         </p>
       )}
 
-      {rows && rows.length === 0 && (
-        <p className="mt-10 text-mist">No open refund requests.</p>
+      <div className="mt-8 flex gap-6 border-b border-hairline">
+        {(["open", "history"] as const).map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => setView(item)}
+            className={`pb-3 text-sm ${
+              view === item
+                ? "border-b border-blood text-bone"
+                : "text-ash hover:text-mist"
+            }`}
+          >
+            {item === "open" ? "Open Queue" : "History"}
+          </button>
+        ))}
+      </div>
+
+      {rows && visibleRows.length === 0 && (
+        <p className="mt-10 text-mist">
+          {view === "history"
+            ? "No resolved refund history."
+            : "No open refund requests."}
+        </p>
       )}
 
       <ul className="mt-8 space-y-6">
-        {(rows ?? []).map((r) => (
+        {visibleRows.map((r) => (
           <li key={r.id} className="border border-hairline px-5 py-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <span className="font-mono text-sm text-bone">{r.orderNo}</span>
@@ -186,6 +220,14 @@ export function AdminRefunds() {
                 <dt className="text-ash">Shipment</dt>
                 <dd>{r.shipmentStatus ?? "-"}</dd>
               </div>
+              {view === "history" && (
+                <div>
+                  <dt className="text-ash">Resolved</dt>
+                  <dd>
+                    {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : "-"}
+                  </dd>
+                </div>
+              )}
             </dl>
             {r.description && (
               <p className="mt-3 max-w-[70ch] text-sm text-mist/80">
@@ -200,7 +242,7 @@ export function AdminRefunds() {
               onLoad={() => void loadEvidence(r.id)}
             />
 
-            {confirmingId === r.id ? (
+            {view === "open" && confirmingId === r.id ? (
               <div className="mt-4">
                 <textarea
                   value={note}
@@ -238,7 +280,7 @@ export function AdminRefunds() {
                   </button>
                 </div>
               </div>
-            ) : (
+            ) : view === "open" ? (
               <button
                 type="button"
                 onClick={() => {
@@ -249,7 +291,7 @@ export function AdminRefunds() {
               >
                 Resolve…
               </button>
-            )}
+            ) : null}
           </li>
         ))}
       </ul>
