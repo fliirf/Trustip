@@ -100,7 +100,7 @@ export function createSupabasePayoutStore(
         client
           .from("payout_requests")
           .select(
-            "id, status, amount_usdc, target_amount_estimate, requested_at, payout_transactions ( tx_hash, status )",
+            "id, status, amount_usdc, target_amount_estimate, requested_at, payout_transactions ( tx_hash, status, created_at )",
           )
           .eq("idempotency_key", `convert:${payoutId}`)
           .limit(1)
@@ -112,8 +112,19 @@ export function createSupabasePayoutStore(
         amount_usdc: number | null;
         target_amount_estimate: number | null;
         requested_at: string | null;
-        payout_transactions: Array<{ tx_hash: string | null }> | null;
+        payout_transactions: Array<{
+          tx_hash: string | null;
+          status: string;
+          created_at: string;
+        }> | null;
       } | null;
+
+      // The pending tx is the LATEST still-'submitted' one — a resurrected
+      // request may also carry older failed tx rows that must never win.
+      const pendingTx =
+        (conv?.payout_transactions ?? [])
+          .filter((t) => t.status === "submitted")
+          .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
 
       return {
         orderId: row.order_id,
@@ -126,7 +137,7 @@ export function createSupabasePayoutStore(
         pendingConversion:
           conv && conv.status === "processing"
             ? {
-                txHash: conv.payout_transactions?.[0]?.tx_hash ?? null,
+                txHash: pendingTx?.tx_hash ?? null,
                 sendUsdc: money(conv.amount_usdc),
                 recvXlm: money(conv.target_amount_estimate),
                 createdAt: conv.requested_at,
