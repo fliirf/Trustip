@@ -151,7 +151,7 @@ function ProtocolTimeline({ order, d }: { order: SellerOrder; d: Dict }) {
  * meaning, three rooms. */
 function EscrowReading({ state, d }: { state: EscrowCoreState; d: Dict }) {
   return (
-    <div>
+    <div className="flex flex-col items-center text-center">
       <div className="micro-label text-ash">{d.seller.orders.protectionStatusLabel}</div>
       <EscrowCore state={state} context="seal" className="mt-4 h-28 w-28" />
       <p className="mt-4 max-w-[28ch] os-body text-mist">

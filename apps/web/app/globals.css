@@ -1268,7 +1268,28 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   /* Artifact entrance — scale + fade, never layout. */
   .escrow-enter {
+    perspective: 900px;
+    transform-style: preserve-3d;
     animation: escrow-enter 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Every escrow state has its own physical read: scan, hold, transit, settle.
+     The tilt is on a separate layer so the existing SVG float remains intact. */
+  .escrow-art-layer {
+    transform-style: preserve-3d;
+    transform-origin: center;
+  }
+  .escrow-art-dormant {
+    animation: escrow-dormant-3d 10s ease-in-out infinite;
+  }
+  .escrow-art-funded {
+    animation: escrow-funded-3d 12s ease-in-out infinite;
+  }
+  .escrow-art-shipped {
+    animation: escrow-shipped-3d 8s ease-in-out infinite;
+  }
+  .escrow-art-completed {
+    animation: escrow-completed-3d 16s ease-in-out infinite;
   }
 
   /* Ambient orbit while funds are held. Reuses the landing's orbit-rotate. */
@@ -1335,6 +1356,47 @@ body {
   to {
     opacity: 1;
     transform: none;
+  }
+}
+@keyframes escrow-dormant-ring {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes escrow-dormant-3d {
+  0%,
+  100% {
+    transform: rotateX(0deg) rotateY(-4deg) translateZ(0);
+  }
+  50% {
+    transform: rotateX(3deg) rotateY(4deg) translateZ(8px);
+  }
+}
+@keyframes escrow-funded-3d {
+  0%,
+  100% {
+    transform: rotateX(2deg) rotateY(-6deg) translateZ(0);
+  }
+  50% {
+    transform: rotateX(-2deg) rotateY(6deg) translateZ(12px);
+  }
+}
+@keyframes escrow-shipped-3d {
+  0%,
+  100% {
+    transform: rotateX(4deg) rotateY(-8deg) translateZ(0);
+  }
+  50% {
+    transform: rotateX(-3deg) rotateY(8deg) translateZ(16px);
+  }
+}
+@keyframes escrow-completed-3d {
+  0%,
+  100% {
+    transform: rotateX(0deg) rotateY(-2deg) translateZ(0);
+  }
+  50% {
+    transform: rotateX(2deg) rotateY(2deg) translateZ(10px);
   }
 }
 @keyframes escrow-heartbeat {

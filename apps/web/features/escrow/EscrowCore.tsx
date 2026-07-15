@@ -202,17 +202,22 @@ export function EscrowCore({
       {locked && (
         <span className="absolute inset-6 border border-blood/40 motion-safe:animate-[pulse-ring_3.2s_ease-out_infinite]" />
       )}
+      {/* Waiting for payment: a quiet scan, not a payment promise. */}
+      {state === "dormant" && (
+        <span className="absolute inset-8 border border-dashed border-bone/20 motion-safe:animate-[escrow-dormant-ring_9s_linear_infinite]" />
+      )}
       {/* Settled outer ring — solid, at rest. */}
       {completed && <span className="absolute inset-10 border border-bone/25" />}
 
-      <svg
-        viewBox="0 0 200 200"
-        className={`h-full w-full ${
-          completed
-            ? "motion-safe:animate-[float-slow_12s_ease-in-out_infinite]"
-            : "motion-safe:animate-[float-slow_8s_ease-in-out_infinite]"
-        }`}
-      >
+      <span className={`escrow-art-layer escrow-art-${state} absolute inset-0`}>
+        <svg
+          viewBox="0 0 200 200"
+          className={`h-full w-full ${
+            completed
+              ? "motion-safe:animate-[float-slow_12s_ease-in-out_infinite]"
+              : "motion-safe:animate-[float-slow_8s_ease-in-out_infinite]"
+          }`}
+        >
         {/* Framing. Drawn before the artifact so it reads as the room the
             artifact stands in, never as part of it. The artifact's own geometry
             below is byte-identical across all four contexts. */}
@@ -335,7 +340,8 @@ export function EscrowCore({
             fillOpacity="0.55"
           />
         </g>
-      </svg>
+        </svg>
+      </span>
     </div>
   );
 }
