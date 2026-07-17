@@ -25,17 +25,45 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request): Promise<NextResponse> {
   try {
+    console.log("[create-order] Request received");
+
     const limited = await enforceCreateOrderRateLimit(request);
-    if (limited) return limited;
+
+    if (limited) {
+      console.warn("[create-order] Rate limited");
+      return limited;
+    }
+
     const input = await parseJsonBody(request, createEscrowOrderSchema);
+    console.log("[create-order] Request body validated");
+
     const actor = await getActor(request);
+    console.log("[create-order] Actor authorized");
+
     const result = await ensureOnChainEscrowOrderCreated(
       getPaymentDeps(),
       input,
       actor,
     );
+
+    console.log("[create-order] On-chain order created successfully");
+
     return NextResponse.json(result);
-  } catch (e) {
+  } catch (e: unknown) {
+    console.error("[create-order] FAILED:", e);
+
+    if (e instanceof Error) {
+      console.error("[create-order] MESSAGE:", e.message);
+
+      if (e.stack) {
+        console.error("[create-order] STACK:", e.stack);
+      }
+
+      if ("cause" in e && e.cause) {
+        console.error("[create-order] CAUSE:", e.cause);
+      }
+    }
+
     return errorResponse(e);
   }
 }
