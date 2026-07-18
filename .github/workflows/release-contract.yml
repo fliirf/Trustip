@@ -1,0 +1,17 @@
+name: Build and Submit Escrow Contract
+
+on:
+  push:
+    tags:
+      - 'contract-v*'
+
+jobs:
+  release-contract:
+    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@release/v1
+    with:
+      release_name: ${{ github.ref_name }}
+      release_description: 'Trustip escrow contract'
+      relative_path: 'contracts/escrow'
+      package: 'trustip_escrow'
+    secrets:
+      release_token: ${{ secrets.GITHUB_TOKEN }}
