@@ -7,7 +7,7 @@ on:
 
 jobs:
   release-contract:
-    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@release/v1
+    uses: stellar-expert/soroban-build-workflow/.github/workflows/release.yml@v22.8.1
     with:
       release_name: ${{ github.ref_name }}
       release_description: 'Trustip escrow contract'
