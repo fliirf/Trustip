@@ -29,7 +29,7 @@ Double release, double refund, releasing to the wrong address, and paying the wr
 - **Buyers** purchasing from accounts they've never met. They keep custody of their money until the item is in their hands.
 - **Crypto-native users in emerging markets** who already hold USDC on Stellar and want to actually spend it on commerce.
 
-## Team: Silent Epoch
+## Team: RISE
 
 | Name | Role |
 |---|---|
